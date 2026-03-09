@@ -4,9 +4,10 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/lib/auth-context';
-import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
+import { Card, CardHeader, CardDescription, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
+import { IconFlame } from '@tabler/icons-react';
 
 export default function LoginPage() {
   const router = useRouter();
@@ -50,7 +51,10 @@ export default function LoginPage() {
     <div className="flex min-h-screen items-center justify-center p-6">
       <Card className="w-full max-w-sm">
         <CardHeader>
-          <CardTitle className="text-2xl">Ember</CardTitle>
+          <div className="flex items-center gap-2 text-2xl font-semibold tracking-tight text-foreground hover:text-primary transition-colors cursor-default">
+            <IconFlame size={24} className="text-primary" />
+            Ember
+          </div>
           <CardDescription>
             {isSignUp ? 'Create an account' : 'Sign in to your account'}
           </CardDescription>
@@ -85,18 +89,23 @@ export default function LoginPage() {
               </p>
             )}
 
-            <Button type="submit" disabled={loading} className="w-full">
+            <Button
+              type="submit"
+              variant="outline"
+              disabled={loading}
+              className="w-full hover:bg-primary hover:text-primary-foreground hover:border-primary"
+            >
               {loading ? '...' : isSignUp ? 'Sign Up' : 'Sign In'}
             </Button>
           </form>
 
-          <p className="mt-4 text-center text-sm">
+          <p className="mt-4 text-center text-sm text-muted-foreground">
             <button
               onClick={() => {
                 setIsSignUp(!isSignUp);
                 setError('');
               }}
-              className="text-primary hover:underline"
+              className="hover:text-primary transition-colors"
             >
               {isSignUp ? 'Already have an account? Sign in' : "Don't have an account? Sign up"}
             </button>

@@ -4,7 +4,6 @@ import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/lib/auth-context';
 import { useTheme } from '@/lib/theme-context';
-import { RequireAuth } from '@/lib/require-auth';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { IconUser, IconSun, IconMoon, IconDeviceDesktop } from '@tabler/icons-react';
@@ -16,11 +15,7 @@ const themeOptions = [
 ];
 
 export default function ProfilePage() {
-  return (
-    <RequireAuth>
-      <ProfileContent />
-    </RequireAuth>
-  );
+  return <ProfileContent />;
 }
 
 function ProfileContent() {
