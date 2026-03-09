@@ -1,8 +1,9 @@
 import { Hono } from 'hono';
 import { supabase } from '../lib/supabase.js';
 import type { Provider } from '../types/index.js';
+import type { AuthEnv } from '../middleware/auth.js';
 
-export const sourcesRoute = new Hono();
+export const sourcesRoute = new Hono<AuthEnv>();
 
 // List sources for an account
 sourcesRoute.get('/:householdId/:accountId', async (c) => {

@@ -18,7 +18,7 @@ Investment activity has fundamentally different fields (symbol, quantity, price,
 
 ### 003 — Holdings as Provider Snapshots, Not Derived
 
-Holdings are point-in-time snapshots from providers, not computed from investment_activity. Provider snapshots are ground truth. Activity explains _how_ you got there, but reconciling activity into positions is error-prone and unnecessary when the provider gives you the answer.
+Holdings are point-in-time snapshots from providers, not computed from investment*activity. Provider snapshots are ground truth. Activity explains \_how* you got there, but reconciling activity into positions is error-prone and unnecessary when the provider gives you the answer.
 
 ---
 
@@ -103,3 +103,33 @@ Single `data-model-architecture.md` replaced with focused docs:
 - `api.md` — route reference, auth, request/response shapes
 - `ingest-pipeline.md` — adapters, pipeline flow, dedup, encryption
 - `decisions.md` — this file (append-only decision log)
+
+---
+
+### 017 — Decoupled Security Price Cache
+
+Prices live in a global `security_price` table (no `household_id`, no RLS). Market prices are public data — every household that holds AAPL sees the same price. The backend writes prices via service role from any source (SnapTrade sync, market data API, manual). Holdings reference prices by symbol join, not by storing prices themselves. This means updating one row in `security_price` instantly updates every household's portfolio valuation.
+
+---
+
+### 018 — Tax Lot Tracking from Activity
+
+Tax lots are per-account, per-symbol records created from buy activity and depleted by sells. `tax_lot.quantity` tracks remaining shares (not event-sourced). `lot_disposition` is the junction table recording which lots a sell consumed, with per-slice proceeds, cost basis, and gain/loss. FIFO is the default lot assignment method. `is_short_term` is captured at disposition time (immutable after sale). Open lot holding period is computed at query time since it changes daily.
+
+---
+
+### 019 — Holdings vs Tax Lots: Two Sources of Truth
+
+`holding` = provider snapshots (ground truth for "what you own"). `tax_lot` = built from activity (ground truth for "cost basis and tax treatment"). They should agree on total quantity per (account, symbol) but may drift due to timing or missing activity data. Reconciliation surfaces discrepancies rather than enforcing hard constraints between the two.
+
+---
+
+### 020 — Net Worth Uses Holdings × Security Price
+
+`compute_net_worth_snapshot()` values investment accounts via `holding.quantity × security_price.price` (falling back to `holding.price` when no live price exists). Cash, debt, and illiquid accounts still use `balance_snapshot`. This means net worth updates automatically when prices refresh, without needing a new holding snapshot.
+
+---
+
+### 021 — UI Design System: shadcn/ui + Tailwind
+
+Component library is shadcn/ui (Radix + Tailwind, copy-paste). Charts via Recharts. Data tables via @tanstack/react-table. Forms via react-hook-form + zod. Dark-mode native, desktop-primary. All inline styles to be replaced with Tailwind classes. Full spec in `docs/ui.md`.

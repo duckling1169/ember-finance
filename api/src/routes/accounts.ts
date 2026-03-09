@@ -1,8 +1,9 @@
 import { Hono } from 'hono';
 import { supabase } from '../lib/supabase.js';
 import { ACCOUNT_TYPES, LIABILITY_TYPES, type AccountType } from '../types/index.js';
+import type { AuthEnv } from '../middleware/auth.js';
 
-export const accountsRoute = new Hono();
+export const accountsRoute = new Hono<AuthEnv>();
 
 // List accounts for a household
 accountsRoute.get('/:householdId', async (c) => {

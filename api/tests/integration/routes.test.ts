@@ -3,10 +3,22 @@ import { Hono } from 'hono';
 import { accountsRoute } from '../../src/routes/accounts.js';
 import { sourcesRoute } from '../../src/routes/sources.js';
 import { ingestRoute } from '../../src/routes/ingest.js';
-import { createTestHousehold, cleanupTestHousehold } from '../helpers.js';
+import {
+  createTestHousehold,
+  cleanupTestHousehold,
+  stubAuth,
+  stubHouseholdMember,
+} from '../helpers.js';
+import type { AuthEnv } from '../../src/middleware/auth.js';
 
-// Build a test app with the same routes
-const app = new Hono();
+// Build a test app with stub auth + household member middleware
+const app = new Hono<AuthEnv>();
+app.use('/api/*', stubAuth());
+app.use('/api/accounts/:householdId', stubHouseholdMember());
+app.use('/api/accounts/:householdId/*', stubHouseholdMember());
+app.use('/api/sources/:householdId/*', stubHouseholdMember());
+app.use('/api/ingest/manual/:householdId/*', stubHouseholdMember());
+app.use('/api/ingest/sync/:householdId/*', stubHouseholdMember());
 app.route('/api/accounts', accountsRoute);
 app.route('/api/sources', sourcesRoute);
 app.route('/api/ingest', ingestRoute);
@@ -183,6 +195,14 @@ describe('API routes', () => {
     it('returns 501 (not yet implemented)', async () => {
       const res = await req('POST', `/api/ingest/sync/${householdId}/fake-source-id`);
       expect(res.status).toBe(501);
+    });
+  });
+
+  describe('household isolation', () => {
+    it('rejects requests for a nonexistent household', async () => {
+      const fakeId = '00000000-0000-0000-0000-999999999999';
+      const res = await req('GET', `/api/accounts/${fakeId}`);
+      expect(res.status).toBe(403);
     });
   });
 });

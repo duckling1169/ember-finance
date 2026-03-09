@@ -204,7 +204,69 @@ Unique: (account_id, as_of, symbol). Holdings are snapshots from providers, not 
 
 Unique: (account_id, date, source). Provider balances are authoritative.
 
-## Layer 5: Derived / Materialized
+## Layer 5: Pricing & Tax Lots
+
+### security_price
+
+| Column         | Type                   | Notes                                   |
+| -------------- | ---------------------- | --------------------------------------- |
+| symbol         | text PK                | Ticker symbol (e.g. AAPL, VTI)          |
+| name           | text                   | Security name                           |
+| price          | numeric(14,4) NOT NULL | Current/latest price                    |
+| prev_close     | numeric(14,4)          | Previous closing price                  |
+| day_change_pct | numeric(8,4)           | Daily percentage change                 |
+| currency       | text NOT NULL          | Default 'USD'                           |
+| source         | text NOT NULL          | yahoo \| polygon \| snaptrade \| manual |
+| updated_at     | timestamptz            |                                         |
+| created_at     | timestamptz            |                                         |
+
+Global table — no `household_id`, no RLS. Prices are public market data. Backend writes via service role.
+
+### tax_lot
+
+| Column               | Type                          | Notes                                      |
+| -------------------- | ----------------------------- | ------------------------------------------ |
+| id                   | uuid PK                       |                                            |
+| household_id         | uuid FK → household           |                                            |
+| account_id           | uuid FK → account             |                                            |
+| symbol               | text NOT NULL                 |                                            |
+| acquired_date        | date NOT NULL                 | For short/long-term determination          |
+| quantity             | numeric(16,6) NOT NULL        | Remaining (undepleted) shares              |
+| original_quantity    | numeric(16,6) NOT NULL        | Shares at acquisition                      |
+| cost_basis_per_share | numeric(14,4) NOT NULL        |                                            |
+| cost_basis_total     | numeric(14,2) NOT NULL        | original_quantity × cost_basis_per_share   |
+| source               | text NOT NULL                 | provider_lot \| computed_fifo \| manual    |
+| provider_lot_id      | text                          | Maps to investment_activity.lot_id         |
+| origin_activity_id   | uuid FK → investment_activity | The buy/reinvestment that created this lot |
+| is_closed            | boolean NOT NULL              | Default false                              |
+| closed_date          | date                          | Must be set when is_closed = true          |
+| realized_gain_loss   | numeric(14,2)                 | Populated when fully closed                |
+| wash_sale_adjustment | numeric(14,2)                 | Added to basis if wash sale                |
+| created_at           | timestamptz                   |                                            |
+| updated_at           | timestamptz                   |                                            |
+
+Check constraints: source enum, quantity ≥ 0, original_quantity > 0, closed consistency.
+
+Indexes: (account_id, symbol), household_id, open lots partial index, provider_lot_id partial index.
+
+### lot_disposition
+
+| Column           | Type                          | Notes                                   |
+| ---------------- | ----------------------------- | --------------------------------------- |
+| id               | uuid PK                       |                                         |
+| household_id     | uuid FK → household           |                                         |
+| tax_lot_id       | uuid FK → tax_lot             |                                         |
+| sell_activity_id | uuid FK → investment_activity | The sell that consumed shares           |
+| quantity         | numeric(16,6) NOT NULL        | Shares consumed from this lot           |
+| proceeds         | numeric(14,2) NOT NULL        | Portion of sell proceeds for this slice |
+| cost_basis       | numeric(14,2) NOT NULL        | Cost basis for consumed shares          |
+| gain_loss        | numeric(14,2) NOT NULL        | proceeds - cost_basis                   |
+| is_short_term    | boolean NOT NULL              | Acquired to sell date < 1 year          |
+| created_at       | timestamptz                   |                                         |
+
+Unique: (tax_lot_id, sell_activity_id). A sell can consume multiple lots; a lot can be consumed by multiple sells.
+
+## Layer 6: Derived / Materialized
 
 ### net_worth_snapshot
 
@@ -219,11 +281,25 @@ Unique: (account_id, date, source). Provider balances are authoritative.
 | breakdown         | jsonb NOT NULL         | `{ cash, investments, debt, illiquid }` |
 | created_at        | timestamptz            |                                         |
 
-Unique: (household_id, date). Materialized daily by scheduled job.
+Unique: (household_id, date). Investments valued via holdings × security_price.
+
+## Views
+
+### current_positions
+
+Latest holding per (account, symbol) joined with `security_price`. Computes `live_market_value`, `unrealized_gain_loss`, and `unrealized_gain_loss_pct`. Falls back to snapshot price when no live price exists.
+
+### household_positions_summary
+
+Aggregates `current_positions` across all accounts by symbol for a household-level view. Includes total quantity, total market value, total cost basis, and total unrealized gain/loss.
+
+### open_tax_lots
+
+Open (unclosed) tax lots joined with `security_price`. Computes `live_market_value`, `unrealized_gain_loss`, and `holding_period` (short_term/long_term based on days held).
 
 ## RLS
 
-All tables have RLS enabled with identical policy:
+All tables with `household_id` have RLS enabled with identical policy:
 
 ```sql
 create policy "household_isolation" on <table>
@@ -236,9 +312,12 @@ create policy "household_isolation" on <table>
 
 `household_invite` additionally allows access for the invited email user.
 
+`security_price` has no RLS — it's public market data.
+
 ## RPC Functions
 
 | Function                             | Returns | Purpose                                                               |
 | ------------------------------------ | ------- | --------------------------------------------------------------------- |
 | `create_household_with_owner(...)`   | jsonb   | Atomic household + owner member creation in single transaction        |
 | `check_email_has_household(p_email)` | boolean | Checks if email is already in a household (joins auth.users + member) |
+| `compute_net_worth_snapshot(...)`    | uuid    | Computes and upserts net worth using holdings × security_price        |

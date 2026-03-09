@@ -273,6 +273,96 @@ export interface NetWorthSnapshot {
   created_at: string;
 }
 
+// ── Security Price & Tax Lot Types ──
+
+export type TaxLotSource = 'provider_lot' | 'computed_fifo' | 'manual';
+export type HoldingPeriod = 'short_term' | 'long_term';
+
+export interface SecurityPrice {
+  symbol: string;
+  name: string | null;
+  price: number;
+  prev_close: number | null;
+  day_change_pct: number | null;
+  currency: string;
+  source: string;
+  updated_at: string;
+  created_at: string;
+}
+
+export interface TaxLot {
+  id: string;
+  household_id: string;
+  account_id: string;
+  symbol: string;
+  acquired_date: string;
+  quantity: number;
+  original_quantity: number;
+  cost_basis_per_share: number;
+  cost_basis_total: number;
+  source: TaxLotSource;
+  provider_lot_id: string | null;
+  origin_activity_id: string | null;
+  is_closed: boolean;
+  closed_date: string | null;
+  realized_gain_loss: number | null;
+  wash_sale_adjustment: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface LotDisposition {
+  id: string;
+  household_id: string;
+  tax_lot_id: string;
+  sell_activity_id: string;
+  quantity: number;
+  proceeds: number;
+  cost_basis: number;
+  gain_loss: number;
+  is_short_term: boolean;
+  created_at: string;
+}
+
+export interface CurrentPosition {
+  holding_id: string;
+  household_id: string;
+  account_id: string;
+  as_of: string;
+  symbol: string;
+  name: string | null;
+  quantity: number;
+  snapshot_price: number | null;
+  snapshot_market_value: number;
+  cost_basis: number | null;
+  currency: string;
+  asset_class: AssetClass | null;
+  live_price: number | null;
+  prev_close: number | null;
+  day_change_pct: number | null;
+  price_updated_at: string | null;
+  effective_price: number | null;
+  live_market_value: number | null;
+  unrealized_gain_loss: number | null;
+  unrealized_gain_loss_pct: number | null;
+}
+
+export interface HouseholdPositionSummary {
+  household_id: string;
+  symbol: string;
+  name: string | null;
+  asset_class: AssetClass | null;
+  currency: string;
+  total_quantity: number;
+  live_price: number | null;
+  day_change_pct: number | null;
+  total_market_value: number | null;
+  total_cost_basis: number | null;
+  total_unrealized_gain_loss: number | null;
+  account_count: number;
+  price_updated_at: string | null;
+}
+
 // ── Adapter Interfaces ──
 
 export interface NormalizedTransaction {
