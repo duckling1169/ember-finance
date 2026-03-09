@@ -36,7 +36,7 @@ DEBIT,01/25/2025,"ATM WITHDRAWAL",-100.00,ATM,3495.84,`;
     expect(groceries!.amount).toBe(-142.37);
 
     const payroll = result.transactions.find((t) => t.description.includes('PAYROLL'));
-    expect(payroll!.amount).toBe(5200.00);
+    expect(payroll!.amount).toBe(5200.0);
   });
 
   it('works with legacy Transaction Date format too', async () => {
@@ -64,10 +64,10 @@ describe('CSV: Chase Credit Card', () => {
     const result = await parse(csv, { format: 'chase_credit', accountType: 'credit' });
 
     const amazon = result.transactions.find((t) => t.description.includes('AMAZON'));
-    expect(amazon!.amount).toBe(-89.00);
+    expect(amazon!.amount).toBe(-89.0);
 
     const payment = result.transactions.find((t) => t.description.includes('PAYMENT'));
-    expect(payment!.amount).toBe(1500.00); // payment reduces what you owe = positive
+    expect(payment!.amount).toBe(1500.0); // payment reduces what you owe = positive
   });
 
   it('captures categories from credit card CSV', async () => {
@@ -104,10 +104,12 @@ describe('CSV: Fidelity Transactions', () => {
   it('parses quantities and prices', async () => {
     const result = await parse(csv, { format: 'fidelity_transactions', accountType: 'brokerage' });
 
-    const vtiBuy = result.investmentActivity.find((a) => a.symbol === 'VTI' && a.activityType === 'buy');
+    const vtiBuy = result.investmentActivity.find(
+      (a) => a.symbol === 'VTI' && a.activityType === 'buy',
+    );
     expect(vtiBuy!.quantity).toBe(50);
-    expect(vtiBuy!.price).toBe(250.00);
-    expect(vtiBuy!.amount).toBe(-12500.00);
+    expect(vtiBuy!.price).toBe(250.0);
+    expect(vtiBuy!.amount).toBe(-12500.0);
   });
 
   it('handles DRIP reinvestment with fractional shares', async () => {
@@ -116,7 +118,7 @@ describe('CSV: Fidelity Transactions', () => {
     const reinvest = result.investmentActivity.find((a) => a.activityType === 'reinvestment');
     expect(reinvest!.symbol).toBe('VTI');
     expect(reinvest!.quantity).toBe(0.317);
-    expect(reinvest!.amount).toBe(-85.20);
+    expect(reinvest!.amount).toBe(-85.2);
   });
 
   it('handles sell correctly', async () => {
@@ -125,7 +127,7 @@ describe('CSV: Fidelity Transactions', () => {
     const sell = result.investmentActivity.find((a) => a.activityType === 'sell');
     expect(sell!.symbol).toBe('AAPL');
     expect(sell!.quantity).toBe(10);
-    expect(sell!.amount).toBe(1950.00);
+    expect(sell!.amount).toBe(1950.0);
   });
 
   it('handles Fidelity CSV with disclaimer rows before headers', async () => {
@@ -135,7 +137,10 @@ Account Z12345678
 Run Date,Action,Symbol,Description,Type,Quantity,Price ($),Commission ($),Fees ($),Amount ($)
 01/02/2025, YOU BOUGHT,VTI,VANGUARD TOT STK MKT,Cash,50,250.00,0.00,0.00,-12500.00`;
 
-    const result = await parse(csvWithDisclaimer, { format: 'fidelity_transactions', accountType: 'brokerage' });
+    const result = await parse(csvWithDisclaimer, {
+      format: 'fidelity_transactions',
+      accountType: 'brokerage',
+    });
     expect(result.investmentActivity).toHaveLength(1);
     expect(result.investmentActivity[0].symbol).toBe('VTI');
   });
@@ -157,9 +162,9 @@ Z12345678,Pending Activity,,,,,, `;
     expect(result.holdings).toHaveLength(4); // skips Pending Activity
     const vti = result.holdings.find((h) => h.symbol === 'VTI');
     expect(vti!.quantity).toBe(412.5);
-    expect(vti!.price).toBe(269.40);
-    expect(vti!.marketValue).toBe(111127.50);
-    expect(vti!.costBasis).toBe(95200.00);
+    expect(vti!.price).toBe(269.4);
+    expect(vti!.marketValue).toBe(111127.5);
+    expect(vti!.costBasis).toBe(95200.0);
   });
 
   it('guesses asset classes', async () => {
@@ -179,7 +184,7 @@ Z12345678,Pending Activity,,,,,, `;
     const result = await parse(csv, { format: 'fidelity_positions', accountType: 'brokerage' });
 
     expect(result.balances).toHaveLength(1);
-    const expectedTotal = 111127.50 + 16758.00 + 37336.00 + 1250.00;
+    const expectedTotal = 111127.5 + 16758.0 + 37336.0 + 1250.0;
     expect(result.balances[0].balance).toBe(expectedTotal);
   });
 
@@ -190,7 +195,10 @@ Portfolio Positions as of 01/15/2025
 Account Number,Symbol,Description,Quantity,Last Price,Current Value,Cost Basis Total,Type
 Z12345678,VTI,VANGUARD TOT STK MKT ETF,100.000,$269.40,"$26,940.00","$25,000.00",Cash`;
 
-    const result = await parse(csvWithDisclaimer, { format: 'fidelity_positions', accountType: 'brokerage' });
+    const result = await parse(csvWithDisclaimer, {
+      format: 'fidelity_positions',
+      accountType: 'brokerage',
+    });
     expect(result.holdings).toHaveLength(1);
     expect(result.holdings[0].symbol).toBe('VTI');
   });
@@ -218,8 +226,8 @@ describe('CSV: Schwab Transactions', () => {
     const result = await parse(csv, { format: 'schwab_transactions', accountType: 'brokerage' });
 
     const buy = result.investmentActivity.find((a) => a.activityType === 'buy');
-    expect(buy!.amount).toBe(-5200.00);
-    expect(buy!.price).toBe(260.00);
+    expect(buy!.amount).toBe(-5200.0);
+    expect(buy!.price).toBe(260.0);
   });
 
   it('captures commissions', async () => {
@@ -234,7 +242,7 @@ describe('CSV: Schwab Transactions', () => {
 
     const fee = result.investmentActivity.find((a) => a.activityType === 'fee');
     expect(fee!.symbol).toBeUndefined();
-    expect(fee!.amount).toBe(-35.00);
+    expect(fee!.amount).toBe(-35.0);
   });
 
   it('handles Schwab CSV with header metadata rows', async () => {
@@ -244,10 +252,13 @@ Date,Action,Symbol,Description,Quantity,Price,Fees & Comm,Amount
 01/15/2025,Buy,VTI,VANGUARD TOT STK MKT,20,$260.00,$0.00,"-$5,200.00"
 Transactions Total,,,,,,,"$-5,200.00"`;
 
-    const result = await parse(csvWithHeader, { format: 'schwab_transactions', accountType: 'brokerage' });
+    const result = await parse(csvWithHeader, {
+      format: 'schwab_transactions',
+      accountType: 'brokerage',
+    });
     expect(result.investmentActivity).toHaveLength(1);
     expect(result.investmentActivity[0].activityType).toBe('buy');
-    expect(result.investmentActivity[0].amount).toBe(-5200.00);
+    expect(result.investmentActivity[0].amount).toBe(-5200.0);
   });
 
   it('strips Schwab footer totals rows', async () => {
@@ -256,7 +267,10 @@ Transactions Total,,,,,,,"$-5,200.00"`;
 02/01/2025,Qual Div,VTI,VANGUARD TOT STK MKT,,,,$42.30
 Transactions Total,,,,,,,"$-5,157.70"`;
 
-    const result = await parse(csvWithFooter, { format: 'schwab_transactions', accountType: 'brokerage' });
+    const result = await parse(csvWithFooter, {
+      format: 'schwab_transactions',
+      accountType: 'brokerage',
+    });
     expect(result.investmentActivity).toHaveLength(2);
   });
 });
@@ -276,8 +290,8 @@ Account Total,,,,,,"$50,100.00",,,,,,,,, `;
     expect(result.holdings).toHaveLength(3); // skips Account Total
     const vti = result.holdings.find((h) => h.symbol === 'VTI');
     expect(vti!.quantity).toBe(100);
-    expect(vti!.price).toBe(260.00);
-    expect(vti!.marketValue).toBe(26000.00);
+    expect(vti!.price).toBe(260.0);
+    expect(vti!.marketValue).toBe(26000.0);
   });
 
   it('skips Account Total row', async () => {
@@ -289,7 +303,7 @@ Account Total,,,,,,"$50,100.00",,,,,,,,, `;
   it('derives balance from holdings', async () => {
     const result = await parse(csv, { format: 'schwab_positions', accountType: 'brokerage' });
     expect(result.balances).toHaveLength(1);
-    expect(result.balances[0].balance).toBe(26000.00 + 11600.00 + 12500.00);
+    expect(result.balances[0].balance).toBe(26000.0 + 11600.0 + 12500.0);
   });
 });
 
@@ -310,8 +324,8 @@ describe('CSV: Generic Banking', () => {
 
   it('handles amounts without dollar signs', async () => {
     const result = await parse(csv, { format: 'generic_banking', accountType: 'checking' });
-    expect(result.transactions[0].amount).toBe(-42.50);
-    expect(result.transactions[1].amount).toBe(5200.00);
+    expect(result.transactions[0].amount).toBe(-42.5);
+    expect(result.transactions[1].amount).toBe(5200.0);
   });
 });
 
@@ -330,7 +344,7 @@ describe('CSV: Edge cases', () => {
 01/16/2025,Payment,100.00`;
 
     const result = await parse(csv, { format: 'generic_banking', accountType: 'checking' });
-    expect(result.transactions[0].amount).toBe(-42.50);
+    expect(result.transactions[0].amount).toBe(-42.5);
   });
 
   it('skips rows with missing required fields', async () => {
@@ -352,8 +366,9 @@ describe('CSV: Edge cases', () => {
 
   it('rejects unparseable format option', async () => {
     const csv = `Date,Amount\n2025-01-01,100`;
-    await expect(parse(csv, { format: 'nonexistent_bank', accountType: 'checking' }))
-      .rejects.toThrow('Unknown CSV format');
+    await expect(
+      parse(csv, { format: 'nonexistent_bank', accountType: 'checking' }),
+    ).rejects.toThrow('Unknown CSV format');
   });
 
   it('handles quoted fields with commas inside', async () => {

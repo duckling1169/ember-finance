@@ -47,7 +47,7 @@ describe('ingest pipeline (DB integration)', () => {
     it('ingests cash transactions', async () => {
       const result: IngestResult = {
         transactions: [
-          { date: '2025-01-15', amount: -42.50, description: 'Grocery Store' },
+          { date: '2025-01-15', amount: -42.5, description: 'Grocery Store' },
           { date: '2025-01-16', amount: 3000, description: 'Paycheck', category: 'income' },
           { date: '2025-01-17', amount: -1200, description: 'Rent', isTransfer: true },
         ],
@@ -63,7 +63,7 @@ describe('ingest pipeline (DB integration)', () => {
           sourceId: checkingSourceId,
           sourceType: 'manual_entry',
         },
-        result
+        result,
       );
 
       expect(ingest.rawIngestId).toBeTruthy();
@@ -78,7 +78,7 @@ describe('ingest pipeline (DB integration)', () => {
         .order('date', { ascending: true });
 
       expect(txns).toHaveLength(3);
-      expect(txns![0].amount).toBe(-42.50);
+      expect(txns![0].amount).toBe(-42.5);
       expect(txns![0].description).toBe('Grocery Store');
       expect(txns![0].fingerprint).toBeTruthy();
       expect(txns![1].category).toBe('income');
@@ -87,9 +87,7 @@ describe('ingest pipeline (DB integration)', () => {
 
     it('deduplicates transactions on re-ingest (same fingerprint)', async () => {
       const result: IngestResult = {
-        transactions: [
-          { date: '2025-01-15', amount: -42.50, description: 'Grocery Store' },
-        ],
+        transactions: [{ date: '2025-01-15', amount: -42.5, description: 'Grocery Store' }],
         investmentActivity: [],
         balances: [],
         holdings: [],
@@ -103,7 +101,7 @@ describe('ingest pipeline (DB integration)', () => {
           sourceId: checkingSourceId,
           sourceType: 'manual_entry',
         },
-        result
+        result,
       );
 
       const db = getTestClient();
@@ -119,9 +117,7 @@ describe('ingest pipeline (DB integration)', () => {
 
     it('allows different transactions on same date', async () => {
       const result: IngestResult = {
-        transactions: [
-          { date: '2025-01-15', amount: -15.00, description: 'Coffee' },
-        ],
+        transactions: [{ date: '2025-01-15', amount: -15.0, description: 'Coffee' }],
         investmentActivity: [],
         balances: [],
         holdings: [],
@@ -134,7 +130,7 @@ describe('ingest pipeline (DB integration)', () => {
           sourceId: checkingSourceId,
           sourceType: 'manual_entry',
         },
-        result
+        result,
       );
 
       const db = getTestClient();
@@ -159,15 +155,15 @@ describe('ingest pipeline (DB integration)', () => {
             activityType: 'buy',
             symbol: 'VTI',
             quantity: 10,
-            price: 250.00,
-            amount: -2500.00,
+            price: 250.0,
+            amount: -2500.0,
             commission: 0,
           },
           {
             date: '2025-01-20',
             activityType: 'dividend',
             symbol: 'VTI',
-            amount: 15.50,
+            amount: 15.5,
             description: 'Quarterly dividend',
           },
           {
@@ -175,8 +171,8 @@ describe('ingest pipeline (DB integration)', () => {
             activityType: 'sell',
             symbol: 'VTI',
             quantity: 2,
-            price: 255.00,
-            amount: 510.00,
+            price: 255.0,
+            amount: 510.0,
             commission: 0,
           },
         ],
@@ -191,7 +187,7 @@ describe('ingest pipeline (DB integration)', () => {
           sourceId: brokerageSourceId,
           sourceType: 'manual_entry',
         },
-        result
+        result,
       );
 
       expect(ingest.recordCount).toBe(3);
@@ -206,9 +202,9 @@ describe('ingest pipeline (DB integration)', () => {
       expect(activities).toHaveLength(3);
       expect(activities![0].activity_type).toBe('buy');
       expect(activities![0].quantity).toBe(10);
-      expect(activities![0].price).toBe(250.00);
+      expect(activities![0].price).toBe(250.0);
       expect(activities![1].activity_type).toBe('dividend');
-      expect(activities![1].amount).toBe(15.50);
+      expect(activities![1].amount).toBe(15.5);
       expect(activities![2].activity_type).toBe('sell');
     });
 
@@ -221,8 +217,8 @@ describe('ingest pipeline (DB integration)', () => {
             activityType: 'buy',
             symbol: 'VTI',
             quantity: 10,
-            price: 250.00,
-            amount: -2500.00,
+            price: 250.0,
+            amount: -2500.0,
           },
         ],
         balances: [],
@@ -236,7 +232,7 @@ describe('ingest pipeline (DB integration)', () => {
           sourceId: brokerageSourceId,
           sourceType: 'manual_entry',
         },
-        result
+        result,
       );
 
       const db = getTestClient();
@@ -263,9 +259,9 @@ describe('ingest pipeline (DB integration)', () => {
             symbol: 'VTI',
             name: 'Vanguard Total Stock Market ETF',
             quantity: 8,
-            price: 255.00,
-            marketValue: 2040.00,
-            costBasis: 2000.00,
+            price: 255.0,
+            marketValue: 2040.0,
+            costBasis: 2000.0,
             assetClass: 'equity',
           },
           {
@@ -273,9 +269,9 @@ describe('ingest pipeline (DB integration)', () => {
             symbol: 'BND',
             name: 'Vanguard Total Bond Market ETF',
             quantity: 50,
-            price: 72.00,
-            marketValue: 3600.00,
-            costBasis: 3500.00,
+            price: 72.0,
+            marketValue: 3600.0,
+            costBasis: 3500.0,
             assetClass: 'fixed_income',
           },
         ],
@@ -288,7 +284,7 @@ describe('ingest pipeline (DB integration)', () => {
           sourceId: brokerageSourceId,
           sourceType: 'manual_entry',
         },
-        result
+        result,
       );
 
       const db = getTestClient();
@@ -303,7 +299,7 @@ describe('ingest pipeline (DB integration)', () => {
       expect(holdings![0].symbol).toBe('BND');
       expect(holdings![0].asset_class).toBe('fixed_income');
       expect(holdings![1].symbol).toBe('VTI');
-      expect(holdings![1].market_value).toBe(2040.00);
+      expect(holdings![1].market_value).toBe(2040.0);
     });
 
     it('updates holdings on re-ingest (upsert replaces)', async () => {
@@ -317,9 +313,9 @@ describe('ingest pipeline (DB integration)', () => {
             symbol: 'VTI',
             name: 'Vanguard Total Stock Market ETF',
             quantity: 8,
-            price: 260.00,       // price changed
-            marketValue: 2080.00, // value changed
-            costBasis: 2000.00,
+            price: 260.0, // price changed
+            marketValue: 2080.0, // value changed
+            costBasis: 2000.0,
             assetClass: 'equity',
           },
         ],
@@ -332,7 +328,7 @@ describe('ingest pipeline (DB integration)', () => {
           sourceId: brokerageSourceId,
           sourceType: 'manual_entry',
         },
-        result
+        result,
       );
 
       const db = getTestClient();
@@ -345,8 +341,8 @@ describe('ingest pipeline (DB integration)', () => {
         .single();
 
       // Should be updated, not duplicated
-      expect(data!.price).toBe(260.00);
-      expect(data!.market_value).toBe(2080.00);
+      expect(data!.price).toBe(260.0);
+      expect(data!.market_value).toBe(2080.0);
     });
   });
 
@@ -355,9 +351,7 @@ describe('ingest pipeline (DB integration)', () => {
       const result: IngestResult = {
         transactions: [],
         investmentActivity: [],
-        balances: [
-          { date: '2025-01-31', balance: 5432.10, available: 5432.10 },
-        ],
+        balances: [{ date: '2025-01-31', balance: 5432.1, available: 5432.1 }],
         holdings: [],
       };
 
@@ -368,7 +362,7 @@ describe('ingest pipeline (DB integration)', () => {
           sourceId: checkingSourceId,
           sourceType: 'manual_entry',
         },
-        result
+        result,
       );
 
       const db = getTestClient();
@@ -379,8 +373,8 @@ describe('ingest pipeline (DB integration)', () => {
         .eq('date', '2025-01-31')
         .single();
 
-      expect(data!.balance).toBe(5432.10);
-      expect(data!.available).toBe(5432.10);
+      expect(data!.balance).toBe(5432.1);
+      expect(data!.available).toBe(5432.1);
       expect(data!.source).toBe('manual');
     });
   });
@@ -402,7 +396,7 @@ describe('ingest pipeline (DB integration)', () => {
           sourceType: 'manual_entry',
           sourceRef: 'test-ref-123',
         },
-        result
+        result,
       );
 
       const db = getTestClient();
@@ -451,18 +445,19 @@ describe('ingest pipeline (DB integration)', () => {
   describe('mixed ingest', () => {
     it('ingests transactions + balances + holdings in one call', async () => {
       const result: IngestResult = {
-        transactions: [
-          { date: '2025-03-01', amount: -100, description: 'Mixed test txn' },
-        ],
+        transactions: [{ date: '2025-03-01', amount: -100, description: 'Mixed test txn' }],
         investmentActivity: [
-          { date: '2025-03-01', activityType: 'buy', symbol: 'VXUS', amount: -500, quantity: 5, price: 100 },
+          {
+            date: '2025-03-01',
+            activityType: 'buy',
+            symbol: 'VXUS',
+            amount: -500,
+            quantity: 5,
+            price: 100,
+          },
         ],
-        balances: [
-          { date: '2025-03-01', balance: 10000 },
-        ],
-        holdings: [
-          { asOf: '2025-03-01', symbol: 'VXUS', quantity: 5, marketValue: 500 },
-        ],
+        balances: [{ date: '2025-03-01', balance: 10000 }],
+        holdings: [{ asOf: '2025-03-01', symbol: 'VXUS', quantity: 5, marketValue: 500 }],
       };
 
       const ingest = await processIngest(
@@ -472,7 +467,7 @@ describe('ingest pipeline (DB integration)', () => {
           sourceId: brokerageSourceId,
           sourceType: 'manual_entry',
         },
-        result
+        result,
       );
 
       expect(ingest.recordCount).toBe(4);

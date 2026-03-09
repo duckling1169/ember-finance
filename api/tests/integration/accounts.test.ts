@@ -113,13 +113,11 @@ describe('accounts (DB integration)', () => {
 
   it('rejects account with wrong household reference', async () => {
     const db = getTestClient();
-    const { error } = await db
-      .from('account')
-      .insert({
-        household_id: '00000000-0000-0000-0000-000000000000',
-        name: 'Bad Account',
-        account_type: 'checking',
-      });
+    const { error } = await db.from('account').insert({
+      household_id: '00000000-0000-0000-0000-000000000000',
+      name: 'Bad Account',
+      account_type: 'checking',
+    });
 
     expect(error).not.toBeNull();
   });

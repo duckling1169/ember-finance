@@ -16,7 +16,7 @@ function getAuthority(sourceType: string): number {
 
 interface DedupResult {
   autoHidden: number;
-  potentialDupes: number;  // same date+amount but >2 matches — needs manual review
+  potentialDupes: number; // same date+amount but >2 matches — needs manual review
 }
 
 /**
@@ -30,7 +30,7 @@ interface DedupResult {
  */
 export async function detectDuplicateTransactions(
   accountId: string,
-  dates: string[]  // dates affected by this ingest, to scope the scan
+  dates: string[], // dates affected by this ingest, to scope the scan
 ): Promise<DedupResult> {
   if (dates.length === 0) return { autoHidden: 0, potentialDupes: 0 };
 
@@ -72,17 +72,17 @@ export async function detectDuplicateTransactions(
           .eq('id', txn.raw_ingest_id)
           .single();
         return { ...txn, sourceType: data?.source_type ?? 'unknown' };
-      })
+      }),
     );
 
     // Only consider cross-source duplicates
     const sourceTypes = new Set(withSources.map((t) => t.sourceType));
-    if (sourceTypes.size < 2) continue;  // same source — already deduped by constraints
+    if (sourceTypes.size < 2) continue; // same source — already deduped by constraints
 
     if (group.length === 2) {
       // Exactly 2 from different sources — auto-hide the less authoritative
       const sorted = withSources.sort(
-        (a, b) => getAuthority(a.sourceType) - getAuthority(b.sourceType)
+        (a, b) => getAuthority(a.sourceType) - getAuthority(b.sourceType),
       );
       const toHide = sorted[0]; // least authoritative
 
@@ -111,7 +111,7 @@ export async function detectDuplicateTransactions(
  */
 export async function detectDuplicateActivity(
   accountId: string,
-  dates: string[]
+  dates: string[],
 ): Promise<DedupResult> {
   if (dates.length === 0) return { autoHidden: 0, potentialDupes: 0 };
 
@@ -120,7 +120,9 @@ export async function detectDuplicateActivity(
 
   const { data: activities, error } = await supabase
     .from('investment_activity')
-    .select('id, date, amount, activity_type, symbol, raw_ingest_id, provider_txn_id, fingerprint, is_hidden')
+    .select(
+      'id, date, amount, activity_type, symbol, raw_ingest_id, provider_txn_id, fingerprint, is_hidden',
+    )
     .eq('account_id', accountId)
     .eq('is_hidden', false)
     .gte('date', minDate)
@@ -151,7 +153,7 @@ export async function detectDuplicateActivity(
           .eq('id', act.raw_ingest_id)
           .single();
         return { ...act, sourceType: data?.source_type ?? 'unknown' };
-      })
+      }),
     );
 
     const sourceTypes = new Set(withSources.map((t) => t.sourceType));
@@ -159,7 +161,7 @@ export async function detectDuplicateActivity(
 
     if (group.length === 2) {
       const sorted = withSources.sort(
-        (a, b) => getAuthority(a.sourceType) - getAuthority(b.sourceType)
+        (a, b) => getAuthority(a.sourceType) - getAuthority(b.sourceType),
       );
 
       await supabase
