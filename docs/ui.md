@@ -17,34 +17,53 @@ Clean, data-dense, and functional. This is a tool for people who track investmen
 | Layer       | Choice                    | Notes                                             |
 | ----------- | ------------------------- | ------------------------------------------------- |
 | Components  | shadcn/ui                 | Radix primitives + Tailwind, copy-paste ownership |
-| Icons       | Lucide React              | Default for shadcn, consistent stroke style       |
-| Charts      | Recharts                  | Simple API, good for line/area/bar/pie            |
+| Icons       | Tabler Icons              | 5000+ icons, 2px stroke, MIT license              |
+| Charts      | Tremor                    | Tailwind-native, lightweight, modern defaults     |
 | Data tables | @tanstack/react-table     | Sorting, filtering, pagination, column visibility |
 | Forms       | react-hook-form + zod     | Validation shared with API via shared/types       |
 | Styling     | Tailwind 4                | Already installed; replace all inline styles      |
-| Fonts       | Geist (sans) + Geist Mono | Already configured in layout.tsx                  |
+| Fonts       | Inter + Roboto Mono       | Inter for UI, Roboto Mono for data/numbers        |
 
 ## Typography
 
-**Font stack (already in place):**
+### Font Stack
 
-- **Body / UI:** Geist Sans (`--font-geist-sans`) — clean, modern, good number rendering
-- **Code / data:** Geist Mono (`--font-geist-mono`) — for account numbers, raw values, code
+- **UI / Body:** Inter (`--font-inter`) — clean, screen-optimized, excellent at all sizes
+- **Data / Numbers:** Roboto Mono (`--font-roboto-mono`) — neutral monospace, clear digit shapes, readable at small sizes
 
-**Scale (Tailwind defaults):**
+**Usage split:**
 
-| Use                    | Class                                 | Size |
-| ---------------------- | ------------------------------------- | ---- |
-| Page title             | `text-2xl font-semibold`              | 24px |
-| Section heading        | `text-lg font-medium`                 | 18px |
-| Card title             | `text-base font-medium`               | 16px |
-| Body                   | `text-sm`                             | 14px |
-| Caption / label        | `text-xs text-muted-foreground`       | 12px |
-| Big number (hero stat) | `text-3xl font-semibold tabular-nums` | 30px |
+| Context | Font | Why |
+| --- | --- | --- |
+| Navigation, headings, buttons, labels, body copy | Inter | Clean readability for all UI text |
+| Table cells, dollar amounts, percentages, chart axis labels, chart tooltips, account numbers | Roboto Mono | Aligned columns, unambiguous digits at 12px+ |
 
-**Rules:**
+### Scale
 
-- Financial numbers always use `tabular-nums` (monospaced digits for column alignment)
+| Use                    | Class                                              | Size | Font |
+| ---------------------- | -------------------------------------------------- | ---- | ---- |
+| Page title             | `text-2xl font-semibold`                           | 24px | Inter |
+| Section heading        | `text-lg font-medium`                              | 18px | Inter |
+| Card title             | `text-base font-medium`                            | 16px | Inter |
+| Body                   | `text-sm`                                          | 14px | Inter |
+| Caption / label        | `text-xs text-muted-foreground`                    | 12px | Inter |
+| Big number (hero stat) | `text-3xl font-semibold tabular-nums font-mono`    | 30px | Roboto Mono |
+| Table cell (data)      | `text-sm font-mono tabular-nums`                   | 14px | Roboto Mono |
+| Chart axis label       | `text-xs font-mono`                                | 12px | Roboto Mono |
+| Chart tooltip value    | `text-sm font-mono tabular-nums`                   | 14px | Roboto Mono |
+
+### Readability Rules
+
+- **Minimum 12px** for any text — no exceptions (chart labels, table cells, footnotes)
+- **`tabular-nums`** on all number columns so digits align vertically
+- **`font-feature-settings: 'tnum'`** as CSS fallback where Tailwind shortcut isn't available
+- **Medium weight (500)** for table headers, regular (400) for cell data
+- **Line height:** `leading-relaxed` (1.625) for body text, `leading-normal` (1.5) for table rows
+- **Letter-spacing:** `tracking-wide` on ALL CAPS labels only
+
+### Number Formatting
+
+- Financial numbers always use Roboto Mono with `tabular-nums`
 - Negative values: red text, prefixed with `-$` (not parentheses)
 - Positive gains: green text, prefixed with `+$` or `+%`
 - Neutral/zero: muted foreground, no prefix
@@ -168,110 +187,158 @@ All shadcn components use these tokens. The values above map to them:
 
 ## Component Patterns
 
+### Surface Model
+
+No borders. Hierarchy is created through **background color shifts** and **subtle shadows on interaction**. This applies universally across both themes — only the color values change, not the structure.
+
+| Element | Rounding | Border | Shadow | Background |
+| --- | --- | --- | --- | --- |
+| Card / panel | `rounded-lg` (8px) | None | None at rest, `shadow-sm` on hover | One step above page bg |
+| Input | `rounded-md` (6px) | Thin (`border border-input`) | None | Same as card bg |
+| Primary button | `rounded-md` (6px) | None (solid fill) | None | Accent color fill |
+| Secondary / ghost button | `rounded-md` (6px) | Subtle (`border border-border`) | None | Transparent or muted bg |
+| Modal / popover | `rounded-lg` (8px) | None | `shadow-md` | One step above card bg |
+| Table container | `rounded-lg` (8px) | None | None | Card bg |
+| Badge / tag | `rounded-sm` (4px) | None | None | Muted bg |
+| Dividers | — | — | — | Used sparingly, very faint, only for major section breaks |
+
+**Background step-up (dark):** page `zinc-950` → card `zinc-900` → popover `zinc-800`
+**Background step-up (light):** page `zinc-50` → card `white` → popover `white` (with `shadow-md`)
+
 ### Cards
 
-Every discrete data group lives in a shadcn `Card`. Cards have:
+Every discrete data group lives in a shadcn `Card`:
 
+- `rounded-lg`, no border, bg one step above page
+- No resting shadow — `shadow-sm` on hover only (via `hover:shadow-sm transition-shadow`)
 - `CardHeader` with `CardTitle` and optional `CardDescription`
 - `CardContent` for the body
 - Optional `CardFooter` for actions
-- No excessive nesting — flat card > card-in-card
+- No nesting — never put a card inside a card
 
 ### Data Tables
 
 Use `@tanstack/react-table` with shadcn's `Table` styling:
 
-- Sticky header
-- Alternating row shading (subtle, via `even:bg-muted/50`)
+- No borders, no row dividers — alternating row bg only
+- Alternating rows: subtle shade difference (`even:bg-muted/30` — barely visible)
+- Sticky header row
 - Right-align all number columns
 - Sortable columns show sort indicator
 - Filter bar above table, not inside it
+- Table container gets `rounded-lg`, same bg as card
 
 ### Forms
 
 - Labels above inputs (not beside)
+- Inputs have thin border for affordance (`border border-input`), `rounded-md`
 - Validation errors below the field in `text-destructive text-xs`
 - Primary action button right-aligned at form bottom
 - Destructive actions use `variant="destructive"` with confirmation dialog
 
 ### Charts
 
-- Consistent padding and axis styling across all charts
-- Tooltip on hover showing exact values
-- Muted grid lines (`stroke: var(--border)`)
+**Library:** Tremor (Tailwind-native, lightweight, modern defaults)
+
+**Chart types:**
+
+| Type | Use |
+| --- | --- |
+| Line | Performance over time, benchmark comparison |
+| Area | Net worth over time |
+| Stacked area | Breakdown by account or asset class over time |
+| Donut | Allocation percentages |
+
+**Styling:**
+
+- No grid lines by default (option to enable in profile/settings)
 - No chart junk — no 3D, no gradients, no unnecessary legends
-- Responsive container via `ResponsiveContainer`
+- Minimal axis labels (start/end dates, key values) — details TBD per chart
+- Colors: use asset class palette for breakdowns, accent color for single-series
+- Responsive container
+
+**Interaction:**
+
+- Tooltip on hover for line/area/stacked area — shows exact values in Roboto Mono
+- No tooltip on donut (labels visible directly)
+- Date range selector below chart: button row (1M, 3M, YTD, 1Y, All) + custom range picker
+
+**Loading:**
+
+- Skeleton/shimmer animation while chart data loads
+- Charts do not animate data on entry — data appears ready
 
 ### Empty States
 
 When a section has no data:
 
-- Centered illustration or icon (muted)
+- Centered icon (muted, from Tabler Icons)
 - Short heading explaining what will appear
 - CTA button to add data (e.g., "Add your first account")
 
 ## App Shell
 
+### Icons
+
+**Tabler Icons** (`@tabler/icons-react`) — 5000+ icons, consistent 2px stroke, MIT license. Used for all nav items, actions, and UI elements.
+
 ### Sidebar Navigation
 
 ```
 ┌─────────────────────┐
-│  FIRE               │  ← App name, text-lg font-semibold
+│  FIRE               │  ← App name, clickable → navigates to /
 │                     │
-│  Dashboard          │  ← nav items: icon + label
-│  Accounts           │
-│  Holdings           │
-│  Performance        │
-│  Transactions       │
+│  Accounts           │  ← icon + label
+│  Investments        │
+│  Profile            │
 │                     │
-│  ─────────────────  │  ← separator
-│  Settings           │
-│                     │
-│  ─────────────────  │
 │  [Avatar] Adam      │  ← user info + sign out
-│  owner              │
 └─────────────────────┘
 ```
 
-- Fixed left sidebar, `w-64`
-- Collapsible to icon-only `w-16` (persist preference in localStorage)
-- Active route highlighted with `bg-accent` + `text-accent-foreground`
-- Mobile: sidebar becomes a slide-out sheet (shadcn `Sheet`)
+- App name/logo is the home button — no separate home nav item
+- 3 nav items only: Accounts, Investments, Profile
 
-### Top Bar (mobile only)
+**Behavior:**
 
-On viewports < `lg`:
+- `w-60` (240px) when pinned open
+- **Pin/hide model:** sidebar is hideable, not just collapsible
+  - User can **pin** it open (stays visible, content shifts right)
+  - User can **unpin/hide** it (sidebar disappears, content takes full width)
+  - Reveal hidden sidebar by hovering near left edge or keyboard shortcut (`Cmd+/`)
+  - When revealed but not pinned, sidebar overlays content as a floating panel with `shadow-md`
+  - Pin/unpin preference persisted in `localStorage`
+- No border on sidebar — uses bg color shift from page (same surface model as cards)
+- Active nav item: `bg-muted` highlight, `rounded-md`
+- Mobile (`< lg`): sidebar becomes a slide-out sheet (shadcn `Sheet`), triggered by hamburger button
 
-- Hamburger button to open sidebar sheet
-- Page title centered
-- User avatar right
+**No top bar on desktop.** Sidebar is the only chrome. On mobile, a minimal bar with hamburger + page title + avatar.
 
 ## Pages
 
-### `/dashboard` — Overview
+### `/` — Home
 
-The home screen. At a glance: how much do I have, how is it allocated, how has it changed.
+The landing page. Big picture: what's my net worth and what are my accounts.
 
 **Layout:**
 
 ```
 ┌──────────────────────────────────────────────┐
-│ Net Worth          Total Holdings            │
-│ $1,234,567         $987,654                  │
-│ +2.3% MTD          +$12,345 today            │
-├──────────────────┬───────────────────────────│
-│ Allocation       │ Net Worth Over Time       │
-│ [donut chart]    │ [area chart, 1Y default]  │
-│                  │                           │
-├──────────────────┴───────────────────────────│
+│ Net Worth Chart                              │
+│ [area chart, date range selector]            │
+│ $1,234,567 current value                     │
+│                                              │
+├──────────────────────────────────────────────│
 │ Accounts                                     │
-│ ┌─────────────────────────────────────────┐  │
-│ │ Name    │ Type    │ Balance  │ Change   │  │
-│ │ Fidelity│ 401k    │ $456,789 │ +1.2%    │  │
-│ │ Chase   │ Checking│ $12,345  │ —        │  │
-│ └─────────────────────────────────────────┘  │
+│ [sortable, filterable table]                 │
+│ Name    │ Type    │ Balance  │ Change  │ ... │
+│ Fidelity│ 401k    │ $456,789 │ +1.2%   │     │
+│ Chase   │ Checking│ $12,345  │ —       │     │
 └──────────────────────────────────────────────┘
 ```
+
+- Net worth chart: area chart showing total net worth over time, date range selector
+- Accounts table: sortable columns, filterable — more columns TBD as features grow
 
 ### `/accounts` — Account List
 
@@ -281,21 +348,24 @@ All accounts with balances, type badges, linked sources, and actions.
 
 Tabbed view: **Overview** (balance chart + summary), **Transactions** (table), **Holdings** (for investment accounts), **Sources** (linked data sources).
 
-### `/holdings` — Cross-Account Holdings
+### `/investments` — Investments
 
-All investment positions aggregated across accounts. Columns: symbol, name, shares, price, market value, cost basis, gain/loss, allocation %.
+Combined view of holdings and performance across all accounts.
 
-### `/performance` — Portfolio Performance
+- Holdings table: symbol, name, shares, price, market value, cost basis, gain/loss, allocation %
+- Performance chart: line chart over time, date range selector, benchmark comparison toggle
+- Breakdown by account or asset class
 
-Line chart of portfolio value over time. Date range selector (1M, 3M, 6M, YTD, 1Y, 3Y, 5Y, All). Benchmark comparison toggle (S&P 500). Breakdown by account or asset class.
+*Details TBD — will flesh out as we build.*
 
-### `/transactions` — All Transactions
+### `/profile` — Profile
 
-Full transaction table across all accounts. Filters: date range, account, category, amount range, source. Search by description. Dedup review: flagged duplicates shown with accept/reject actions.
+Replaces settings. User-facing config:
 
-### `/settings` — Settings
-
-Tabbed: **Household** (name, tax status, state), **Profile** (personal details, retirement targets), **Members** (list, invite, remove), **Data** (export, danger zone).
+- **Personal** — name, birthday, retirement age, income, employment, risk tolerance
+- **Household** — name, tax filing status, state
+- **Members** — list, invite, remove household members
+- **Data** — export, danger zone
 
 ### `/login` — Authentication
 
@@ -303,30 +373,43 @@ Centered card with email/password form, sign-up toggle. Clean, minimal. Dev logi
 
 ### `/onboarding` — Setup Wizard
 
-Multi-step form (not one giant page):
+Multi-step form:
 
 1. **Household** — name, tax filing status, state
 2. **Profile** — name, birthday, retirement age, income, employment, risk tolerance
-3. **Done** — confirmation + redirect to dashboard
+3. **Done** — confirmation + redirect to `/`
 
 Progress indicator at top. Back/Next buttons. Each step validates before advancing.
 
-## Responsive Breakpoints
+## Responsive Behavior
+
+**Desktop-primary.** Mobile should be functional, not optimized.
 
 | Breakpoint | Width  | Behavior                        |
 | ---------- | ------ | ------------------------------- |
 | `sm`       | 640px  | Stack cards vertically          |
 | `md`       | 768px  | 2-column card grids             |
-| `lg`       | 1024px | Sidebar visible, 3-column grids |
+| `lg`       | 1024px | Sidebar visible, multi-column grids |
 | `xl`       | 1280px | Max content width reached       |
+
+**Mobile handling:**
+
+- Tables: horizontal scroll, not card-collapse (keeps it simple for MVP)
+- Charts: scale down in container, no layout changes
+- Sidebar: hidden, accessible via hamburger → sheet overlay
+- Minimal top bar on mobile: hamburger + page title + avatar
 
 ## Accessibility
 
+MVP defaults — rely on Radix/shadcn built-ins, don't over-engineer.
+
 - All interactive elements keyboard-navigable (Radix handles this)
 - Focus rings visible (`ring-2 ring-ring ring-offset-2`)
-- Color is never the only indicator (gain/loss also uses +/- prefix)
-- Minimum contrast ratios met by shadcn theme defaults
-- Chart data accessible via table fallback or ARIA labels
+- Color is never the only indicator (gain/loss uses +/- prefix, icons where applicable)
+- Minimum contrast ratios met by theme defaults
+- Semantic HTML: proper headings, landmarks, button vs link distinction
+- `prefers-reduced-motion`: respect OS setting, disable chart loading animations
+- WCAG 2.1 AA compliance as baseline target
 
 ## File Organization
 
@@ -338,16 +421,14 @@ src/
 │   │   └── onboarding/page.tsx
 │   ├── (app)/               # Authenticated group (with sidebar)
 │   │   ├── layout.tsx       # Sidebar + main content shell
-│   │   ├── dashboard/page.tsx
+│   │   ├── page.tsx         # / — Home (net worth + accounts)
 │   │   ├── accounts/
 │   │   │   ├── page.tsx
 │   │   │   └── [id]/page.tsx
-│   │   ├── holdings/page.tsx
-│   │   ├── performance/page.tsx
-│   │   ├── transactions/page.tsx
-│   │   └── settings/page.tsx
+│   │   ├── investments/page.tsx
+│   │   └── profile/page.tsx
 │   ├── layout.tsx           # Root layout (fonts, providers)
-│   ├── page.tsx             # Redirect logic
+│   ├── page.tsx             # Redirect / auth check
 │   └── globals.css          # Theme variables + Tailwind
 ├── components/
 │   ├── ui/                  # shadcn/ui primitives (button, card, table, etc.)
