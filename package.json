@@ -4,9 +4,13 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
+    "dev:api": "npm run dev --prefix api",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "db:migrate": "supabase db push",
+    "db:reset": "supabase db reset",
+    "db:start": "supabase start"
   },
   "dependencies": {
     "next": "16.1.6",
