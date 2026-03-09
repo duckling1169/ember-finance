@@ -4,14 +4,18 @@ import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/lib/auth-context';
 
-export default function Home() {
+export default function RootPage() {
   const { user, loading } = useAuth();
   const router = useRouter();
 
   useEffect(() => {
     if (loading) return;
-    router.replace(user ? '/dashboard' : '/login');
+    router.replace(user ? '/accounts' : '/login');
   }, [user, loading, router]);
 
-  return <div style={{ padding: 40 }}>Loading...</div>;
+  return (
+    <div className="flex min-h-screen items-center justify-center text-muted-foreground">
+      Loading...
+    </div>
+  );
 }

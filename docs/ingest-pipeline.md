@@ -1,4 +1,4 @@
-# FIRE App — Ingest Pipeline & Adapters
+# Ember — Ingest Pipeline & Adapters
 
 ## Pipeline Overview
 

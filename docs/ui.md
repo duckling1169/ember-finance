@@ -1,4 +1,4 @@
-# FIRE App — UI & Design System
+# Ember — UI & Design System
 
 ## Design Philosophy
 
@@ -14,15 +14,15 @@ Clean, data-dense, and functional. This is a tool for people who track investmen
 
 ## Stack
 
-| Layer       | Choice                    | Notes                                             |
-| ----------- | ------------------------- | ------------------------------------------------- |
-| Components  | shadcn/ui                 | Radix primitives + Tailwind, copy-paste ownership |
-| Icons       | Tabler Icons              | 5000+ icons, 2px stroke, MIT license              |
-| Charts      | Tremor                    | Tailwind-native, lightweight, modern defaults     |
-| Data tables | @tanstack/react-table     | Sorting, filtering, pagination, column visibility |
-| Forms       | react-hook-form + zod     | Validation shared with API via shared/types       |
-| Styling     | Tailwind 4                | Already installed; replace all inline styles      |
-| Fonts       | Inter + Roboto Mono       | Inter for UI, Roboto Mono for data/numbers        |
+| Layer       | Choice                | Notes                                             |
+| ----------- | --------------------- | ------------------------------------------------- |
+| Components  | shadcn/ui             | Radix primitives + Tailwind, copy-paste ownership |
+| Icons       | Tabler Icons          | 5000+ icons, 2px stroke, MIT license              |
+| Charts      | Tremor                | Tailwind-native, lightweight, modern defaults     |
+| Data tables | @tanstack/react-table | Sorting, filtering, pagination, column visibility |
+| Forms       | react-hook-form + zod | Validation shared with API via shared/types       |
+| Styling     | Tailwind 4            | Already installed; replace all inline styles      |
+| Fonts       | Inter + Roboto Mono   | Inter for UI, Roboto Mono for data/numbers        |
 
 ## Typography
 
@@ -33,24 +33,24 @@ Clean, data-dense, and functional. This is a tool for people who track investmen
 
 **Usage split:**
 
-| Context | Font | Why |
-| --- | --- | --- |
-| Navigation, headings, buttons, labels, body copy | Inter | Clean readability for all UI text |
+| Context                                                                                      | Font        | Why                                          |
+| -------------------------------------------------------------------------------------------- | ----------- | -------------------------------------------- |
+| Navigation, headings, buttons, labels, body copy                                             | Inter       | Clean readability for all UI text            |
 | Table cells, dollar amounts, percentages, chart axis labels, chart tooltips, account numbers | Roboto Mono | Aligned columns, unambiguous digits at 12px+ |
 
 ### Scale
 
-| Use                    | Class                                              | Size | Font |
-| ---------------------- | -------------------------------------------------- | ---- | ---- |
-| Page title             | `text-2xl font-semibold`                           | 24px | Inter |
-| Section heading        | `text-lg font-medium`                              | 18px | Inter |
-| Card title             | `text-base font-medium`                            | 16px | Inter |
-| Body                   | `text-sm`                                          | 14px | Inter |
-| Caption / label        | `text-xs text-muted-foreground`                    | 12px | Inter |
-| Big number (hero stat) | `text-3xl font-semibold tabular-nums font-mono`    | 30px | Roboto Mono |
-| Table cell (data)      | `text-sm font-mono tabular-nums`                   | 14px | Roboto Mono |
-| Chart axis label       | `text-xs font-mono`                                | 12px | Roboto Mono |
-| Chart tooltip value    | `text-sm font-mono tabular-nums`                   | 14px | Roboto Mono |
+| Use                    | Class                                           | Size | Font        |
+| ---------------------- | ----------------------------------------------- | ---- | ----------- |
+| Page title             | `text-2xl font-semibold`                        | 24px | Inter       |
+| Section heading        | `text-lg font-medium`                           | 18px | Inter       |
+| Card title             | `text-base font-medium`                         | 16px | Inter       |
+| Body                   | `text-sm`                                       | 14px | Inter       |
+| Caption / label        | `text-xs text-muted-foreground`                 | 12px | Inter       |
+| Big number (hero stat) | `text-3xl font-semibold tabular-nums font-mono` | 30px | Roboto Mono |
+| Table cell (data)      | `text-sm font-mono tabular-nums`                | 14px | Roboto Mono |
+| Chart axis label       | `text-xs font-mono`                             | 12px | Roboto Mono |
+| Chart tooltip value    | `text-sm font-mono tabular-nums`                | 14px | Roboto Mono |
 
 ### Readability Rules
 
@@ -191,16 +191,16 @@ All shadcn components use these tokens. The values above map to them:
 
 No borders. Hierarchy is created through **background color shifts** and **subtle shadows on interaction**. This applies universally across both themes — only the color values change, not the structure.
 
-| Element | Rounding | Border | Shadow | Background |
-| --- | --- | --- | --- | --- |
-| Card / panel | `rounded-lg` (8px) | None | None at rest, `shadow-sm` on hover | One step above page bg |
-| Input | `rounded-md` (6px) | Thin (`border border-input`) | None | Same as card bg |
-| Primary button | `rounded-md` (6px) | None (solid fill) | None | Accent color fill |
-| Secondary / ghost button | `rounded-md` (6px) | Subtle (`border border-border`) | None | Transparent or muted bg |
-| Modal / popover | `rounded-lg` (8px) | None | `shadow-md` | One step above card bg |
-| Table container | `rounded-lg` (8px) | None | None | Card bg |
-| Badge / tag | `rounded-sm` (4px) | None | None | Muted bg |
-| Dividers | — | — | — | Used sparingly, very faint, only for major section breaks |
+| Element                  | Rounding           | Border                          | Shadow                             | Background                                                |
+| ------------------------ | ------------------ | ------------------------------- | ---------------------------------- | --------------------------------------------------------- |
+| Card / panel             | `rounded-lg` (8px) | None                            | None at rest, `shadow-sm` on hover | One step above page bg                                    |
+| Input                    | `rounded-md` (6px) | Thin (`border border-input`)    | None                               | Same as card bg                                           |
+| Primary button           | `rounded-md` (6px) | None (solid fill)               | None                               | Accent color fill                                         |
+| Secondary / ghost button | `rounded-md` (6px) | Subtle (`border border-border`) | None                               | Transparent or muted bg                                   |
+| Modal / popover          | `rounded-lg` (8px) | None                            | `shadow-md`                        | One step above card bg                                    |
+| Table container          | `rounded-lg` (8px) | None                            | None                               | Card bg                                                   |
+| Badge / tag              | `rounded-sm` (4px) | None                            | None                               | Muted bg                                                  |
+| Dividers                 | —                  | —                               | —                                  | Used sparingly, very faint, only for major section breaks |
 
 **Background step-up (dark):** page `zinc-950` → card `zinc-900` → popover `zinc-800`
 **Background step-up (light):** page `zinc-50` → card `white` → popover `white` (with `shadow-md`)
@@ -242,12 +242,12 @@ Use `@tanstack/react-table` with shadcn's `Table` styling:
 
 **Chart types:**
 
-| Type | Use |
-| --- | --- |
-| Line | Performance over time, benchmark comparison |
-| Area | Net worth over time |
+| Type         | Use                                           |
+| ------------ | --------------------------------------------- |
+| Line         | Performance over time, benchmark comparison   |
+| Area         | Net worth over time                           |
 | Stacked area | Breakdown by account or asset class over time |
-| Donut | Allocation percentages |
+| Donut        | Allocation percentages                        |
 
 **Styling:**
 
@@ -286,7 +286,7 @@ When a section has no data:
 
 ```
 ┌─────────────────────┐
-│  FIRE               │  ← App name, clickable → navigates to /
+│  Ember              │  ← App name, clickable → navigates to /
 │                     │
 │  Accounts           │  ← icon + label
 │  Investments        │
@@ -356,7 +356,7 @@ Combined view of holdings and performance across all accounts.
 - Performance chart: line chart over time, date range selector, benchmark comparison toggle
 - Breakdown by account or asset class
 
-*Details TBD — will flesh out as we build.*
+_Details TBD — will flesh out as we build._
 
 ### `/profile` — Profile
 
@@ -385,12 +385,12 @@ Progress indicator at top. Back/Next buttons. Each step validates before advanci
 
 **Desktop-primary.** Mobile should be functional, not optimized.
 
-| Breakpoint | Width  | Behavior                        |
-| ---------- | ------ | ------------------------------- |
-| `sm`       | 640px  | Stack cards vertically          |
-| `md`       | 768px  | 2-column card grids             |
+| Breakpoint | Width  | Behavior                            |
+| ---------- | ------ | ----------------------------------- |
+| `sm`       | 640px  | Stack cards vertically              |
+| `md`       | 768px  | 2-column card grids                 |
 | `lg`       | 1024px | Sidebar visible, multi-column grids |
-| `xl`       | 1280px | Max content width reached       |
+| `xl`       | 1280px | Max content width reached           |
 
 **Mobile handling:**
 

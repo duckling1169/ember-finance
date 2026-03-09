@@ -1,4 +1,4 @@
--- FIRE App schema — consolidated
+-- Ember schema — consolidated
 -- All tables, indexes, and RLS policies
 
 -- ── Layer 1: Identity ──

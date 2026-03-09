@@ -57,7 +57,7 @@ describe('crypto', () => {
   });
 
   it('handles unicode content', () => {
-    const plaintext = '🔥 FIRE App — ñoño €100';
+    const plaintext = '🔥 Ember — ñoño €100';
     const encrypted = encrypt(plaintext);
     expect(decrypt(encrypted)).toBe(plaintext);
   });
