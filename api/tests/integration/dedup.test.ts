@@ -50,42 +50,42 @@ describe('cross-source duplicate detection', () => {
   const ingestCsv = (result: IngestResult) =>
     processIngest(
       { householdId, accountId, sourceId: csvSourceId, sourceType: 'csv_upload' },
-      result
+      result,
     );
 
   const ingestTeller = (result: IngestResult) =>
     processIngest(
       { householdId, accountId, sourceId: tellerSourceId, sourceType: 'teller_sync' },
-      result
+      result,
     );
 
   it('step 1: CSV import — 3 years of history', async () => {
     const result = await ingestCsv({
       transactions: [
         // 2023 — historical only (no overlap with Teller)
-        { date: '2023-03-15', amount: -42.50, description: 'WHOLE FOODS #1234' },
-        { date: '2023-06-20', amount: -89.00, description: 'AMAZON.COM' },
-        { date: '2023-09-01', amount: 5200.00, description: 'DIRECT DEPOSIT PAYROLL' },
-        { date: '2023-12-15', amount: -250.00, description: 'DELTA AIR LINES' },
+        { date: '2023-03-15', amount: -42.5, description: 'WHOLE FOODS #1234' },
+        { date: '2023-06-20', amount: -89.0, description: 'AMAZON.COM' },
+        { date: '2023-09-01', amount: 5200.0, description: 'DIRECT DEPOSIT PAYROLL' },
+        { date: '2023-12-15', amount: -250.0, description: 'DELTA AIR LINES' },
 
         // 2024 Q1 — still no Teller overlap
-        { date: '2024-01-15', amount: -65.00, description: 'ELECTRIC COMPANY' },
-        { date: '2024-02-28', amount: -1800.00, description: 'MORTGAGE PMT' },
+        { date: '2024-01-15', amount: -65.0, description: 'ELECTRIC COMPANY' },
+        { date: '2024-02-28', amount: -1800.0, description: 'MORTGAGE PMT' },
 
         // 2024 Q2 onwards — will overlap with Teller
         { date: '2024-04-05', amount: -142.37, description: 'WHOLE FOODS #1234' },
-        { date: '2024-04-10', amount: 5200.00, description: 'DIRECT DEPOSIT PAYROLL' },
-        { date: '2024-05-15', amount: -5.50, description: 'STARBUCKS #9876' },
-        { date: '2024-05-15', amount: -5.50, description: 'STARBUCKS #9876' }, // legit 2nd coffee!
-        { date: '2024-06-01', amount: -34.50, description: 'UBER EATS' },
-        { date: '2024-07-20', amount: -89.00, description: 'AMAZON.COM' },
-        { date: '2024-08-15', amount: -12.50, description: 'NETFLIX.COM' },
-        { date: '2024-10-01', amount: -45.80, description: 'SHELL OIL' },
-        { date: '2024-12-25', amount: -325.00, description: 'BEST BUY #4567' },
+        { date: '2024-04-10', amount: 5200.0, description: 'DIRECT DEPOSIT PAYROLL' },
+        { date: '2024-05-15', amount: -5.5, description: 'STARBUCKS #9876' },
+        { date: '2024-05-15', amount: -5.5, description: 'STARBUCKS #9876' }, // legit 2nd coffee!
+        { date: '2024-06-01', amount: -34.5, description: 'UBER EATS' },
+        { date: '2024-07-20', amount: -89.0, description: 'AMAZON.COM' },
+        { date: '2024-08-15', amount: -12.5, description: 'NETFLIX.COM' },
+        { date: '2024-10-01', amount: -45.8, description: 'SHELL OIL' },
+        { date: '2024-12-25', amount: -325.0, description: 'BEST BUY #4567' },
 
         // 2025
-        { date: '2025-01-10', amount: 5200.00, description: 'DIRECT DEPOSIT PAYROLL' },
-        { date: '2025-02-14', amount: -78.00, description: 'RESTAURANT XYZ' },
+        { date: '2025-01-10', amount: 5200.0, description: 'DIRECT DEPOSIT PAYROLL' },
+        { date: '2025-02-14', amount: -78.0, description: 'RESTAURANT XYZ' },
         { date: '2025-03-01', amount: -142.37, description: 'WHOLE FOODS #1234' },
       ],
       investmentActivity: [],
@@ -112,20 +112,40 @@ describe('cross-source duplicate detection', () => {
     // - Has provider_txn_id (CSV doesn't)
     const result = await ingestTeller({
       transactions: [
-        { date: '2024-04-05', amount: -142.37, description: 'Whole Foods Market', providerTxnId: 'txn_001' },
-        { date: '2024-04-10', amount: 5200.00, description: 'Direct Deposit', providerTxnId: 'txn_002' },
-        { date: '2024-05-15', amount: -5.50, description: 'Starbucks', providerTxnId: 'txn_003' },
-        { date: '2024-05-15', amount: -5.50, description: 'Starbucks', providerTxnId: 'txn_004' }, // 2nd coffee same day
-        { date: '2024-06-01', amount: -34.50, description: 'Uber Eats', providerTxnId: 'txn_005' },
-        { date: '2024-07-20', amount: -89.00, description: 'Amazon.com', providerTxnId: 'txn_006' },
-        { date: '2024-08-15', amount: -12.50, description: 'Netflix', providerTxnId: 'txn_007' },
-        { date: '2024-10-01', amount: -45.80, description: 'Shell', providerTxnId: 'txn_008' },
-        { date: '2024-12-25', amount: -325.00, description: 'Best Buy', providerTxnId: 'txn_009' },
-        { date: '2025-01-10', amount: 5200.00, description: 'Direct Deposit', providerTxnId: 'txn_010' },
-        { date: '2025-02-14', amount: -78.00, description: 'Restaurant', providerTxnId: 'txn_011' },
-        { date: '2025-03-01', amount: -142.37, description: 'Whole Foods Market', providerTxnId: 'txn_012' },
+        {
+          date: '2024-04-05',
+          amount: -142.37,
+          description: 'Whole Foods Market',
+          providerTxnId: 'txn_001',
+        },
+        {
+          date: '2024-04-10',
+          amount: 5200.0,
+          description: 'Direct Deposit',
+          providerTxnId: 'txn_002',
+        },
+        { date: '2024-05-15', amount: -5.5, description: 'Starbucks', providerTxnId: 'txn_003' },
+        { date: '2024-05-15', amount: -5.5, description: 'Starbucks', providerTxnId: 'txn_004' }, // 2nd coffee same day
+        { date: '2024-06-01', amount: -34.5, description: 'Uber Eats', providerTxnId: 'txn_005' },
+        { date: '2024-07-20', amount: -89.0, description: 'Amazon.com', providerTxnId: 'txn_006' },
+        { date: '2024-08-15', amount: -12.5, description: 'Netflix', providerTxnId: 'txn_007' },
+        { date: '2024-10-01', amount: -45.8, description: 'Shell', providerTxnId: 'txn_008' },
+        { date: '2024-12-25', amount: -325.0, description: 'Best Buy', providerTxnId: 'txn_009' },
+        {
+          date: '2025-01-10',
+          amount: 5200.0,
+          description: 'Direct Deposit',
+          providerTxnId: 'txn_010',
+        },
+        { date: '2025-02-14', amount: -78.0, description: 'Restaurant', providerTxnId: 'txn_011' },
+        {
+          date: '2025-03-01',
+          amount: -142.37,
+          description: 'Whole Foods Market',
+          providerTxnId: 'txn_012',
+        },
         // Teller-only txn (happened after CSV export)
-        { date: '2025-03-05', amount: -22.00, description: 'Spotify', providerTxnId: 'txn_013' },
+        { date: '2025-03-05', amount: -22.0, description: 'Spotify', providerTxnId: 'txn_013' },
       ],
       investmentActivity: [],
       balances: [{ date: '2025-03-08', balance: 8234.33 }],
@@ -190,7 +210,7 @@ describe('cross-source duplicate detection', () => {
       .select('*')
       .eq('account_id', accountId)
       .eq('date', '2024-05-15')
-      .eq('amount', -5.50);
+      .eq('amount', -5.5);
 
     // 1 CSV (second was fingerprint-deduped) + 2 Teller = 3 total
     // The group has 3 visible (>2) so none auto-hidden for this group
@@ -215,10 +235,7 @@ describe('cross-source duplicate detection', () => {
       .eq('account_id', accountId)
       .eq('is_hidden', true);
 
-    const { data: total } = await db()
-      .from('transaction')
-      .select('id')
-      .eq('account_id', accountId);
+    const { data: total } = await db().from('transaction').select('id').eq('account_id', accountId);
 
     expect(visible!.length + hidden!.length).toBe(total!.length);
     // Visible should be less than total (some dupes hidden)
@@ -249,14 +266,14 @@ describe('user manual duplicate management', () => {
       { householdId, accountId, sourceId, sourceType: 'manual_entry' },
       {
         transactions: [
-          { date: '2025-01-15', amount: -50.00, description: 'Duplicate A' },
-          { date: '2025-01-15', amount: -50.00, description: 'Duplicate B' },
-          { date: '2025-01-20', amount: -100.00, description: 'Normal txn' },
+          { date: '2025-01-15', amount: -50.0, description: 'Duplicate A' },
+          { date: '2025-01-15', amount: -50.0, description: 'Duplicate B' },
+          { date: '2025-01-20', amount: -100.0, description: 'Normal txn' },
         ],
         investmentActivity: [],
         balances: [],
         holdings: [],
-      }
+      },
     );
   });
 
@@ -281,11 +298,7 @@ describe('user manual duplicate management', () => {
 
     expect(error).toBeNull();
 
-    const { data: hidden } = await db()
-      .from('transaction')
-      .select('*')
-      .eq('id', txns!.id)
-      .single();
+    const { data: hidden } = await db().from('transaction').select('*').eq('id', txns!.id).single();
 
     expect(hidden!.is_hidden).toBe(true);
     expect(hidden!.hidden_reason).toBe('manual');
@@ -377,13 +390,27 @@ describe('cross-source investment activity dedup', () => {
       {
         transactions: [],
         investmentActivity: [
-          { date: '2024-06-15', activityType: 'buy', symbol: 'VTI', quantity: 10, price: 250, amount: -2500 },
-          { date: '2024-09-15', activityType: 'dividend', symbol: 'VTI', amount: 42.30 },
-          { date: '2025-01-02', activityType: 'buy', symbol: 'VTI', quantity: 5, price: 260, amount: -1300 },
+          {
+            date: '2024-06-15',
+            activityType: 'buy',
+            symbol: 'VTI',
+            quantity: 10,
+            price: 250,
+            amount: -2500,
+          },
+          { date: '2024-09-15', activityType: 'dividend', symbol: 'VTI', amount: 42.3 },
+          {
+            date: '2025-01-02',
+            activityType: 'buy',
+            symbol: 'VTI',
+            quantity: 5,
+            price: 260,
+            amount: -1300,
+          },
         ],
         balances: [],
         holdings: [],
-      }
+      },
     );
 
     // SnapTrade: overlaps from ~Sep 2024
@@ -392,13 +419,35 @@ describe('cross-source investment activity dedup', () => {
       {
         transactions: [],
         investmentActivity: [
-          { date: '2024-09-15', activityType: 'dividend', symbol: 'VTI', amount: 42.30, providerTxnId: 'snap_div_001' },
-          { date: '2025-01-02', activityType: 'buy', symbol: 'VTI', quantity: 5, price: 260, amount: -1300, providerTxnId: 'snap_buy_001' },
-          { date: '2025-03-01', activityType: 'buy', symbol: 'VXUS', quantity: 20, price: 58, amount: -1160, providerTxnId: 'snap_buy_002' },
+          {
+            date: '2024-09-15',
+            activityType: 'dividend',
+            symbol: 'VTI',
+            amount: 42.3,
+            providerTxnId: 'snap_div_001',
+          },
+          {
+            date: '2025-01-02',
+            activityType: 'buy',
+            symbol: 'VTI',
+            quantity: 5,
+            price: 260,
+            amount: -1300,
+            providerTxnId: 'snap_buy_001',
+          },
+          {
+            date: '2025-03-01',
+            activityType: 'buy',
+            symbol: 'VXUS',
+            quantity: 20,
+            price: 58,
+            amount: -1160,
+            providerTxnId: 'snap_buy_002',
+          },
         ],
         balances: [],
         holdings: [],
-      }
+      },
     );
 
     expect(result.dedup.activityAutoHidden).toBeGreaterThan(0);

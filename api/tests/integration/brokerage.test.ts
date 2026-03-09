@@ -57,20 +57,30 @@ describe('brokerage account (comprehensive)', () => {
 
   const ingestBrokerage = (result: IngestResult) =>
     processIngest(
-      { householdId, accountId: brokerageId, sourceId: brokerageSourceId, sourceType: 'manual_entry' },
-      result
+      {
+        householdId,
+        accountId: brokerageId,
+        sourceId: brokerageSourceId,
+        sourceType: 'manual_entry',
+      },
+      result,
     );
 
   const ingestRetirement = (result: IngestResult) =>
     processIngest(
-      { householdId, accountId: retirementId, sourceId: retirementSourceId, sourceType: 'manual_entry' },
-      result
+      {
+        householdId,
+        accountId: retirementId,
+        sourceId: retirementSourceId,
+        sourceType: 'manual_entry',
+      },
+      result,
     );
 
   const ingestHsa = (result: IngestResult) =>
     processIngest(
       { householdId, accountId: hsaId, sourceId: hsaSourceId, sourceType: 'manual_entry' },
-      result
+      result,
     );
 
   const db = () => getTestClient();
@@ -82,13 +92,53 @@ describe('brokerage account (comprehensive)', () => {
       await ingestBrokerage({
         transactions: [],
         investmentActivity: [
-          { date: '2025-01-02', activityType: 'buy', symbol: 'VTI', quantity: 50, price: 250.00, amount: -12500.00, commission: 0 },
-          { date: '2025-01-02', activityType: 'buy', symbol: 'VXUS', quantity: 100, price: 58.00, amount: -5800.00, commission: 0 },
-          { date: '2025-01-02', activityType: 'buy', symbol: 'BND', quantity: 75, price: 72.00, amount: -5400.00, commission: 4.95 },
-          { date: '2025-01-02', activityType: 'buy', symbol: 'AAPL', quantity: 25, price: 185.50, amount: -4637.50, commission: 0 },
-          { date: '2025-01-02', activityType: 'buy', symbol: 'MSFT', quantity: 15, price: 375.00, amount: -5625.00, commission: 0 },
+          {
+            date: '2025-01-02',
+            activityType: 'buy',
+            symbol: 'VTI',
+            quantity: 50,
+            price: 250.0,
+            amount: -12500.0,
+            commission: 0,
+          },
+          {
+            date: '2025-01-02',
+            activityType: 'buy',
+            symbol: 'VXUS',
+            quantity: 100,
+            price: 58.0,
+            amount: -5800.0,
+            commission: 0,
+          },
+          {
+            date: '2025-01-02',
+            activityType: 'buy',
+            symbol: 'BND',
+            quantity: 75,
+            price: 72.0,
+            amount: -5400.0,
+            commission: 4.95,
+          },
+          {
+            date: '2025-01-02',
+            activityType: 'buy',
+            symbol: 'AAPL',
+            quantity: 25,
+            price: 185.5,
+            amount: -4637.5,
+            commission: 0,
+          },
+          {
+            date: '2025-01-02',
+            activityType: 'buy',
+            symbol: 'MSFT',
+            quantity: 15,
+            price: 375.0,
+            amount: -5625.0,
+            commission: 0,
+          },
         ],
-        balances: [{ date: '2025-01-02', balance: 33962.50 }],
+        balances: [{ date: '2025-01-02', balance: 33962.5 }],
         holdings: [],
       });
 
@@ -112,9 +162,30 @@ describe('brokerage account (comprehensive)', () => {
       await ingestBrokerage({
         transactions: [],
         investmentActivity: [
-          { date: '2025-02-03', activityType: 'buy', symbol: 'VTI', quantity: 20, price: 255.00, amount: -5100.00 },
-          { date: '2025-03-03', activityType: 'buy', symbol: 'VTI', quantity: 20, price: 248.00, amount: -4960.00 },
-          { date: '2025-04-01', activityType: 'buy', symbol: 'VTI', quantity: 20, price: 262.00, amount: -5240.00 },
+          {
+            date: '2025-02-03',
+            activityType: 'buy',
+            symbol: 'VTI',
+            quantity: 20,
+            price: 255.0,
+            amount: -5100.0,
+          },
+          {
+            date: '2025-03-03',
+            activityType: 'buy',
+            symbol: 'VTI',
+            quantity: 20,
+            price: 248.0,
+            amount: -4960.0,
+          },
+          {
+            date: '2025-04-01',
+            activityType: 'buy',
+            symbol: 'VTI',
+            quantity: 20,
+            price: 262.0,
+            amount: -5240.0,
+          },
         ],
         balances: [],
         holdings: [],
@@ -138,9 +209,30 @@ describe('brokerage account (comprehensive)', () => {
       await ingestBrokerage({
         transactions: [],
         investmentActivity: [
-          { date: '2025-01-15', activityType: 'buy', symbol: 'AMZN', quantity: 0.534, price: 187.25, amount: -99.99 },
-          { date: '2025-02-15', activityType: 'buy', symbol: 'AMZN', quantity: 0.521, price: 191.94, amount: -100.00 },
-          { date: '2025-03-15', activityType: 'buy', symbol: 'GOOGL', quantity: 0.583, price: 171.53, amount: -100.00 },
+          {
+            date: '2025-01-15',
+            activityType: 'buy',
+            symbol: 'AMZN',
+            quantity: 0.534,
+            price: 187.25,
+            amount: -99.99,
+          },
+          {
+            date: '2025-02-15',
+            activityType: 'buy',
+            symbol: 'AMZN',
+            quantity: 0.521,
+            price: 191.94,
+            amount: -100.0,
+          },
+          {
+            date: '2025-03-15',
+            activityType: 'buy',
+            symbol: 'GOOGL',
+            quantity: 0.583,
+            price: 171.53,
+            amount: -100.0,
+          },
         ],
         balances: [],
         holdings: [],
@@ -166,7 +258,15 @@ describe('brokerage account (comprehensive)', () => {
       await ingestBrokerage({
         transactions: [],
         investmentActivity: [
-          { date: '2025-04-15', activityType: 'sell', symbol: 'AAPL', quantity: 10, price: 195.00, amount: 1950.00, commission: 0 },
+          {
+            date: '2025-04-15',
+            activityType: 'sell',
+            symbol: 'AAPL',
+            quantity: 10,
+            price: 195.0,
+            amount: 1950.0,
+            commission: 0,
+          },
         ],
         balances: [],
         holdings: [],
@@ -182,14 +282,21 @@ describe('brokerage account (comprehensive)', () => {
       expect(data).toHaveLength(2); // 1 buy + 1 sell
       const sell = data!.find((a: any) => a.activity_type === 'sell');
       expect(sell!.quantity).toBe(10);
-      expect(sell!.amount).toBe(1950.00); // positive = money into account
+      expect(sell!.amount).toBe(1950.0); // positive = money into account
     });
 
     it('handles full position liquidation', async () => {
       await ingestBrokerage({
         transactions: [],
         investmentActivity: [
-          { date: '2025-05-01', activityType: 'sell', symbol: 'MSFT', quantity: 15, price: 390.00, amount: 5850.00 },
+          {
+            date: '2025-05-01',
+            activityType: 'sell',
+            symbol: 'MSFT',
+            quantity: 15,
+            price: 390.0,
+            amount: 5850.0,
+          },
         ],
         balances: [],
         holdings: [],
@@ -213,7 +320,15 @@ describe('brokerage account (comprehensive)', () => {
       await ingestBrokerage({
         transactions: [],
         investmentActivity: [
-          { date: '2025-05-10', activityType: 'sell', symbol: 'AAPL', quantity: 5, price: 192.00, amount: 955.05, commission: 4.95 },
+          {
+            date: '2025-05-10',
+            activityType: 'sell',
+            symbol: 'AAPL',
+            quantity: 5,
+            price: 192.0,
+            amount: 955.05,
+            commission: 4.95,
+          },
         ],
         balances: [],
         holdings: [],
@@ -240,10 +355,34 @@ describe('brokerage account (comprehensive)', () => {
       await ingestBrokerage({
         transactions: [],
         investmentActivity: [
-          { date: '2025-03-15', activityType: 'dividend', symbol: 'VTI', amount: 85.20, description: 'Ordinary Dividend' },
-          { date: '2025-03-15', activityType: 'dividend', symbol: 'VXUS', amount: 42.00, description: 'Ordinary Dividend' },
-          { date: '2025-03-15', activityType: 'dividend', symbol: 'BND', amount: 18.75, description: 'Interest Income' },
-          { date: '2025-03-20', activityType: 'dividend', symbol: 'AAPL', amount: 6.00, description: 'Ordinary Dividend' },
+          {
+            date: '2025-03-15',
+            activityType: 'dividend',
+            symbol: 'VTI',
+            amount: 85.2,
+            description: 'Ordinary Dividend',
+          },
+          {
+            date: '2025-03-15',
+            activityType: 'dividend',
+            symbol: 'VXUS',
+            amount: 42.0,
+            description: 'Ordinary Dividend',
+          },
+          {
+            date: '2025-03-15',
+            activityType: 'dividend',
+            symbol: 'BND',
+            amount: 18.75,
+            description: 'Interest Income',
+          },
+          {
+            date: '2025-03-20',
+            activityType: 'dividend',
+            symbol: 'AAPL',
+            amount: 6.0,
+            description: 'Ordinary Dividend',
+          },
         ],
         balances: [],
         holdings: [],
@@ -267,8 +406,22 @@ describe('brokerage account (comprehensive)', () => {
       await ingestBrokerage({
         transactions: [],
         investmentActivity: [
-          { date: '2025-06-15', activityType: 'dividend', symbol: 'VTI', amount: 92.40, description: 'Q2 Ordinary Dividend' },
-          { date: '2025-06-15', activityType: 'reinvestment', symbol: 'VTI', quantity: 0.345, price: 267.83, amount: -92.40, description: 'Dividend Reinvestment' },
+          {
+            date: '2025-06-15',
+            activityType: 'dividend',
+            symbol: 'VTI',
+            amount: 92.4,
+            description: 'Q2 Ordinary Dividend',
+          },
+          {
+            date: '2025-06-15',
+            activityType: 'reinvestment',
+            symbol: 'VTI',
+            quantity: 0.345,
+            price: 267.83,
+            amount: -92.4,
+            description: 'Dividend Reinvestment',
+          },
         ],
         balances: [],
         holdings: [],
@@ -295,7 +448,13 @@ describe('brokerage account (comprehensive)', () => {
       await ingestBrokerage({
         transactions: [],
         investmentActivity: [
-          { date: '2025-06-20', activityType: 'return_of_capital', symbol: 'VNQ', amount: 12.50, description: 'Return of Capital' },
+          {
+            date: '2025-06-20',
+            activityType: 'return_of_capital',
+            symbol: 'VNQ',
+            amount: 12.5,
+            description: 'Return of Capital',
+          },
         ],
         balances: [],
         holdings: [],
@@ -309,7 +468,7 @@ describe('brokerage account (comprehensive)', () => {
         .single();
 
       expect(data!.symbol).toBe('VNQ');
-      expect(data!.amount).toBe(12.50);
+      expect(data!.amount).toBe(12.5);
     });
   });
 
@@ -354,10 +513,26 @@ describe('brokerage account (comprehensive)', () => {
       await ingestRetirement({
         transactions: [],
         investmentActivity: [
-          { date: '2025-02-01', activityType: 'transfer_in', symbol: 'VTI', quantity: 200, price: 252.00, amount: 50400.00, description: 'Rollover from Previous Employer' },
-          { date: '2025-02-01', activityType: 'transfer_in', symbol: 'BND', quantity: 150, price: 71.00, amount: 10650.00, description: 'Rollover from Previous Employer' },
+          {
+            date: '2025-02-01',
+            activityType: 'transfer_in',
+            symbol: 'VTI',
+            quantity: 200,
+            price: 252.0,
+            amount: 50400.0,
+            description: 'Rollover from Previous Employer',
+          },
+          {
+            date: '2025-02-01',
+            activityType: 'transfer_in',
+            symbol: 'BND',
+            quantity: 150,
+            price: 71.0,
+            amount: 10650.0,
+            description: 'Rollover from Previous Employer',
+          },
         ],
-        balances: [{ date: '2025-02-01', balance: 61050.00 }],
+        balances: [{ date: '2025-02-01', balance: 61050.0 }],
         holdings: [],
       });
 
@@ -369,14 +544,22 @@ describe('brokerage account (comprehensive)', () => {
 
       expect(data).toHaveLength(2);
       const total = data!.reduce((sum: number, a: any) => sum + a.amount, 0);
-      expect(total).toBe(61050.00);
+      expect(total).toBe(61050.0);
     });
 
     it('records transfer out', async () => {
       await ingestBrokerage({
         transactions: [],
         investmentActivity: [
-          { date: '2025-07-15', activityType: 'transfer_out', symbol: 'BND', quantity: 25, price: 73.00, amount: -1825.00, description: 'Transfer to HSA' },
+          {
+            date: '2025-07-15',
+            activityType: 'transfer_out',
+            symbol: 'BND',
+            quantity: 25,
+            price: 73.0,
+            amount: -1825.0,
+            description: 'Transfer to HSA',
+          },
         ],
         balances: [],
         holdings: [],
@@ -389,16 +572,24 @@ describe('brokerage account (comprehensive)', () => {
         .eq('activity_type', 'transfer_out')
         .single();
 
-      expect(data!.amount).toBe(-1825.00); // negative = out of account
+      expect(data!.amount).toBe(-1825.0); // negative = out of account
     });
 
     it('records corresponding transfer in on receiving account', async () => {
       await ingestHsa({
         transactions: [],
         investmentActivity: [
-          { date: '2025-07-15', activityType: 'transfer_in', symbol: 'BND', quantity: 25, price: 73.00, amount: 1825.00, description: 'Transfer from Brokerage' },
+          {
+            date: '2025-07-15',
+            activityType: 'transfer_in',
+            symbol: 'BND',
+            quantity: 25,
+            price: 73.0,
+            amount: 1825.0,
+            description: 'Transfer from Brokerage',
+          },
         ],
-        balances: [{ date: '2025-07-15', balance: 1825.00 }],
+        balances: [{ date: '2025-07-15', balance: 1825.0 }],
         holdings: [],
       });
 
@@ -409,7 +600,7 @@ describe('brokerage account (comprehensive)', () => {
         .eq('activity_type', 'transfer_in')
         .single();
 
-      expect(data!.amount).toBe(1825.00);
+      expect(data!.amount).toBe(1825.0);
       expect(data!.symbol).toBe('BND');
     });
   });
@@ -421,7 +612,12 @@ describe('brokerage account (comprehensive)', () => {
       await ingestBrokerage({
         transactions: [],
         investmentActivity: [
-          { date: '2025-06-30', activityType: 'fee', amount: -35.00, description: 'Advisory Fee Q2 2025' },
+          {
+            date: '2025-06-30',
+            activityType: 'fee',
+            amount: -35.0,
+            description: 'Advisory Fee Q2 2025',
+          },
         ],
         balances: [],
         holdings: [],
@@ -435,7 +631,7 @@ describe('brokerage account (comprehensive)', () => {
         .single();
 
       expect(data!.symbol).toBeNull();
-      expect(data!.amount).toBe(-35.00);
+      expect(data!.amount).toBe(-35.0);
       expect(data!.quantity).toBeNull();
     });
 
@@ -443,7 +639,12 @@ describe('brokerage account (comprehensive)', () => {
       await ingestBrokerage({
         transactions: [],
         investmentActivity: [
-          { date: '2025-06-30', activityType: 'interest', amount: 4.23, description: 'Cash Sweep Interest' },
+          {
+            date: '2025-06-30',
+            activityType: 'interest',
+            amount: 4.23,
+            description: 'Cash Sweep Interest',
+          },
         ],
         balances: [],
         holdings: [],
@@ -468,13 +669,53 @@ describe('brokerage account (comprehensive)', () => {
       await ingestBrokerage({
         transactions: [],
         investmentActivity: [],
-        balances: [{ date: '2025-01-31', balance: 34500.00 }],
+        balances: [{ date: '2025-01-31', balance: 34500.0 }],
         holdings: [
-          { asOf: '2025-01-31', symbol: 'VTI', quantity: 50, price: 252.00, marketValue: 12600.00, costBasis: 12500.00, assetClass: 'equity' },
-          { asOf: '2025-01-31', symbol: 'VXUS', quantity: 100, price: 59.00, marketValue: 5900.00, costBasis: 5800.00, assetClass: 'equity' },
-          { asOf: '2025-01-31', symbol: 'BND', quantity: 75, price: 72.50, marketValue: 5437.50, costBasis: 5400.00, assetClass: 'fixed_income' },
-          { asOf: '2025-01-31', symbol: 'AAPL', quantity: 25, price: 188.00, marketValue: 4700.00, costBasis: 4637.50, assetClass: 'equity' },
-          { asOf: '2025-01-31', symbol: 'MSFT', quantity: 15, price: 380.00, marketValue: 5700.00, costBasis: 5625.00, assetClass: 'equity' },
+          {
+            asOf: '2025-01-31',
+            symbol: 'VTI',
+            quantity: 50,
+            price: 252.0,
+            marketValue: 12600.0,
+            costBasis: 12500.0,
+            assetClass: 'equity',
+          },
+          {
+            asOf: '2025-01-31',
+            symbol: 'VXUS',
+            quantity: 100,
+            price: 59.0,
+            marketValue: 5900.0,
+            costBasis: 5800.0,
+            assetClass: 'equity',
+          },
+          {
+            asOf: '2025-01-31',
+            symbol: 'BND',
+            quantity: 75,
+            price: 72.5,
+            marketValue: 5437.5,
+            costBasis: 5400.0,
+            assetClass: 'fixed_income',
+          },
+          {
+            asOf: '2025-01-31',
+            symbol: 'AAPL',
+            quantity: 25,
+            price: 188.0,
+            marketValue: 4700.0,
+            costBasis: 4637.5,
+            assetClass: 'equity',
+          },
+          {
+            asOf: '2025-01-31',
+            symbol: 'MSFT',
+            quantity: 15,
+            price: 380.0,
+            marketValue: 5700.0,
+            costBasis: 5625.0,
+            assetClass: 'equity',
+          },
         ],
       });
 
@@ -492,15 +733,71 @@ describe('brokerage account (comprehensive)', () => {
       await ingestBrokerage({
         transactions: [],
         investmentActivity: [],
-        balances: [{ date: '2025-03-31', balance: 42000.00 }],
+        balances: [{ date: '2025-03-31', balance: 42000.0 }],
         holdings: [
-          { asOf: '2025-03-31', symbol: 'VTI', quantity: 90, price: 260.00, marketValue: 23400.00, costBasis: 22560.00, assetClass: 'equity' },
-          { asOf: '2025-03-31', symbol: 'VXUS', quantity: 100, price: 57.50, marketValue: 5750.00, costBasis: 5800.00, assetClass: 'equity' },
-          { asOf: '2025-03-31', symbol: 'BND', quantity: 75, price: 71.00, marketValue: 5325.00, costBasis: 5400.00, assetClass: 'fixed_income' },
-          { asOf: '2025-03-31', symbol: 'AAPL', quantity: 25, price: 192.00, marketValue: 4800.00, costBasis: 4637.50, assetClass: 'equity' },
-          { asOf: '2025-03-31', symbol: 'MSFT', quantity: 15, price: 385.00, marketValue: 5775.00, costBasis: 5625.00, assetClass: 'equity' },
-          { asOf: '2025-03-31', symbol: 'AMZN', quantity: 1.055, price: 190.00, marketValue: 200.45, costBasis: 199.99, assetClass: 'equity' },
-          { asOf: '2025-03-31', symbol: 'GOOGL', quantity: 0.583, price: 175.00, marketValue: 102.03, costBasis: 100.00, assetClass: 'equity' },
+          {
+            asOf: '2025-03-31',
+            symbol: 'VTI',
+            quantity: 90,
+            price: 260.0,
+            marketValue: 23400.0,
+            costBasis: 22560.0,
+            assetClass: 'equity',
+          },
+          {
+            asOf: '2025-03-31',
+            symbol: 'VXUS',
+            quantity: 100,
+            price: 57.5,
+            marketValue: 5750.0,
+            costBasis: 5800.0,
+            assetClass: 'equity',
+          },
+          {
+            asOf: '2025-03-31',
+            symbol: 'BND',
+            quantity: 75,
+            price: 71.0,
+            marketValue: 5325.0,
+            costBasis: 5400.0,
+            assetClass: 'fixed_income',
+          },
+          {
+            asOf: '2025-03-31',
+            symbol: 'AAPL',
+            quantity: 25,
+            price: 192.0,
+            marketValue: 4800.0,
+            costBasis: 4637.5,
+            assetClass: 'equity',
+          },
+          {
+            asOf: '2025-03-31',
+            symbol: 'MSFT',
+            quantity: 15,
+            price: 385.0,
+            marketValue: 5775.0,
+            costBasis: 5625.0,
+            assetClass: 'equity',
+          },
+          {
+            asOf: '2025-03-31',
+            symbol: 'AMZN',
+            quantity: 1.055,
+            price: 190.0,
+            marketValue: 200.45,
+            costBasis: 199.99,
+            assetClass: 'equity',
+          },
+          {
+            asOf: '2025-03-31',
+            symbol: 'GOOGL',
+            quantity: 0.583,
+            price: 175.0,
+            marketValue: 102.03,
+            costBasis: 100.0,
+            assetClass: 'equity',
+          },
         ],
       });
 
@@ -534,7 +831,15 @@ describe('brokerage account (comprehensive)', () => {
         investmentActivity: [],
         balances: [],
         holdings: [
-          { asOf: '2025-03-31', symbol: 'VTI', quantity: 90, price: 261.50, marketValue: 23535.00, costBasis: 22560.00, assetClass: 'equity' },
+          {
+            asOf: '2025-03-31',
+            symbol: 'VTI',
+            quantity: 90,
+            price: 261.5,
+            marketValue: 23535.0,
+            costBasis: 22560.0,
+            assetClass: 'equity',
+          },
         ],
       });
 
@@ -546,8 +851,8 @@ describe('brokerage account (comprehensive)', () => {
         .eq('symbol', 'VTI')
         .single();
 
-      expect(data!.price).toBe(261.50); // updated
-      expect(data!.market_value).toBe(23535.00); // updated
+      expect(data!.price).toBe(261.5); // updated
+      expect(data!.market_value).toBe(23535.0); // updated
 
       // Other March holdings untouched
       const { data: allMarch } = await db()
@@ -564,15 +869,63 @@ describe('brokerage account (comprehensive)', () => {
       await ingestBrokerage({
         transactions: [],
         investmentActivity: [],
-        balances: [{ date: '2025-05-31', balance: 45000.00 }],
+        balances: [{ date: '2025-05-31', balance: 45000.0 }],
         holdings: [
-          { asOf: '2025-05-31', symbol: 'VTI', quantity: 110, price: 270.00, marketValue: 29700.00, costBasis: 27800.00, assetClass: 'equity' },
-          { asOf: '2025-05-31', symbol: 'VXUS', quantity: 100, price: 60.00, marketValue: 6000.00, costBasis: 5800.00, assetClass: 'equity' },
-          { asOf: '2025-05-31', symbol: 'BND', quantity: 75, price: 72.00, marketValue: 5400.00, costBasis: 5400.00, assetClass: 'fixed_income' },
-          { asOf: '2025-05-31', symbol: 'AAPL', quantity: 10, price: 198.00, marketValue: 1980.00, costBasis: 1855.00, assetClass: 'equity' },
+          {
+            asOf: '2025-05-31',
+            symbol: 'VTI',
+            quantity: 110,
+            price: 270.0,
+            marketValue: 29700.0,
+            costBasis: 27800.0,
+            assetClass: 'equity',
+          },
+          {
+            asOf: '2025-05-31',
+            symbol: 'VXUS',
+            quantity: 100,
+            price: 60.0,
+            marketValue: 6000.0,
+            costBasis: 5800.0,
+            assetClass: 'equity',
+          },
+          {
+            asOf: '2025-05-31',
+            symbol: 'BND',
+            quantity: 75,
+            price: 72.0,
+            marketValue: 5400.0,
+            costBasis: 5400.0,
+            assetClass: 'fixed_income',
+          },
+          {
+            asOf: '2025-05-31',
+            symbol: 'AAPL',
+            quantity: 10,
+            price: 198.0,
+            marketValue: 1980.0,
+            costBasis: 1855.0,
+            assetClass: 'equity',
+          },
           // No MSFT — sold in May
-          { asOf: '2025-05-31', symbol: 'AMZN', quantity: 1.055, price: 195.00, marketValue: 205.73, costBasis: 199.99, assetClass: 'equity' },
-          { asOf: '2025-05-31', symbol: 'GOOGL', quantity: 0.583, price: 180.00, marketValue: 104.94, costBasis: 100.00, assetClass: 'equity' },
+          {
+            asOf: '2025-05-31',
+            symbol: 'AMZN',
+            quantity: 1.055,
+            price: 195.0,
+            marketValue: 205.73,
+            costBasis: 199.99,
+            assetClass: 'equity',
+          },
+          {
+            asOf: '2025-05-31',
+            symbol: 'GOOGL',
+            quantity: 0.583,
+            price: 180.0,
+            marketValue: 104.94,
+            costBasis: 100.0,
+            assetClass: 'equity',
+          },
         ],
       });
 
@@ -624,9 +977,34 @@ describe('brokerage account (comprehensive)', () => {
       await ingestRetirement({
         transactions: [],
         investmentActivity: [
-          { date: '2025-03-01', activityType: 'buy', symbol: 'VTI', quantity: 10, price: 260.00, amount: -2600.00, lotId: 'LOT-001' },
-          { date: '2025-04-01', activityType: 'buy', symbol: 'VTI', quantity: 10, price: 255.00, amount: -2550.00, lotId: 'LOT-002' },
-          { date: '2025-05-01', activityType: 'sell', symbol: 'VTI', quantity: 5, price: 270.00, amount: 1350.00, lotId: 'LOT-001', description: 'Specific lot sale' },
+          {
+            date: '2025-03-01',
+            activityType: 'buy',
+            symbol: 'VTI',
+            quantity: 10,
+            price: 260.0,
+            amount: -2600.0,
+            lotId: 'LOT-001',
+          },
+          {
+            date: '2025-04-01',
+            activityType: 'buy',
+            symbol: 'VTI',
+            quantity: 10,
+            price: 255.0,
+            amount: -2550.0,
+            lotId: 'LOT-002',
+          },
+          {
+            date: '2025-05-01',
+            activityType: 'sell',
+            symbol: 'VTI',
+            quantity: 5,
+            price: 270.0,
+            amount: 1350.0,
+            lotId: 'LOT-001',
+            description: 'Specific lot sale',
+          },
         ],
         balances: [],
         holdings: [],
@@ -655,7 +1033,15 @@ describe('brokerage account (comprehensive)', () => {
       await ingestRetirement({
         transactions: [],
         investmentActivity: [
-          { date: '2025-06-01', activityType: 'buy', symbol: 'QQQ', quantity: 5, price: 450.00, amount: -2250.00, providerTxnId: 'snap_txn_001' },
+          {
+            date: '2025-06-01',
+            activityType: 'buy',
+            symbol: 'QQQ',
+            quantity: 5,
+            price: 450.0,
+            amount: -2250.0,
+            providerTxnId: 'snap_txn_001',
+          },
         ],
         balances: [],
         holdings: [],
@@ -665,7 +1051,15 @@ describe('brokerage account (comprehensive)', () => {
       await ingestRetirement({
         transactions: [],
         investmentActivity: [
-          { date: '2025-06-01', activityType: 'buy', symbol: 'QQQ', quantity: 5, price: 450.00, amount: -2250.00, providerTxnId: 'snap_txn_001' },
+          {
+            date: '2025-06-01',
+            activityType: 'buy',
+            symbol: 'QQQ',
+            quantity: 5,
+            price: 450.0,
+            amount: -2250.0,
+            providerTxnId: 'snap_txn_001',
+          },
         ],
         balances: [],
         holdings: [],
@@ -684,7 +1078,7 @@ describe('brokerage account (comprehensive)', () => {
       await ingestRetirement({
         transactions: [],
         investmentActivity: [
-          { date: '2025-06-10', activityType: 'dividend', symbol: 'QQQ', amount: 8.50 },
+          { date: '2025-06-10', activityType: 'dividend', symbol: 'QQQ', amount: 8.5 },
         ],
         balances: [],
         holdings: [],
@@ -694,7 +1088,7 @@ describe('brokerage account (comprehensive)', () => {
       await ingestRetirement({
         transactions: [],
         investmentActivity: [
-          { date: '2025-06-10', activityType: 'dividend', symbol: 'QQQ', amount: 8.50 },
+          { date: '2025-06-10', activityType: 'dividend', symbol: 'QQQ', amount: 8.5 },
         ],
         balances: [],
         holdings: [],
@@ -719,11 +1113,26 @@ describe('brokerage account (comprehensive)', () => {
       await ingestHsa({
         transactions: [],
         investmentActivity: [
-          { date: '2025-03-01', activityType: 'buy', symbol: 'VTI', quantity: 5, price: 260.00, amount: -1300.00 },
+          {
+            date: '2025-03-01',
+            activityType: 'buy',
+            symbol: 'VTI',
+            quantity: 5,
+            price: 260.0,
+            amount: -1300.0,
+          },
         ],
         balances: [],
         holdings: [
-          { asOf: '2025-03-31', symbol: 'VTI', quantity: 5, price: 260.00, marketValue: 1300.00, costBasis: 1300.00, assetClass: 'equity' },
+          {
+            asOf: '2025-03-31',
+            symbol: 'VTI',
+            quantity: 5,
+            price: 260.0,
+            marketValue: 1300.0,
+            costBasis: 1300.0,
+            assetClass: 'equity',
+          },
         ],
       });
 

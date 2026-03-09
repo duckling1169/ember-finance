@@ -128,9 +128,7 @@ describe('API routes', () => {
   describe('POST /api/ingest/manual/:householdId/:accountId', () => {
     it('ingests manual transactions via API', async () => {
       const res = await req('POST', `/api/ingest/manual/${householdId}/${accountId}`, {
-        transactions: [
-          { date: '2025-06-01', amount: -25.00, description: 'Route test txn' },
-        ],
+        transactions: [{ date: '2025-06-01', amount: -25.0, description: 'Route test txn' }],
       });
 
       expect(res.status).toBe(201);
@@ -141,9 +139,7 @@ describe('API routes', () => {
 
     it('ingests manual balances via API', async () => {
       const res = await req('POST', `/api/ingest/manual/${householdId}/${accountId}`, {
-        balances: [
-          { date: '2025-06-01', balance: 1000.00 },
-        ],
+        balances: [{ date: '2025-06-01', balance: 1000.0 }],
       });
 
       expect(res.status).toBe(201);
@@ -155,7 +151,7 @@ describe('API routes', () => {
       const res = await req(
         'POST',
         `/api/ingest/manual/${householdId}/00000000-0000-0000-0000-000000000000`,
-        { transactions: [] }
+        { transactions: [] },
       );
 
       expect(res.status).toBe(404);
@@ -170,9 +166,7 @@ describe('API routes', () => {
       const newAccountId = (await accRes.json()).id;
 
       const res = await req('POST', `/api/ingest/manual/${householdId}/${newAccountId}`, {
-        transactions: [
-          { date: '2025-06-01', amount: 50, description: 'Auto source test' },
-        ],
+        transactions: [{ date: '2025-06-01', amount: 50, description: 'Auto source test' }],
       });
 
       expect(res.status).toBe(201);

@@ -56,7 +56,7 @@ ingestRoute.post('/manual/:householdId/:accountId', async (c) => {
         sourceId: source.id,
         sourceType: 'manual_entry',
       },
-      result
+      result,
     );
 
     return c.json(ingestResult, 201);

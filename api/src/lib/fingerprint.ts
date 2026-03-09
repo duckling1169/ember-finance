@@ -5,11 +5,9 @@ export function transactionFingerprint(
   accountId: string,
   date: string,
   amount: number,
-  description: string
+  description: string,
 ): string {
-  return createHash('sha256')
-    .update(`${accountId}|${date}|${amount}|${description}`)
-    .digest('hex');
+  return createHash('sha256').update(`${accountId}|${date}|${amount}|${description}`).digest('hex');
 }
 
 export function investmentActivityFingerprint(
@@ -17,7 +15,7 @@ export function investmentActivityFingerprint(
   date: string,
   activityType: string,
   amount: number,
-  symbol?: string
+  symbol?: string,
 ): string {
   return createHash('sha256')
     .update(`${accountId}|${date}|${activityType}|${amount}|${symbol || ''}`)

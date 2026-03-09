@@ -1,10 +1,17 @@
 // ── Account Types ──
 
 export const ACCOUNT_TYPES = [
-  'checking', 'savings', 'credit',
-  'brokerage', 'retirement', 'hsa',
-  'loan', 'mortgage',
-  'property', 'vehicle', 'other',
+  'checking',
+  'savings',
+  'credit',
+  'brokerage',
+  'retirement',
+  'hsa',
+  'loan',
+  'mortgage',
+  'property',
+  'vehicle',
+  'other',
 ] as const;
 
 export type AccountType = (typeof ACCOUNT_TYPES)[number];
@@ -23,12 +30,25 @@ export const NET_WORTH_GROUPS = {
 export type Provider = 'teller' | 'snaptrade' | 'csv' | 'pdf' | 'manual';
 
 export type ActivityType =
-  | 'buy' | 'sell' | 'dividend' | 'reinvestment' | 'split'
-  | 'transfer_in' | 'transfer_out' | 'fee' | 'interest' | 'return_of_capital';
+  | 'buy'
+  | 'sell'
+  | 'dividend'
+  | 'reinvestment'
+  | 'split'
+  | 'transfer_in'
+  | 'transfer_out'
+  | 'fee'
+  | 'interest'
+  | 'return_of_capital';
 
 export type AssetClass =
-  | 'equity' | 'fixed_income' | 'cash' | 'crypto'
-  | 'real_estate' | 'commodity' | 'other';
+  | 'equity'
+  | 'fixed_income'
+  | 'cash'
+  | 'crypto'
+  | 'real_estate'
+  | 'commodity'
+  | 'other';
 
 // ── DB Row Types ──
 
@@ -67,7 +87,7 @@ export interface AccountSource {
   household_id: string;
   provider: Provider;
   provider_account_id: string | null;
-  provider_meta: Uint8Array | null;  // encrypted
+  provider_meta: Uint8Array | null; // encrypted
   is_active: boolean;
   last_synced: string | null;
   created_at: string;

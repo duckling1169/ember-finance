@@ -42,7 +42,7 @@ describe('ManualAdapter', () => {
   it('passes through transactions', async () => {
     const adapter = new ManualAdapter({
       transactions: [
-        { date: '2025-01-15', amount: -42.50, description: 'Groceries', category: 'food' },
+        { date: '2025-01-15', amount: -42.5, description: 'Groceries', category: 'food' },
         { date: '2025-01-16', amount: 3000, description: 'Paycheck', isTransfer: false },
       ],
     });
@@ -50,7 +50,7 @@ describe('ManualAdapter', () => {
     const result = await adapter.sync(mockAccount, mockSource);
 
     expect(result.transactions).toHaveLength(2);
-    expect(result.transactions[0].amount).toBe(-42.50);
+    expect(result.transactions[0].amount).toBe(-42.5);
     expect(result.transactions[0].category).toBe('food');
     expect(result.transactions[1].amount).toBe(3000);
     expect(result.investmentActivity).toEqual([]);
@@ -66,14 +66,14 @@ describe('ManualAdapter', () => {
           activityType: 'buy',
           symbol: 'VTI',
           quantity: 10,
-          price: 250.00,
-          amount: -2500.00,
+          price: 250.0,
+          amount: -2500.0,
         },
         {
           date: '2025-01-20',
           activityType: 'dividend',
           symbol: 'VTI',
-          amount: 15.50,
+          amount: 15.5,
         },
       ],
     });
@@ -89,16 +89,14 @@ describe('ManualAdapter', () => {
 
   it('passes through balances', async () => {
     const adapter = new ManualAdapter({
-      balances: [
-        { date: '2025-01-15', balance: 5432.10, available: 5432.10 },
-      ],
+      balances: [{ date: '2025-01-15', balance: 5432.1, available: 5432.1 }],
     });
 
     const result = await adapter.sync(mockAccount, mockSource);
 
     expect(result.balances).toHaveLength(1);
-    expect(result.balances[0].balance).toBe(5432.10);
-    expect(result.balances[0].available).toBe(5432.10);
+    expect(result.balances[0].balance).toBe(5432.1);
+    expect(result.balances[0].available).toBe(5432.1);
   });
 
   it('passes through holdings', async () => {
@@ -109,9 +107,9 @@ describe('ManualAdapter', () => {
           symbol: 'VTI',
           name: 'Vanguard Total Stock Market ETF',
           quantity: 100,
-          price: 250.00,
-          marketValue: 25000.00,
-          costBasis: 22000.00,
+          price: 250.0,
+          marketValue: 25000.0,
+          costBasis: 22000.0,
           assetClass: 'equity',
         },
       ],
@@ -121,7 +119,7 @@ describe('ManualAdapter', () => {
 
     expect(result.holdings).toHaveLength(1);
     expect(result.holdings[0].symbol).toBe('VTI');
-    expect(result.holdings[0].marketValue).toBe(25000.00);
+    expect(result.holdings[0].marketValue).toBe(25000.0);
     expect(result.holdings[0].assetClass).toBe('equity');
   });
 
@@ -130,7 +128,9 @@ describe('ManualAdapter', () => {
       transactions: [{ date: '2025-01-15', amount: -100, description: 'Test' }],
       balances: [{ date: '2025-01-15', balance: 900 }],
       holdings: [{ asOf: '2025-01-15', symbol: 'VTI', quantity: 10, marketValue: 2500 }],
-      investmentActivity: [{ date: '2025-01-15', activityType: 'buy', symbol: 'VTI', amount: -2500 }],
+      investmentActivity: [
+        { date: '2025-01-15', activityType: 'buy', symbol: 'VTI', amount: -2500 },
+      ],
     });
 
     const result = await adapter.sync(mockAccount, mockSource);

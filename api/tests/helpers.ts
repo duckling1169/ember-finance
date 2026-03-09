@@ -2,10 +2,7 @@ import { createClient } from '@supabase/supabase-js';
 
 // Service role client for test setup/teardown
 export function getTestClient() {
-  return createClient(
-    process.env.SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!,
-  );
+  return createClient(process.env.SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!);
 }
 
 // Create a test household + member, return IDs for use in tests
@@ -38,7 +35,7 @@ export async function createTestHousehold() {
 // Create a test account under a household
 export async function createTestAccount(
   householdId: string,
-  overrides: Record<string, unknown> = {}
+  overrides: Record<string, unknown> = {},
 ) {
   const db = getTestClient();
 
@@ -64,7 +61,7 @@ export async function createTestAccount(
 export async function createTestSource(
   accountId: string,
   householdId: string,
-  provider: string = 'manual'
+  provider: string = 'manual',
 ) {
   const db = getTestClient();
 

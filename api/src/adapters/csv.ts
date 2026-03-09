@@ -3,15 +3,10 @@ import type {
   Account,
   AccountSource,
   IngestResult,
-  NormalizedTransaction,
-  NormalizedInvestmentActivity,
-  NormalizedHolding,
-  NormalizedBalance,
   ProviderAdapter,
   ActivityType,
   AssetClass,
   AccountType,
-  INVESTMENT_ACCOUNT_TYPES,
 } from '../types/index.js';
 
 // Known CSV formats from common institutions
@@ -24,8 +19,8 @@ type CsvFormat =
   | 'vanguard_positions'
   | 'schwab_transactions'
   | 'schwab_positions'
-  | 'generic_banking'     // fallback: Date, Description, Amount
-  | 'generic_brokerage';  // fallback: Date, Action, Symbol, Quantity, Price, Amount
+  | 'generic_banking' // fallback: Date, Description, Amount
+  | 'generic_brokerage'; // fallback: Date, Action, Symbol, Quantity, Price, Amount
 
 interface CsvParseOptions {
   format: CsvFormat;
@@ -75,7 +70,10 @@ function stripMetadataRows(content: string, format: CsvFormat): string {
  * Strip trailing summary/totals rows from Schwab-style CSVs.
  * Schwab appends "Transactions Total" or similar footer rows after the data.
  */
-function stripFooterRows(rows: Record<string, string>[], format: CsvFormat): Record<string, string>[] {
+function stripFooterRows(
+  rows: Record<string, string>[],
+  format: CsvFormat,
+): Record<string, string>[] {
   if (format !== 'schwab_transactions' && format !== 'schwab_positions') return rows;
 
   return rows.filter((row) => {
@@ -249,7 +247,13 @@ function mapFidelityAction(action: string): ActivityType {
   if (a.includes('BOUGHT') || a.includes('BUY') || a.includes('PURCHASE')) return 'buy';
   if (a.includes('SOLD') || a.includes('SELL')) return 'sell';
   if (a.includes('REINVEST')) return 'reinvestment';
-  if (a.includes('DIVIDEND') || a.includes('DIV') || a.includes('CAP GAIN') || a.includes('CAPITAL GAIN')) return 'dividend';
+  if (
+    a.includes('DIVIDEND') ||
+    a.includes('DIV') ||
+    a.includes('CAP GAIN') ||
+    a.includes('CAPITAL GAIN')
+  )
+    return 'dividend';
   if (a.includes('SPLIT')) return 'split';
   if (a.includes('TRANSFER') && a.includes('IN')) return 'transfer_in';
   if (a.includes('TRANSFER') && a.includes('OUT')) return 'transfer_out';
@@ -338,7 +342,8 @@ function mapVanguardType(type: string): ActivityType {
   if (t.includes('BUY') || t.includes('PURCHASE') || t.includes('CONTRIBUTION')) return 'buy';
   if (t.includes('SELL') || t.includes('REDEMPTION') || t.includes('WITHDRAWAL')) return 'sell';
   if (t.includes('REINVESTMENT') || t.includes('REINVEST')) return 'reinvestment';
-  if (t.includes('DIVIDEND') || t.includes('CAPITAL GAIN') || t.includes('DISTRIBUTION')) return 'dividend';
+  if (t.includes('DIVIDEND') || t.includes('CAPITAL GAIN') || t.includes('DISTRIBUTION'))
+    return 'dividend';
   if (t.includes('TRANSFER IN') || t.includes('ROLLOVER')) return 'transfer_in';
   if (t.includes('TRANSFER OUT')) return 'transfer_out';
   if (t.includes('FEE')) return 'fee';
@@ -363,9 +368,13 @@ function parseVanguardPositions(rows: Record<string, string>[]): IngestResult {
       symbol,
       name: findColumn(row, 'Investment Name', 'Name', 'Description') || undefined,
       quantity: parseAmount(sharesStr),
-      price: findColumn(row, 'Share Price', 'Price') ? parseAmount(findColumn(row, 'Share Price', 'Price')!) : undefined,
+      price: findColumn(row, 'Share Price', 'Price')
+        ? parseAmount(findColumn(row, 'Share Price', 'Price')!)
+        : undefined,
       marketValue: parseAmount(valueStr),
-      costBasis: findColumn(row, 'Cost Basis', 'Total Cost') ? parseAmount(findColumn(row, 'Cost Basis', 'Total Cost')!) : undefined,
+      costBasis: findColumn(row, 'Cost Basis', 'Total Cost')
+        ? parseAmount(findColumn(row, 'Cost Basis', 'Total Cost')!)
+        : undefined,
       assetClass: guessAssetClass(symbol),
     });
   }
@@ -398,10 +407,14 @@ function parseSchwabTransactions(rows: Record<string, string>[]): IngestResult {
       activityType: mapSchwabAction(action),
       symbol,
       description: findColumn(row, 'Description') || action || undefined,
-      quantity: findColumn(row, 'Quantity') ? Math.abs(parseAmount(findColumn(row, 'Quantity')!)) : undefined,
+      quantity: findColumn(row, 'Quantity')
+        ? Math.abs(parseAmount(findColumn(row, 'Quantity')!))
+        : undefined,
       price: findColumn(row, 'Price') ? parseAmount(findColumn(row, 'Price')!) : undefined,
       amount: parseAmount(amountStr),
-      commission: findColumn(row, 'Fees & Comm', 'Fees & Commission') ? Math.abs(parseAmount(findColumn(row, 'Fees & Comm', 'Fees & Commission')!)) : undefined,
+      commission: findColumn(row, 'Fees & Comm', 'Fees & Commission')
+        ? Math.abs(parseAmount(findColumn(row, 'Fees & Comm', 'Fees & Commission')!))
+        : undefined,
     });
   }
 
@@ -442,7 +455,9 @@ function parseSchwabPositions(rows: Record<string, string>[]): IngestResult {
       quantity: parseAmount(quantityStr),
       price: findColumn(row, 'Price') ? parseAmount(findColumn(row, 'Price')!) : undefined,
       marketValue: parseAmount(valueStr),
-      costBasis: findColumn(row, 'Cost Basis') ? parseAmount(findColumn(row, 'Cost Basis')!) : undefined,
+      costBasis: findColumn(row, 'Cost Basis')
+        ? parseAmount(findColumn(row, 'Cost Basis')!)
+        : undefined,
       assetClass: guessAssetClass(symbol),
     });
   }
@@ -495,8 +510,12 @@ function parseGenericBrokerage(rows: Record<string, string>[]): IngestResult {
       activityType: mapGenericAction(action),
       symbol,
       description: findColumn(row, 'Description', 'Name') || undefined,
-      quantity: findColumn(row, 'Quantity', 'Shares') ? Math.abs(parseAmount(findColumn(row, 'Quantity', 'Shares')!)) : undefined,
-      price: findColumn(row, 'Price', 'Share Price') ? parseAmount(findColumn(row, 'Price', 'Share Price')!) : undefined,
+      quantity: findColumn(row, 'Quantity', 'Shares')
+        ? Math.abs(parseAmount(findColumn(row, 'Quantity', 'Shares')!))
+        : undefined,
+      price: findColumn(row, 'Price', 'Share Price')
+        ? parseAmount(findColumn(row, 'Price', 'Share Price')!)
+        : undefined,
       amount: parseAmount(amountStr),
     });
   }
@@ -518,7 +537,12 @@ function mapGenericAction(action: string): ActivityType {
 
 function guessAssetClass(symbol: string): AssetClass {
   const s = symbol.toUpperCase();
-  if (['BND', 'VBTLX', 'AGG', 'TLT', 'VTIP', 'BNDX', 'BSV', 'BIV', 'BLV', 'TIPS'].some((b) => s.includes(b))) return 'fixed_income';
+  if (
+    ['BND', 'VBTLX', 'AGG', 'TLT', 'VTIP', 'BNDX', 'BSV', 'BIV', 'BLV', 'TIPS'].some((b) =>
+      s.includes(b),
+    )
+  )
+    return 'fixed_income';
   if (['BTC', 'ETH', 'GBTC', 'ETHE', 'BITO'].some((c) => s.includes(c))) return 'crypto';
   if (['VNQ', 'VGSLX', 'SCHH', 'IYR', 'REIT'].some((r) => s.includes(r))) return 'real_estate';
   if (['GLD', 'SLV', 'IAU', 'DBA', 'USO'].some((c) => s.includes(c))) return 'commodity';

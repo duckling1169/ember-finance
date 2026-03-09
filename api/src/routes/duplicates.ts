@@ -73,7 +73,7 @@ duplicatesRoute.get('/review/:householdId/:accountId', async (c) => {
 // Hide a transaction (user marks as duplicate)
 duplicatesRoute.post('/hide/transaction/:id', async (c) => {
   const id = c.req.param('id');
-  const body = await c.req.json().catch(() => ({})) as { reason?: string };
+  const body = (await c.req.json().catch(() => ({}))) as { reason?: string };
 
   const { data, error } = await supabase
     .from('transaction')
@@ -107,7 +107,7 @@ duplicatesRoute.post('/unhide/transaction/:id', async (c) => {
 // Hide investment activity
 duplicatesRoute.post('/hide/activity/:id', async (c) => {
   const id = c.req.param('id');
-  const body = await c.req.json().catch(() => ({})) as { reason?: string };
+  const body = (await c.req.json().catch(() => ({}))) as { reason?: string };
 
   const { data, error } = await supabase
     .from('investment_activity')

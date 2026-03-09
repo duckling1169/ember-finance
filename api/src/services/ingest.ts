@@ -63,8 +63,12 @@ export async function processIngest(ctx: IngestContext, result: IngestResult) {
     const actDates = result.investmentActivity.map((a) => a.date);
 
     const [txnDedup, actDedup] = await Promise.all([
-      txnDates.length > 0 ? detectDuplicateTransactions(ctx.accountId, txnDates) : { autoHidden: 0, potentialDupes: 0 },
-      actDates.length > 0 ? detectDuplicateActivity(ctx.accountId, actDates) : { autoHidden: 0, potentialDupes: 0 },
+      txnDates.length > 0
+        ? detectDuplicateTransactions(ctx.accountId, txnDates)
+        : { autoHidden: 0, potentialDupes: 0 },
+      actDates.length > 0
+        ? detectDuplicateActivity(ctx.accountId, actDates)
+        : { autoHidden: 0, potentialDupes: 0 },
     ]);
 
     // 7. Mark raw_ingest as processed
@@ -124,7 +128,11 @@ async function upsertTransactions(ctx: IngestContext, rawIngestId: string, resul
   if (error) throw new Error(`transaction upsert failed: ${error.message}`);
 }
 
-async function upsertInvestmentActivity(ctx: IngestContext, rawIngestId: string, result: IngestResult) {
+async function upsertInvestmentActivity(
+  ctx: IngestContext,
+  rawIngestId: string,
+  result: IngestResult,
+) {
   const rows = result.investmentActivity.map((a) => ({
     household_id: ctx.householdId,
     account_id: ctx.accountId,
@@ -176,9 +184,11 @@ async function upsertHoldings(ctx: IngestContext, rawIngestId: string, result: I
 }
 
 async function upsertBalances(ctx: IngestContext, rawIngestId: string, result: IngestResult) {
-  const sourceType = ctx.sourceType.includes('manual') ? 'manual'
-    : ctx.sourceType.includes('csv') ? 'csv_derived'
-    : 'provider_sync';
+  const sourceType = ctx.sourceType.includes('manual')
+    ? 'manual'
+    : ctx.sourceType.includes('csv')
+      ? 'csv_derived'
+      : 'provider_sync';
 
   const rows = result.balances.map((b) => ({
     household_id: ctx.householdId,

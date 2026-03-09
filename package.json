@@ -7,10 +7,22 @@
     "dev:api": "npm run dev --prefix api",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint",
+    "lint": "eslint && npm run lint --prefix api",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "prepare": "husky",
+    "test": "npm test --prefix api",
     "db:migrate": "supabase db push",
     "db:reset": "supabase db reset",
     "db:start": "supabase start"
+  },
+  "lint-staged": {
+    "*.{ts,tsx,js,mjs}": [
+      "prettier --write"
+    ],
+    "*.{json,md,css,yml,yaml}": [
+      "prettier --write"
+    ]
   },
   "dependencies": {
     "next": "16.1.6",
@@ -24,6 +36,10 @@
     "@types/react-dom": "^19",
     "eslint": "^9",
     "eslint-config-next": "16.1.6",
+    "eslint-config-prettier": "^10.1.8",
+    "husky": "^9.1.7",
+    "lint-staged": "^16.3.2",
+    "prettier": "^3.8.1",
     "tailwindcss": "^4",
     "typescript": "^5"
   }
