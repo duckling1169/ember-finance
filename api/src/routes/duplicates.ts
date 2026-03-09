@@ -1,7 +1,8 @@
 import { Hono } from 'hono';
 import { supabase } from '../lib/supabase.js';
+import type { AuthEnv } from '../middleware/auth.js';
 
-export const duplicatesRoute = new Hono();
+export const duplicatesRoute = new Hono<AuthEnv>();
 
 // List hidden transactions for an account
 duplicatesRoute.get('/transactions/:householdId/:accountId', async (c) => {

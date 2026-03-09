@@ -85,6 +85,83 @@ function stripFooterRows(
   });
 }
 
+/**
+ * Auto-detect CSV format by inspecting header row content.
+ * Returns the detected CsvFormat or null if no match.
+ */
+export function detectCsvFormat(content: string, accountType: AccountType): CsvFormat | null {
+  const cleaned = content.replace(/^\uFEFF/, '');
+  // Look at the first 15 lines for header signatures
+  const lines = cleaned.split(/\r?\n/).slice(0, 15);
+  const blob = lines.join('\n').toLowerCase();
+
+  // Institution-specific detection (order matters — check specific before generic)
+
+  // Chase: "Transaction Date" or "Posting Date" + "Description" + "Amount"
+  if (blob.includes('posting date') && blob.includes('description') && blob.includes('amount')) {
+    return accountType === 'credit' ? 'chase_credit' : 'chase_checking';
+  }
+  if (
+    blob.includes('transaction date') &&
+    blob.includes('description') &&
+    blob.includes('amount')
+  ) {
+    return accountType === 'credit' ? 'chase_credit' : 'chase_checking';
+  }
+
+  // Fidelity transactions: "Run Date" + "Action"
+  if (blob.includes('run date') && blob.includes('action') && blob.includes('amount')) {
+    return 'fidelity_transactions';
+  }
+  // Fidelity positions: "Symbol" + "Current Value"
+  if (blob.includes('symbol') && blob.includes('current value')) {
+    return 'fidelity_positions';
+  }
+
+  // Schwab: "Date" + "Action" + "Symbol" + "Quantity" + "Price" + "Amount"
+  if (
+    blob.includes('action') &&
+    blob.includes('symbol') &&
+    blob.includes('quantity') &&
+    blob.includes('price')
+  ) {
+    // Distinguish transactions vs positions by looking for "Market Value"
+    if (blob.includes('market value') && !blob.includes('action')) {
+      return 'schwab_positions';
+    }
+    return 'schwab_transactions';
+  }
+  // Schwab positions: "Symbol" + "Market Value" + "Quantity"
+  if (blob.includes('symbol') && blob.includes('market value') && blob.includes('quantity')) {
+    return 'schwab_positions';
+  }
+
+  // Vanguard transactions: "Trade Date" + "Transaction Type"
+  if (blob.includes('trade date') && blob.includes('transaction type')) {
+    return 'vanguard_transactions';
+  }
+  // Vanguard positions: "Symbol" + "Share Price" or "Fund Name"
+  if (blob.includes('symbol') && (blob.includes('share price') || blob.includes('fund name'))) {
+    return 'vanguard_positions';
+  }
+
+  // Generic fallback based on account type
+  const isBrokerage = ['brokerage', 'retirement', 'hsa'].includes(accountType);
+  if (isBrokerage) {
+    // If it has symbol/quantity columns, it's brokerage-like
+    if (blob.includes('symbol') && (blob.includes('quantity') || blob.includes('shares'))) {
+      return 'generic_brokerage';
+    }
+  }
+
+  // Generic banking: any CSV with date + amount + description-like column
+  if (blob.includes('date') && blob.includes('amount')) {
+    return isBrokerage ? 'generic_brokerage' : 'generic_banking';
+  }
+
+  return null;
+}
+
 export class CsvAdapter implements ProviderAdapter {
   async sync(_account: Account, _source: AccountSource): Promise<IngestResult> {
     throw new Error('CSV adapter does not support sync — use parse()');

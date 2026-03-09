@@ -1,8 +1,52 @@
 import { createClient } from '@supabase/supabase-js';
+import type { Context, Next } from 'hono';
 
 // Service role client for test setup/teardown
 export function getTestClient() {
   return createClient(process.env.SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!);
+}
+
+/**
+ * Stub auth middleware for tests. Sets authUser and userClient on context
+ * so route handlers can access them without a real JWT.
+ */
+export function stubAuth(authUserId: string = 'test-user-id') {
+  return async (c: Context, next: Next) => {
+    c.set('authUser', { id: authUserId, email: 'test@example.com' });
+    c.set('userClient', getTestClient());
+    await next();
+  };
+}
+
+/**
+ * Stub household member middleware for tests. Since test members have
+ * null auth_user_id (can't create real auth.users), this just verifies
+ * the household exists and has at least one member. In production,
+ * requireHouseholdMember checks auth_user_id matching.
+ */
+export function stubHouseholdMember() {
+  return async (c: Context, next: Next) => {
+    const householdId = c.req.param('householdId');
+
+    if (!householdId) {
+      return c.json({ error: 'Missing householdId' }, 400);
+    }
+
+    const db = getTestClient();
+    const { data: member } = await db
+      .from('member')
+      .select('id')
+      .eq('household_id', householdId)
+      .limit(1)
+      .single();
+
+    if (!member) {
+      return c.json({ error: 'Forbidden: not a member of this household' }, 403);
+    }
+
+    c.set('householdId', householdId);
+    await next();
+  };
 }
 
 // Create a test household + member, return IDs for use in tests
@@ -84,6 +128,8 @@ export async function cleanupTestHousehold(householdId: string) {
   const db = getTestClient();
 
   // Delete in reverse dependency order
+  await db.from('lot_disposition').delete().eq('household_id', householdId);
+  await db.from('tax_lot').delete().eq('household_id', householdId);
   await db.from('net_worth_snapshot').delete().eq('household_id', householdId);
   await db.from('balance_snapshot').delete().eq('household_id', householdId);
   await db.from('holding').delete().eq('household_id', householdId);

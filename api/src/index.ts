@@ -10,7 +10,7 @@ import { ingestRoute } from './routes/ingest.js';
 import { duplicatesRoute } from './routes/duplicates.js';
 import { onboardingRoute } from './routes/onboarding.js';
 import { settingsRoute } from './routes/settings.js';
-import { requireAuth } from './middleware/auth.js';
+import { requireAuth, requireHouseholdMember, requireRecordOwnership } from './middleware/auth.js';
 
 const app = new Hono();
 
@@ -18,11 +18,25 @@ const app = new Hono();
 app.use('*', logger());
 app.use('*', cors({ origin: env.corsOrigin }));
 
-// Auth-protected routes — apply before route registration
-app.use('/api/onboarding', requireAuth); // POST /api/onboarding
-app.use('/api/onboarding/*', requireAuth); // POST /api/onboarding/accept-invite
-app.use('/api/settings', requireAuth); // catch root (if any)
-app.use('/api/settings/*', requireAuth); // all settings sub-routes
+// Auth on all /api/* routes
+app.use('/api/*', requireAuth);
+
+// Household membership verification for routes with :householdId
+app.use('/api/accounts/:householdId', requireHouseholdMember);
+app.use('/api/accounts/:householdId/*', requireHouseholdMember);
+app.use('/api/sources/:householdId/*', requireHouseholdMember);
+app.use('/api/ingest/manual/:householdId/*', requireHouseholdMember);
+app.use('/api/ingest/csv/:householdId/*', requireHouseholdMember);
+app.use('/api/ingest/sync/:householdId/*', requireHouseholdMember);
+app.use('/api/duplicates/transactions/:householdId/*', requireHouseholdMember);
+app.use('/api/duplicates/activity/:householdId/*', requireHouseholdMember);
+app.use('/api/duplicates/review/:householdId/*', requireHouseholdMember);
+
+// Record ownership for duplicate hide/unhide (no householdId in path)
+app.use('/api/duplicates/hide/transaction/:id', requireRecordOwnership('transaction'));
+app.use('/api/duplicates/unhide/transaction/:id', requireRecordOwnership('transaction'));
+app.use('/api/duplicates/hide/activity/:id', requireRecordOwnership('investment_activity'));
+app.use('/api/duplicates/unhide/activity/:id', requireRecordOwnership('investment_activity'));
 
 // Routes
 app.route('/health', healthRoute);

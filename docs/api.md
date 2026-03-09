@@ -4,15 +4,19 @@ Base URL: `http://localhost:3001`
 
 ## Authentication
 
-Routes under `/api/onboarding` and `/api/settings` require a Supabase JWT in the `Authorization` header:
+All `/api/*` routes require a Supabase JWT in the `Authorization` header:
 
 ```
 Authorization: Bearer <supabase_access_token>
 ```
 
-The middleware extracts the user via `supabase.auth.getUser(token)` and sets `authUser` (id, email) on the request context.
+The `requireAuth` middleware extracts the user via `supabase.auth.getUser(token)` and sets `authUser` (id, email) on the request context.
 
-Routes under `/api/accounts`, `/api/sources`, `/api/ingest`, and `/api/duplicates` currently accept a `householdId` path parameter without JWT auth (to be migrated).
+### Household Authorization
+
+Routes with a `:householdId` path parameter additionally verify that the authenticated user is a member of that household via the `requireHouseholdMember` middleware. Returns 403 if the user is not a member.
+
+Routes with only a record `:id` parameter (duplicate hide/unhide) look up the record's `household_id` and verify membership via `requireRecordOwnership`. Returns 404 if the record doesn't exist, 403 if the user isn't a member of its household.
 
 ---
 
