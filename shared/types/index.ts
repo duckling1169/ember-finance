@@ -1,10 +1,88 @@
+// ── Onboarding Enums ──
+
+export const TAX_FILING_STATUSES = [
+  'single',
+  'married_jointly',
+  'married_separately',
+  'head_of_household',
+] as const;
+export type TaxFilingStatus = (typeof TAX_FILING_STATUSES)[number];
+
+export const EMPLOYMENT_TYPES = ['w2', '1099', 'mixed'] as const;
+export type EmploymentType = (typeof EMPLOYMENT_TYPES)[number];
+
+export const RISK_TOLERANCES = ['conservative', 'moderate', 'aggressive'] as const;
+export type RiskTolerance = (typeof RISK_TOLERANCES)[number];
+
+export const US_STATES = [
+  'AL',
+  'AK',
+  'AZ',
+  'AR',
+  'CA',
+  'CO',
+  'CT',
+  'DE',
+  'FL',
+  'GA',
+  'HI',
+  'ID',
+  'IL',
+  'IN',
+  'IA',
+  'KS',
+  'KY',
+  'LA',
+  'ME',
+  'MD',
+  'MA',
+  'MI',
+  'MN',
+  'MS',
+  'MO',
+  'MT',
+  'NE',
+  'NV',
+  'NH',
+  'NJ',
+  'NM',
+  'NY',
+  'NC',
+  'ND',
+  'OH',
+  'OK',
+  'OR',
+  'PA',
+  'RI',
+  'SC',
+  'SD',
+  'TN',
+  'TX',
+  'UT',
+  'VT',
+  'VA',
+  'WA',
+  'WV',
+  'WI',
+  'WY',
+  'DC',
+] as const;
+export type USState = (typeof US_STATES)[number];
+
 // ── Account Types ──
 
 export const ACCOUNT_TYPES = [
-  'checking', 'savings', 'credit',
-  'brokerage', 'retirement', 'hsa',
-  'loan', 'mortgage',
-  'property', 'vehicle', 'other',
+  'checking',
+  'savings',
+  'credit',
+  'brokerage',
+  'retirement',
+  'hsa',
+  'loan',
+  'mortgage',
+  'property',
+  'vehicle',
+  'other',
 ] as const;
 
 export type AccountType = (typeof ACCOUNT_TYPES)[number];
@@ -23,18 +101,34 @@ export const NET_WORTH_GROUPS = {
 export type Provider = 'teller' | 'snaptrade' | 'csv' | 'pdf' | 'manual';
 
 export type ActivityType =
-  | 'buy' | 'sell' | 'dividend' | 'reinvestment' | 'split'
-  | 'transfer_in' | 'transfer_out' | 'fee' | 'interest' | 'return_of_capital';
+  | 'buy'
+  | 'sell'
+  | 'dividend'
+  | 'reinvestment'
+  | 'split'
+  | 'transfer_in'
+  | 'transfer_out'
+  | 'fee'
+  | 'interest'
+  | 'return_of_capital';
 
 export type AssetClass =
-  | 'equity' | 'fixed_income' | 'cash' | 'crypto'
-  | 'real_estate' | 'commodity' | 'other';
+  | 'equity'
+  | 'fixed_income'
+  | 'cash'
+  | 'crypto'
+  | 'real_estate'
+  | 'commodity'
+  | 'other';
 
 // ── DB Row Types ──
 
 export interface Household {
   id: string;
   name: string;
+  tax_filing_status: TaxFilingStatus | null;
+  state: USState | null;
+  currency: string;
   created_at: string;
 }
 
@@ -44,6 +138,22 @@ export interface Member {
   auth_user_id: string | null;
   display_name: string;
   role: 'owner' | 'viewer';
+  birthday: string | null;
+  target_retirement_age: number | null;
+  annual_income: number | null;
+  employment_type: EmploymentType | null;
+  risk_tolerance: RiskTolerance | null;
+  created_at: string;
+}
+
+export interface HouseholdInvite {
+  id: string;
+  household_id: string;
+  email: string;
+  invited_by: string;
+  role: 'owner' | 'viewer';
+  expires_at: string;
+  accepted_at: string | null;
   created_at: string;
 }
 
@@ -67,7 +177,7 @@ export interface AccountSource {
   household_id: string;
   provider: Provider;
   provider_account_id: string | null;
-  provider_meta: Uint8Array | null;  // encrypted
+  provider_meta: Uint8Array | null; // encrypted
   is_active: boolean;
   last_synced: string | null;
   created_at: string;
