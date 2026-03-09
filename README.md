@@ -1,4 +1,4 @@
-# FIreApp
+# Ember
 
 A brief description of the project goes here.
 
@@ -45,7 +45,7 @@ npm start
 ## Project Structure
 
 ```
-FIreApp/
+ember-finance/
 ├── src/
 │   └── app/          # App Router pages and layouts
 │       ├── layout.tsx

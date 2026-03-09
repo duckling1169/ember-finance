@@ -1,12 +1,12 @@
-# Contributing to FIRE App
+# Contributing to Ember
 
 ## Development Setup
 
 1. Clone and install dependencies:
 
    ```bash
-   git clone https://github.com/<your-username>/FIreApp.git
-   cd FIreApp
+   git clone https://github.com/<your-username>/ember-finance.git
+   cd ember-finance
    npm install
    cd api && npm install
    ```

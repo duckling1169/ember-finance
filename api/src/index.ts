@@ -48,7 +48,7 @@ app.route('/api/ingest', ingestRoute);
 app.route('/api/duplicates', duplicatesRoute);
 
 serve({ fetch: app.fetch, port: env.port }, (info) => {
-  console.warn(`FIRE API running on http://localhost:${info.port}`);
+  console.warn(`Ember API running on http://localhost:${info.port}`);
 });
 
 export default app;

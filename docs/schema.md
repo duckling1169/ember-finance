@@ -1,4 +1,4 @@
-# FIRE App — Database Schema
+# Ember — Database Schema
 
 > Source of truth: `supabase/migrations/001_schema.sql` and `002_onboarding.sql`.
 > This doc summarizes the schema with annotations. If it diverges from the migrations, the migrations win.

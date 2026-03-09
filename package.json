@@ -1,5 +1,5 @@
 {
-  "name": "fireapp",
+  "name": "ember-finance",
   "version": "0.1.0",
   "private": true,
   "scripts": {
@@ -28,6 +28,7 @@
     "@base-ui/react": "^1.2.0",
     "@supabase/supabase-js": "^2.99.0",
     "@tabler/icons-react": "^3.40.0",
+    "@tremor/react": "^3.18.7",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "lucide-react": "^0.577.0",

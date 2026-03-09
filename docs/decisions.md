@@ -1,4 +1,4 @@
-# FIRE App — Decision Log
+# Ember — Decision Log
 
 Architectural decisions, recorded when made. Append-only.
 

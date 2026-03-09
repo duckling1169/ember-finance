@@ -1,4 +1,4 @@
-# FIRE App — Architecture
+# Ember — Architecture
 
 ## Philosophy
 
@@ -31,7 +31,7 @@ Investment-first personal finance app. Portfolio construction, historical perfor
 ## Project Structure
 
 ```
-FIreApp/
+ember-finance/
 ├── api/                        # Hono backend API
 │   ├── src/
 │   │   ├── index.ts            # App setup, middleware, route registration

@@ -1,4 +1,4 @@
-# FIRE App — API Reference
+# Ember — API Reference
 
 Base URL: `http://localhost:3001`
 
