@@ -20,14 +20,29 @@ export function useAuth() {
   return useContext(AuthContext);
 }
 
+const devBypass =
+  process.env.NODE_ENV === 'development' && !process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+
+const mockUser = {
+  id: 'dev-mock-user',
+  email: 'dev@ember.local',
+  aud: 'authenticated',
+  role: 'authenticated',
+  app_metadata: {},
+  user_metadata: { display_name: 'Dev User' },
+  created_at: new Date().toISOString(),
+} as unknown as User;
+
 export function AuthProvider({ children }: { children: React.ReactNode }) {
-  const [state, setState] = useState<AuthState>({
-    user: null,
-    session: null,
-    loading: true,
-  });
+  const [state, setState] = useState<AuthState>(
+    devBypass
+      ? { user: mockUser, session: null, loading: false }
+      : { user: null, session: null, loading: true },
+  );
 
   useEffect(() => {
+    if (devBypass) return;
+
     // Get initial session
     supabase.auth.getSession().then(({ data: { session } }) => {
       setState({ user: session?.user ?? null, session, loading: false });

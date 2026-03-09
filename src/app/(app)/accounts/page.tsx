@@ -1,7 +1,6 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { RequireAuth } from '@/lib/require-auth';
 import { getHousehold, getAccounts, createAccount } from '@/lib/api';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import {
@@ -39,11 +38,7 @@ interface AccountData {
 }
 
 export default function AccountsPage() {
-  return (
-    <RequireAuth>
-      <AccountsContent />
-    </RequireAuth>
-  );
+  return <AccountsContent />;
 }
 
 function AccountsContent() {

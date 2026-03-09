@@ -2,7 +2,6 @@
 
 import { useEffect, useCallback, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { RequireAuth } from '@/lib/require-auth';
 import { getHousehold, getAccounts } from '@/lib/api';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import {
@@ -24,11 +23,7 @@ interface AccountData {
 }
 
 export default function HomePage() {
-  return (
-    <RequireAuth>
-      <HomeContent />
-    </RequireAuth>
-  );
+  return <HomeContent />;
 }
 
 function HomeContent() {
