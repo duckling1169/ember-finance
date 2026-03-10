@@ -42,7 +42,7 @@ onboardingRoute.post('/', async (c) => {
     p_auth_user_id: authUser.id,
     p_display_name: body.displayName.trim(),
     p_birthday: body.birthday,
-    p_target_retirement_age: body.targetRetirementAge,
+    p_target_retirement_age: body.targetRetirementAge || null,
     p_annual_income: body.annualIncome || null,
     p_employment_type: body.employmentType || null,
     p_risk_tolerance: body.riskTolerance || null,
@@ -80,7 +80,7 @@ onboardingRoute.post('/', async (c) => {
       display_name: body.displayName.trim(),
       role: 'owner',
       birthday: body.birthday,
-      target_retirement_age: body.targetRetirementAge,
+      target_retirement_age: body.targetRetirementAge || null,
       annual_income: body.annualIncome || null,
       employment_type: body.employmentType || null,
       risk_tolerance: body.riskTolerance || null,
@@ -111,14 +111,7 @@ onboardingRoute.post('/accept-invite', async (c) => {
     return c.json({ error: 'inviteId is required' }, 400);
   }
 
-  const errors = validateMemberProfile({
-    displayName: body.displayName,
-    birthday: body.birthday,
-    targetRetirementAge: body.targetRetirementAge,
-    annualIncome: body.annualIncome,
-    employmentType: body.employmentType,
-    riskTolerance: body.riskTolerance,
-  });
+  const errors: { field: string; message: string }[] = [];
 
   if (!body.displayName || typeof body.displayName !== 'string' || !body.displayName.trim()) {
     errors.push({ field: 'displayName', message: 'Display name is required' });
@@ -126,9 +119,17 @@ onboardingRoute.post('/accept-invite', async (c) => {
   if (!body.birthday) {
     errors.push({ field: 'birthday', message: 'Birthday is required' });
   }
-  if (body.targetRetirementAge == null) {
-    errors.push({ field: 'targetRetirementAge', message: 'Target retirement age is required' });
-  }
+
+  errors.push(
+    ...validateMemberProfile({
+      displayName: body.displayName,
+      birthday: body.birthday,
+      targetRetirementAge: body.targetRetirementAge,
+      annualIncome: body.annualIncome,
+      employmentType: body.employmentType,
+      riskTolerance: body.riskTolerance,
+    }),
+  );
 
   if (errors.length > 0) {
     return c.json({ error: 'Validation failed', details: errors }, 400);
@@ -174,7 +175,7 @@ onboardingRoute.post('/accept-invite', async (c) => {
       display_name: body.displayName.trim(),
       role: 'owner',
       birthday: body.birthday,
-      target_retirement_age: body.targetRetirementAge,
+      target_retirement_age: body.targetRetirementAge || null,
       annual_income: body.annualIncome || null,
       employment_type: body.employmentType || null,
       risk_tolerance: body.riskTolerance || null,

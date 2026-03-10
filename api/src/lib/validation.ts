@@ -48,14 +48,19 @@ export function validateOnboarding(body: Record<string, unknown>): ValidationErr
     }
   }
 
-  if (body.targetRetirementAge == null || typeof body.targetRetirementAge !== 'number') {
-    errors.push({ field: 'targetRetirementAge', message: 'Target retirement age is required' });
-  } else if (typeof body.birthday === 'string') {
-    const bd = new Date(body.birthday);
-    if (!isNaN(bd.getTime())) {
-      const currentAge = Math.floor((Date.now() - bd.getTime()) / (365.25 * 24 * 60 * 60 * 1000));
-      if (body.targetRetirementAge <= currentAge) {
-        errors.push({ field: 'targetRetirementAge', message: 'Must be greater than current age' });
+  if (body.targetRetirementAge != null) {
+    if (typeof body.targetRetirementAge !== 'number' || body.targetRetirementAge <= 0) {
+      errors.push({ field: 'targetRetirementAge', message: 'Must be a positive number' });
+    } else if (typeof body.birthday === 'string') {
+      const bd = new Date(body.birthday);
+      if (!isNaN(bd.getTime())) {
+        const currentAge = Math.floor((Date.now() - bd.getTime()) / (365.25 * 24 * 60 * 60 * 1000));
+        if (body.targetRetirementAge <= currentAge) {
+          errors.push({
+            field: 'targetRetirementAge',
+            message: 'Must be greater than current age',
+          });
+        }
       }
     }
   }

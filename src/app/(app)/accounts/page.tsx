@@ -1,8 +1,9 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { getHousehold, getAccounts, createAccount } from '@/lib/api';
+import { createAccount } from '@/lib/api';
+import { useAccounts, mutateAccounts } from '@/lib/swr';
 import { devBypass, enrichAccounts, type EnrichedAccount } from '@/lib/mock-data';
 import { Card, CardContent } from '@/components/ui/card';
 import {
@@ -107,11 +108,13 @@ export default function AccountsPage() {
 
 function AccountsContent() {
   const router = useRouter();
-  const [householdId, setHouseholdId] = useState<string | null>(
-    devBypass ? 'mock-household' : null,
-  );
-  const [accounts, setAccounts] = useState<AccountData[]>(devBypass ? enrichAccounts() : []);
-  const [loading, setLoading] = useState(!devBypass);
+  const { data: apiAccounts, isLoading: swrLoading, householdId } = useAccounts();
+  const [mockAccts, setMockAccts] = useState<AccountData[]>(devBypass ? enrichAccounts() : []);
+  const accounts: AccountData[] = devBypass
+    ? mockAccts
+    : ((apiAccounts as unknown as AccountData[]) ?? []);
+  const loading = !devBypass && swrLoading;
+
   const [showForm, setShowForm] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
@@ -128,24 +131,6 @@ function AccountsContent() {
       );
     }
   }
-
-  const loadData = useCallback(async () => {
-    if (devBypass) return;
-    try {
-      const h = (await getHousehold()) as { id: string };
-      setHouseholdId(h.id);
-      const accts = await getAccounts(h.id);
-      setAccounts(accts as unknown as AccountData[]);
-    } catch {
-      // no household
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    loadData();
-  }, [loadData]);
 
   async function handleAdd(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -174,7 +159,7 @@ function AccountsContent() {
         tax_bucket: form.get('tax_bucket') as string,
         notes: '',
       };
-      setAccounts((prev) => [...prev, newAccount]);
+      setMockAccts((prev) => [...prev, newAccount]);
       setShowForm(false);
       setSaving(false);
       return;
@@ -188,8 +173,7 @@ function AccountsContent() {
         tax_bucket: form.get('tax_bucket'),
       });
       setShowForm(false);
-      const accts = await getAccounts(householdId);
-      setAccounts(accts as unknown as AccountData[]);
+      await mutateAccounts();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to add account');
     } finally {
