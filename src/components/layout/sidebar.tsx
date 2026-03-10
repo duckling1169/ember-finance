@@ -7,6 +7,7 @@ import { cn } from '@/lib/utils';
 import {
   IconBuildingBank,
   IconWallet,
+  IconArrowsExchange,
   IconSettings,
   IconMenu2,
   IconPin,
@@ -23,6 +24,7 @@ const EXPANDED_WIDTH = 'w-60';
 const navItems = [
   { href: '/accounts', label: 'Accounts', icon: IconBuildingBank },
   { href: '/holdings', label: 'Holdings', icon: IconWallet },
+  { href: '/activity', label: 'Activity', icon: IconArrowsExchange },
 ];
 
 function SidebarNav({
