@@ -121,15 +121,24 @@ export default function LoginPage() {
                 onClick={async () => {
                   setError('');
                   setLoading(true);
-                  const devEmail = 'dev@ember.local';
-                  const devPassword = 'devpass123';
+                  // Use a stable dev email per browser (stored in localStorage)
+                  const storageKey = 'ember-dev-email';
+                  let devEmail = localStorage.getItem(storageKey);
+                  if (!devEmail) {
+                    const id = Math.random().toString(36).slice(2, 8);
+                    devEmail = `ember.dev.${id}@mailinator.com`;
+                    localStorage.setItem(storageKey, devEmail);
+                  }
+                  const devPassword = 'devpass123!A';
 
+                  // Try sign in first
                   let { error: signInErr } = await supabase.auth.signInWithPassword({
                     email: devEmail,
                     password: devPassword,
                   });
 
                   if (signInErr) {
+                    // Sign up (with autoconfirm or skip confirmation)
                     const { error: signUpErr } = await supabase.auth.signUp({
                       email: devEmail,
                       password: devPassword,
@@ -140,12 +149,16 @@ export default function LoginPage() {
                       setLoading(false);
                       return;
                     }
+                    // Try sign in again — works if email confirmation is disabled
                     ({ error: signInErr } = await supabase.auth.signInWithPassword({
                       email: devEmail,
                       password: devPassword,
                     }));
                     if (signInErr) {
-                      setError(signInErr.message);
+                      setError(
+                        `Signed up as ${devEmail} but email confirmation may be required. ` +
+                          'Disable "Confirm email" in Supabase Dashboard → Auth → Settings to skip.',
+                      );
                       setLoading(false);
                       return;
                     }
@@ -179,7 +192,7 @@ export default function LoginPage() {
                   router.push('/');
                 }}
               >
-                {loading ? '...' : 'Dev Login (dev@ember.local)'}
+                {loading ? '...' : 'Dev Login (auto-generated)'}
               </Button>
             </div>
           )}

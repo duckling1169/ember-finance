@@ -1,12 +1,88 @@
 'use client';
 
+import { useEffect, useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/lib/auth-context';
 import { useTheme } from '@/lib/theme-context';
+import {
+  getHousehold,
+  updateHousehold,
+  getProfile,
+  updateProfile,
+  getMembers,
+  removeMember,
+  getInvites,
+  sendInvite,
+  cancelInvite,
+} from '@/lib/api';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { IconUser, IconSun, IconMoon, IconDeviceDesktop } from '@tabler/icons-react';
+import {
+  IconSun,
+  IconMoon,
+  IconDeviceDesktop,
+  IconCheck,
+  IconX,
+  IconTrash,
+  IconSend,
+  IconLoader2,
+  IconCrown,
+  IconUser,
+} from '@tabler/icons-react';
+// Types matching shared/types — keep in sync
+type TaxFilingStatus = 'single' | 'married_jointly' | 'married_separately' | 'head_of_household';
+type EmploymentType = 'w2' | '1099' | 'mixed';
+type RiskTolerance = 'conservative' | 'moderate' | 'aggressive';
+
+interface Household {
+  id: string;
+  name: string;
+  tax_filing_status: TaxFilingStatus | null;
+  state: string | null;
+  currency: string;
+}
+
+interface Member {
+  id: string;
+  household_id: string;
+  auth_user_id: string | null;
+  display_name: string;
+  role: 'owner' | 'viewer';
+  birthday: string | null;
+  target_retirement_age: number | null;
+  annual_income: number | null;
+  employment_type: EmploymentType | null;
+  risk_tolerance: RiskTolerance | null;
+}
+
+interface HouseholdInvite {
+  id: string;
+  household_id: string;
+  email: string;
+  role: 'owner' | 'viewer';
+  accepted_at: string | null;
+}
+
+const TAX_FILING_OPTIONS: { value: TaxFilingStatus; label: string }[] = [
+  { value: 'single', label: 'Single' },
+  { value: 'married_jointly', label: 'Married Filing Jointly' },
+  { value: 'married_separately', label: 'Married Filing Separately' },
+  { value: 'head_of_household', label: 'Head of Household' },
+];
+
+const EMPLOYMENT_OPTIONS: { value: EmploymentType; label: string }[] = [
+  { value: 'w2', label: 'W-2 Employee' },
+  { value: '1099', label: '1099 Contractor' },
+  { value: 'mixed', label: 'Mixed' },
+];
+
+const RISK_OPTIONS: { value: RiskTolerance; label: string }[] = [
+  { value: 'conservative', label: 'Conservative' },
+  { value: 'moderate', label: 'Moderate' },
+  { value: 'aggressive', label: 'Aggressive' },
+];
 
 const themeOptions = [
   { value: 'system' as const, label: 'System', icon: IconDeviceDesktop },
@@ -14,40 +90,440 @@ const themeOptions = [
   { value: 'dark' as const, label: 'Dark', icon: IconMoon },
 ];
 
-export default function ProfilePage() {
-  return <ProfileContent />;
+function SelectField({
+  label,
+  value,
+  onChange,
+  options,
+  placeholder = 'Select...',
+}: {
+  label: string;
+  value: string;
+  onChange: (v: string) => void;
+  options: { value: string; label: string }[];
+  placeholder?: string;
+}) {
+  return (
+    <div>
+      <label className="mb-1.5 block text-sm font-medium">{label}</label>
+      <select
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        className="h-9 w-full rounded-md border border-input bg-card px-3 text-sm outline-none focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/50"
+      >
+        <option value="">{placeholder}</option>
+        {options.map((o) => (
+          <option key={o.value} value={o.value}>
+            {o.label}
+          </option>
+        ))}
+      </select>
+    </div>
+  );
 }
 
-function ProfileContent() {
+export default function ProfilePage() {
   const router = useRouter();
   const { user } = useAuth();
   const { theme, setTheme } = useTheme();
+
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState<string | null>(null);
+  const [error, setError] = useState('');
+  const [success, setSuccess] = useState('');
+
+  // Household
+  const [household, setHousehold] = useState<Household | null>(null);
+  const [hhName, setHhName] = useState('');
+  const [hhTaxStatus, setHhTaxStatus] = useState('');
+  const [hhState, setHhState] = useState('');
+
+  // Profile
+  const [profile, setProfile] = useState<Member | null>(null);
+  const [displayName, setDisplayName] = useState('');
+  const [birthday, setBirthday] = useState('');
+  const [retirementAge, setRetirementAge] = useState('');
+  const [annualIncome, setAnnualIncome] = useState('');
+  const [employmentType, setEmploymentType] = useState('');
+  const [riskTolerance, setRiskTolerance] = useState('');
+
+  // Members & Invites
+  const [members, setMembers] = useState<Member[]>([]);
+  const [invites, setInvites] = useState<HouseholdInvite[]>([]);
+  const [inviteEmail, setInviteEmail] = useState('');
+
+  const loadData = useCallback(async () => {
+    try {
+      const [hh, prof, mems, invs] = await Promise.all([
+        getHousehold().catch(() => null),
+        getProfile().catch(() => null),
+        getMembers().catch(() => []),
+        getInvites().catch(() => []),
+      ]);
+
+      if (hh) {
+        const h = hh as unknown as Household;
+        setHousehold(h);
+        setHhName(h.name || '');
+        setHhTaxStatus(h.tax_filing_status || '');
+        setHhState(h.state || '');
+      }
+
+      if (prof) {
+        const p = prof as unknown as Member;
+        setProfile(p);
+        setDisplayName(p.display_name || '');
+        setBirthday(p.birthday || '');
+        setRetirementAge(p.target_retirement_age?.toString() || '');
+        setAnnualIncome(p.annual_income?.toString() || '');
+        setEmploymentType(p.employment_type || '');
+        setRiskTolerance(p.risk_tolerance || '');
+      }
+
+      setMembers((mems || []) as unknown as Member[]);
+      setInvites((invs || []) as unknown as HouseholdInvite[]);
+    } catch {
+      // API may not be running
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    loadData();
+  }, [loadData]);
+
+  function flash(msg: string) {
+    setSuccess(msg);
+    setError('');
+    setTimeout(() => setSuccess(''), 3000);
+  }
+
+  async function saveHousehold() {
+    setSaving('household');
+    setError('');
+    try {
+      await updateHousehold({
+        name: hhName,
+        state: hhState || null,
+      });
+      flash('Household updated');
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Failed to update');
+    } finally {
+      setSaving(null);
+    }
+  }
+
+  async function saveProfile() {
+    setSaving('profile');
+    setError('');
+    try {
+      await updateProfile({
+        displayName,
+        birthday: birthday || null,
+        targetRetirementAge: retirementAge ? parseInt(retirementAge) : null,
+        annualIncome: annualIncome ? parseFloat(annualIncome) : null,
+        employmentType: employmentType || null,
+        riskTolerance: riskTolerance || null,
+      });
+      flash('Profile updated');
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Failed to update');
+    } finally {
+      setSaving(null);
+    }
+  }
+
+  async function handleInvite(e: React.FormEvent) {
+    e.preventDefault();
+    if (!inviteEmail) return;
+    setSaving('invite');
+    setError('');
+    try {
+      await sendInvite({ email: inviteEmail, role: 'viewer' });
+      setInviteEmail('');
+      const invs = await getInvites().catch(() => []);
+      setInvites(invs as unknown as HouseholdInvite[]);
+      flash('Invite sent');
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Failed to send invite');
+    } finally {
+      setSaving(null);
+    }
+  }
+
+  async function handleCancelInvite(id: string) {
+    try {
+      await cancelInvite(id);
+      setInvites((prev) => prev.filter((i) => i.id !== id));
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Failed to cancel invite');
+    }
+  }
+
+  async function handleRemoveMember(id: string) {
+    try {
+      await removeMember(id);
+      setMembers((prev) => prev.filter((m) => m.id !== id));
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Failed to remove member');
+    }
+  }
 
   async function handleSignOut() {
     await supabase.auth.signOut();
     router.replace('/login');
   }
 
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center py-20 text-muted-foreground">
+        <IconLoader2 size={20} className="animate-spin mr-2" />
+        Loading...
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-3">
       <h1 className="text-2xl font-semibold">Profile</h1>
 
+      {error && (
+        <div className="rounded-md border border-destructive/50 bg-destructive/10 px-4 py-2 text-sm text-destructive">
+          {error}
+        </div>
+      )}
+      {success && (
+        <div className="rounded-md border border-gain/50 bg-gain/10 px-4 py-2 text-sm text-gain">
+          {success}
+        </div>
+      )}
+
+      {/* Personal Info */}
       <Card>
         <CardHeader>
           <CardTitle>Personal</CardTitle>
-          <CardDescription>Your account details</CardDescription>
+          <CardDescription>Your member profile</CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="flex flex-col items-center gap-3 py-8 text-center">
-            <IconUser size={32} className="text-muted-foreground" stroke={1.5} />
-            <p className="text-sm text-muted-foreground">
-              Personal info, household, members, and data management coming soon.
-            </p>
-            {user?.email && <p className="text-xs text-muted-foreground">{user.email}</p>}
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div>
+              <label className="mb-1.5 block text-sm font-medium">Display Name</label>
+              <Input value={displayName} onChange={(e) => setDisplayName(e.target.value)} />
+            </div>
+            <div>
+              <label className="mb-1.5 block text-sm font-medium">Email</label>
+              <Input value={user?.email || ''} disabled className="opacity-60" />
+            </div>
+            <div>
+              <label className="mb-1.5 block text-sm font-medium">Birthday</label>
+              <Input type="date" value={birthday} onChange={(e) => setBirthday(e.target.value)} />
+            </div>
+            <div>
+              <label className="mb-1.5 block text-sm font-medium">Target Retirement Age</label>
+              <Input
+                type="number"
+                value={retirementAge}
+                onChange={(e) => setRetirementAge(e.target.value)}
+                placeholder="55"
+              />
+            </div>
+            <div>
+              <label className="mb-1.5 block text-sm font-medium">Annual Income</label>
+              <Input
+                type="number"
+                value={annualIncome}
+                onChange={(e) => setAnnualIncome(e.target.value)}
+                placeholder="100000"
+              />
+            </div>
+            <SelectField
+              label="Employment Type"
+              value={employmentType}
+              onChange={setEmploymentType}
+              options={EMPLOYMENT_OPTIONS}
+            />
+            <SelectField
+              label="Risk Tolerance"
+              value={riskTolerance}
+              onChange={setRiskTolerance}
+              options={RISK_OPTIONS}
+            />
+            <SelectField
+              label="Tax Filing Status"
+              value={hhTaxStatus}
+              onChange={setHhTaxStatus}
+              options={TAX_FILING_OPTIONS}
+            />
+          </div>
+          <div className="mt-4 flex justify-end">
+            <Button
+              variant="outline"
+              disabled={saving === 'profile'}
+              onClick={async () => {
+                await saveProfile();
+                // Tax filing status is stored on household for now
+                if (hhTaxStatus !== (household?.tax_filing_status || '')) {
+                  await updateHousehold({ taxFilingStatus: hhTaxStatus || null }).catch(() => {});
+                }
+              }}
+              className="hover:bg-primary hover:text-primary-foreground hover:border-primary"
+            >
+              {saving === 'profile' ? (
+                <IconLoader2 size={14} className="animate-spin" />
+              ) : (
+                <IconCheck size={14} />
+              )}
+              Save Profile
+            </Button>
           </div>
         </CardContent>
       </Card>
 
+      {/* Household */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Household</CardTitle>
+          <CardDescription>Shared household settings</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div>
+              <label className="mb-1.5 block text-sm font-medium">Household Name</label>
+              <Input value={hhName} onChange={(e) => setHhName(e.target.value)} />
+            </div>
+            <div>
+              <label className="mb-1.5 block text-sm font-medium">State</label>
+              <Input
+                value={hhState}
+                onChange={(e) => setHhState(e.target.value.toUpperCase())}
+                placeholder="CA"
+                maxLength={2}
+              />
+            </div>
+          </div>
+          <div className="mt-4 flex justify-end">
+            <Button
+              variant="outline"
+              disabled={saving === 'household'}
+              onClick={saveHousehold}
+              className="hover:bg-primary hover:text-primary-foreground hover:border-primary"
+            >
+              {saving === 'household' ? (
+                <IconLoader2 size={14} className="animate-spin" />
+              ) : (
+                <IconCheck size={14} />
+              )}
+              Save Household
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Members */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Members</CardTitle>
+          <CardDescription>People in your household</CardDescription>
+        </CardHeader>
+        <CardContent>
+          {members.length === 0 ? (
+            <p className="text-sm text-muted-foreground py-4 text-center">No members found</p>
+          ) : (
+            <div className="space-y-2">
+              {members.map((m) => (
+                <div
+                  key={m.id}
+                  className="flex items-center justify-between rounded-md border border-border px-4 py-3"
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="flex h-8 w-8 items-center justify-center rounded-full bg-muted">
+                      {m.role === 'owner' ? (
+                        <IconCrown size={14} className="text-primary" />
+                      ) : (
+                        <IconUser size={14} className="text-muted-foreground" />
+                      )}
+                    </div>
+                    <div>
+                      <p className="text-sm font-medium">{m.display_name}</p>
+                      <p className="text-xs text-muted-foreground capitalize">{m.role}</p>
+                    </div>
+                  </div>
+                  {m.role !== 'owner' && m.id !== profile?.id && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="text-destructive hover:text-destructive"
+                      onClick={() => handleRemoveMember(m.id)}
+                    >
+                      <IconTrash size={14} />
+                    </Button>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* Pending invites */}
+          {invites.length > 0 && (
+            <div className="mt-4">
+              <p className="text-sm font-medium text-muted-foreground mb-2">Pending Invites</p>
+              <div className="space-y-2">
+                {invites
+                  .filter((i) => !i.accepted_at)
+                  .map((inv) => (
+                    <div
+                      key={inv.id}
+                      className="flex items-center justify-between rounded-md border border-dashed border-border px-4 py-2"
+                    >
+                      <div>
+                        <p className="text-sm">{inv.email}</p>
+                        <p className="text-xs text-muted-foreground capitalize">{inv.role}</p>
+                      </div>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="text-destructive hover:text-destructive"
+                        onClick={() => handleCancelInvite(inv.id)}
+                      >
+                        <IconX size={14} />
+                      </Button>
+                    </div>
+                  ))}
+              </div>
+            </div>
+          )}
+
+          {/* Invite form */}
+          {profile?.role === 'owner' && (
+            <form onSubmit={handleInvite} className="mt-4 flex gap-2">
+              <Input
+                type="email"
+                value={inviteEmail}
+                onChange={(e) => setInviteEmail(e.target.value)}
+                placeholder="partner@email.com"
+                className="flex-1"
+              />
+              <Button
+                type="submit"
+                variant="outline"
+                disabled={saving === 'invite' || !inviteEmail}
+                className="hover:bg-primary hover:text-primary-foreground hover:border-primary"
+              >
+                {saving === 'invite' ? (
+                  <IconLoader2 size={14} className="animate-spin" />
+                ) : (
+                  <IconSend size={14} />
+                )}
+                Invite
+              </Button>
+            </form>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Appearance */}
       <Card>
         <CardHeader>
           <CardTitle>Appearance</CardTitle>
@@ -73,6 +549,7 @@ function ProfileContent() {
         </CardContent>
       </Card>
 
+      {/* Sign out */}
       <Card>
         <CardHeader>
           <CardTitle>Account</CardTitle>
