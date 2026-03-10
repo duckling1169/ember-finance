@@ -3,10 +3,7 @@
 import { useMemo, useState, useEffect } from 'react';
 import { ResponsivePie } from '@nivo/pie';
 import { getNivoTheme, CHART_COLORS } from './theme';
-
-function fmt(n: number) {
-  return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(n);
-}
+import { fmt } from '@/lib/formatters';
 
 interface DonutChartProps {
   segments: { id: string; label: string; value: number }[];

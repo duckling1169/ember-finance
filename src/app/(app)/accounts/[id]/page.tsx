@@ -12,6 +12,8 @@ import {
 import type { AccountDetailResponse } from '@shared/types';
 import { useAccountDetail, useAccounts, mutateAccountDetail, mutateAccounts } from '@/lib/swr';
 import { ingestManual, ingestCsv } from '@/lib/api';
+import { fmt, fmtDateTime } from '@/lib/formatters';
+import { TAX_BUCKET_LABELS, API_PROVIDERS } from '@/lib/constants';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { BalanceChart } from '@/components/charts';
 import { Input } from '@/components/ui/input';
@@ -31,30 +33,6 @@ import {
   IconCirclePlus,
   IconPlayerPlay,
 } from '@tabler/icons-react';
-
-function fmt(n: number) {
-  return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(n);
-}
-
-function fmtDateTime(dateStr: string) {
-  return new Date(dateStr).toLocaleDateString('en-US', {
-    month: 'short',
-    day: 'numeric',
-    year: 'numeric',
-    hour: 'numeric',
-    minute: '2-digit',
-  });
-}
-
-const TAX_BUCKET_LABELS: Record<string, string> = {
-  taxable: 'Taxable',
-  traditional: 'Traditional (pre-tax)',
-  roth: 'Roth (after-tax)',
-  hsa: 'HSA',
-  none: 'N/A',
-};
-
-const API_PROVIDERS = ['teller', 'snaptrade'];
 
 type Tab = 'overview' | 'history';
 

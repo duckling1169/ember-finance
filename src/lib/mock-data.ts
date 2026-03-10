@@ -866,7 +866,7 @@ export const devBypass =
 // ── Enriched Account View (composed for frontend display) ──
 // In production, this would be assembled from API calls to accounts + sources + balances.
 
-const API_PROVIDERS = ['teller', 'snaptrade'];
+import { API_PROVIDERS } from '@/lib/constants';
 
 export type { EnrichedAccount } from '@shared/types';
 import type { EnrichedAccount } from '@shared/types';

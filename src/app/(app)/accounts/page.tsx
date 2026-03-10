@@ -23,54 +23,15 @@ import {
   IconBuildingBank,
   IconLink,
   IconPlugConnected,
-  IconArrowsSort,
-  IconSortAscending,
-  IconSortDescending,
 } from '@tabler/icons-react';
-
-const ACCOUNT_TYPES = [
-  'checking',
-  'savings',
-  'credit',
-  'brokerage',
-  'retirement',
-  'hsa',
-  'loan',
-  'mortgage',
-  'property',
-  'vehicle',
-  'other',
-];
-
-const TAX_BUCKETS = [
-  { value: 'taxable', label: 'Taxable' },
-  { value: 'traditional', label: 'Traditional (pre-tax)' },
-  { value: 'roth', label: 'Roth (after-tax)' },
-  { value: 'hsa', label: 'HSA' },
-  { value: 'none', label: 'N/A' },
-];
+import { ACCOUNT_TYPES } from '@shared/types';
+import { fmt, timeAgo } from '@/lib/formatters';
+import { TAX_BUCKET_OPTIONS } from '@/lib/constants';
+import { SortIcon, type SortDir } from '@/components/common/sort-icon';
 
 type AccountData = EnrichedAccount;
 
 type SortKey = 'name' | 'institution' | 'account_type' | 'linked' | 'balance' | 'last_synced';
-type SortDir = 'asc' | 'desc';
-
-function SortIcon({
-  field,
-  sortKey,
-  sortDir,
-}: {
-  field: SortKey;
-  sortKey: SortKey;
-  sortDir: SortDir;
-}) {
-  if (sortKey !== field) return <IconArrowsSort size={14} className="text-muted-foreground/50" />;
-  return sortDir === 'asc' ? <IconSortAscending size={14} /> : <IconSortDescending size={14} />;
-}
-
-function fmt(n: number) {
-  return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(n);
-}
 
 function LinkedBadge({ linked }: { linked?: boolean }) {
   if (linked) {
@@ -86,21 +47,6 @@ function LinkedBadge({ linked }: { linked?: boolean }) {
       Not Linked
     </span>
   );
-}
-
-function timeAgo(dateStr: string) {
-  const now = new Date();
-  const then = new Date(dateStr);
-  const diffMs = now.getTime() - then.getTime();
-  const diffMins = Math.floor(diffMs / 60000);
-  const diffHours = Math.floor(diffMins / 60);
-  const diffDays = Math.floor(diffHours / 24);
-
-  if (diffMins < 1) return 'Just now';
-  if (diffMins < 60) return `${diffMins}m ago`;
-  if (diffHours < 24) return `${diffHours}h ago`;
-  if (diffDays < 7) return `${diffDays}d ago`;
-  return then.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
 }
 
 export default function AccountsPage() {
@@ -276,7 +222,7 @@ function AccountsContent() {
                     required
                     className="h-9 w-full rounded-md border border-input bg-card px-3 text-sm outline-none focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/50"
                   >
-                    {TAX_BUCKETS.map((t) => (
+                    {TAX_BUCKET_OPTIONS.map((t) => (
                       <option key={t.value} value={t.value}>
                         {t.label}
                       </option>

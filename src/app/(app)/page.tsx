@@ -15,14 +15,10 @@ import type { EnrichedAccount } from '@shared/types';
 import { cn } from '@/lib/utils';
 import { Card, CardContent } from '@/components/ui/card';
 import { AreaChart, DonutChart, CHART_COLORS } from '@/components/charts';
-import {
-  IconArrowUpRight,
-  IconArrowDownRight,
-  IconClock,
-  IconCalendarDollar,
-  IconChartDonut,
-  IconReceipt,
-} from '@tabler/icons-react';
+import { IconClock, IconCalendarDollar, IconChartDonut, IconReceipt } from '@tabler/icons-react';
+import { fmt } from '@/lib/formatters';
+import { TAX_BUCKET_LABELS } from '@/lib/constants';
+import { ChangeIndicator } from '@/components/common/financial-cells';
 
 type RangeKey = '30D' | '90D' | 'YTD' | '1Y' | 'Custom';
 
@@ -69,23 +65,6 @@ function filterByRange(
     }
   }
   return data.filter((d) => new Date(d.date) >= cutoff);
-}
-
-function fmt(n: number) {
-  return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(n);
-}
-
-function ChangeIndicator({ value, label }: { value: number; label: string }) {
-  const color = value > 0 ? 'text-gain' : value < 0 ? 'text-loss' : 'text-muted-foreground';
-  const prefix = value > 0 ? '+' : '';
-  const Icon = value > 0 ? IconArrowUpRight : IconArrowDownRight;
-  return (
-    <span className={`inline-flex items-center gap-1 text-sm font-mono tabular-nums ${color}`}>
-      {value !== 0 && <Icon size={14} />}
-      {prefix}
-      {value.toFixed(1)}% {label}
-    </span>
-  );
 }
 
 export default function DashboardPage() {
@@ -179,13 +158,6 @@ export default function DashboardPage() {
       .sort((a, b) => b.value - a.value);
   }, [apiHoldings]);
   const holdingsTotal = holdingsByValue.reduce((s, h) => s + h.value, 0);
-
-  const TAX_BUCKET_LABELS: Record<string, string> = {
-    traditional: 'Tax-deferred',
-    roth: 'Tax-free',
-    taxable: 'Taxable',
-    none: 'Other',
-  };
 
   return (
     <div className="space-y-3">
