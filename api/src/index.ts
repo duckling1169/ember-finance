@@ -8,9 +8,15 @@ import { accountsRoute } from './routes/accounts.js';
 import { sourcesRoute } from './routes/sources.js';
 import { ingestRoute } from './routes/ingest.js';
 import { duplicatesRoute } from './routes/duplicates.js';
+import { historyRoute } from './routes/history.js';
 import { onboardingRoute } from './routes/onboarding.js';
 import { settingsRoute } from './routes/settings.js';
-import { requireAuth, requireHouseholdMember, requireRecordOwnership } from './middleware/auth.js';
+import {
+  requireAuth,
+  requireMember,
+  requireHouseholdMember,
+  requireRecordOwnership,
+} from './middleware/auth.js';
 
 const app = new Hono();
 
@@ -20,6 +26,9 @@ app.use('*', cors({ origin: env.corsOrigin }));
 
 // Auth on all /api/* routes
 app.use('/api/*', requireAuth);
+
+// Settings: resolve member/household from auth (no :householdId in path)
+app.use('/api/settings/*', requireMember);
 
 // Household membership verification for routes with :householdId
 app.use('/api/accounts/:householdId', requireHouseholdMember);
@@ -31,6 +40,7 @@ app.use('/api/ingest/sync/:householdId/*', requireHouseholdMember);
 app.use('/api/duplicates/transactions/:householdId/*', requireHouseholdMember);
 app.use('/api/duplicates/activity/:householdId/*', requireHouseholdMember);
 app.use('/api/duplicates/review/:householdId/*', requireHouseholdMember);
+app.use('/api/history/:householdId/*', requireHouseholdMember);
 
 // Record ownership for duplicate hide/unhide (no householdId in path)
 app.use('/api/duplicates/hide/transaction/:id', requireRecordOwnership('transaction'));
@@ -46,6 +56,7 @@ app.route('/api/accounts', accountsRoute);
 app.route('/api/sources', sourcesRoute);
 app.route('/api/ingest', ingestRoute);
 app.route('/api/duplicates', duplicatesRoute);
+app.route('/api/history', historyRoute);
 
 serve({ fetch: app.fetch, port: env.port }, (info) => {
   console.warn(`Ember API running on http://localhost:${info.port}`);

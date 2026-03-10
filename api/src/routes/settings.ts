@@ -6,48 +6,28 @@ import { validateHouseholdSettings, validateMemberProfile } from '../lib/validat
 
 export const settingsRoute = new Hono<AuthEnv>();
 
-// Helper: get the current user's member record
-async function getMember(authUserId: string) {
-  const { data } = await supabase
-    .from('member')
-    .select('*')
-    .eq('auth_user_id', authUserId)
-    .single();
-  return data;
-}
+// Note: requireMember middleware runs before all settings routes,
+// setting householdId, memberId, and memberRole on context.
+// Route handlers use userClient (RLS-enforced) for data queries.
+// Service-role supabase is only used for admin auth operations (invite email).
 
 // ── Household Settings ──
 
-/**
- * GET /api/settings/household
- * Returns the user's household.
- */
 settingsRoute.get('/household', async (c) => {
-  const authUser = c.get('authUser');
-  const member = await getMember(authUser.id);
-  if (!member) return c.json({ error: 'No household found' }, 404);
+  const householdId = c.get('householdId');
+  const db = c.get('userClient');
 
-  const { data, error } = await supabase
-    .from('household')
-    .select('*')
-    .eq('id', member.household_id)
-    .single();
+  const { data, error } = await db.from('household').select('*').eq('id', householdId).single();
 
   if (error) return c.json({ error: error.message }, 500);
   return c.json(data);
 });
 
-/**
- * PATCH /api/settings/household
- * Update household fields. Owner only.
- * Body: { name?, taxFilingStatus?, state?, currency? }
- */
 settingsRoute.patch('/household', async (c) => {
-  const authUser = c.get('authUser');
-  const member = await getMember(authUser.id);
-  if (!member) return c.json({ error: 'No household found' }, 404);
-  if (member.role !== 'owner')
-    return c.json({ error: 'Only owners can edit household settings' }, 403);
+  const householdId = c.get('householdId');
+  const db = c.get('userClient');
+  const role = c.get('memberRole');
+  if (role !== 'owner') return c.json({ error: 'Only owners can edit household settings' }, 403);
 
   const body = await c.req.json();
   const errors = validateHouseholdSettings(body);
@@ -65,10 +45,10 @@ settingsRoute.patch('/household', async (c) => {
     return c.json({ error: 'No fields to update' }, 400);
   }
 
-  const { data, error } = await supabase
+  const { data, error } = await db
     .from('household')
     .update(update)
-    .eq('id', member.household_id)
+    .eq('id', householdId)
     .select()
     .single();
 
@@ -78,36 +58,34 @@ settingsRoute.patch('/household', async (c) => {
 
 // ── Member Profile ──
 
-/**
- * GET /api/settings/profile
- * Returns the current user's member profile.
- */
 settingsRoute.get('/profile', async (c) => {
-  const authUser = c.get('authUser');
-  const member = await getMember(authUser.id);
-  if (!member) return c.json({ error: 'No profile found' }, 404);
-  return c.json(member);
+  const memberId = c.get('memberId');
+  const db = c.get('userClient');
+
+  const { data, error } = await db.from('member').select('*').eq('id', memberId).single();
+
+  if (error) return c.json({ error: error.message }, 500);
+  return c.json(data);
 });
 
-/**
- * PATCH /api/settings/profile
- * Update own member profile.
- * Body: { displayName?, birthday?, targetRetirementAge?,
- *         annualIncome?, employmentType?, riskTolerance? }
- */
 settingsRoute.patch('/profile', async (c) => {
-  const authUser = c.get('authUser');
-  const member = await getMember(authUser.id);
-  if (!member) return c.json({ error: 'No profile found' }, 404);
+  const memberId = c.get('memberId');
+  const db = c.get('userClient');
+
+  // Fetch current profile for validation context
+  const { data: current } = await db
+    .from('member')
+    .select('birthday, target_retirement_age')
+    .eq('id', memberId)
+    .single();
 
   const body = await c.req.json();
 
-  // For retirement age validation, we need the birthday (either from request or existing)
-  const birthdayForValidation = body.birthday ?? member.birthday;
+  const birthdayForValidation = body.birthday ?? current?.birthday;
   const errors = validateMemberProfile({
     ...body,
     birthday: birthdayForValidation,
-    targetRetirementAge: body.targetRetirementAge ?? member.target_retirement_age,
+    targetRetirementAge: body.targetRetirementAge ?? current?.target_retirement_age,
   });
   if (errors.length > 0) {
     return c.json({ error: 'Validation failed', details: errors }, 400);
@@ -125,10 +103,10 @@ settingsRoute.patch('/profile', async (c) => {
     return c.json({ error: 'No fields to update' }, 400);
   }
 
-  const { data, error } = await supabase
+  const { data, error } = await db
     .from('member')
     .update(update)
-    .eq('id', member.id)
+    .eq('id', memberId)
     .select()
     .single();
 
@@ -138,55 +116,44 @@ settingsRoute.patch('/profile', async (c) => {
 
 // ── Members List & Invites ──
 
-/**
- * GET /api/settings/members
- * List all members in the household.
- */
 settingsRoute.get('/members', async (c) => {
-  const authUser = c.get('authUser');
-  const member = await getMember(authUser.id);
-  if (!member) return c.json({ error: 'No household found' }, 404);
+  const householdId = c.get('householdId');
+  const db = c.get('userClient');
 
-  const { data, error } = await supabase
+  const { data, error } = await db
     .from('member')
     .select('id, household_id, display_name, role, created_at')
-    .eq('household_id', member.household_id)
+    .eq('household_id', householdId)
     .order('created_at');
 
   if (error) return c.json({ error: error.message }, 500);
   return c.json(data);
 });
 
-/**
- * DELETE /api/settings/members/:memberId
- * Remove a member from the household. Owner only.
- * Cannot remove yourself or the last owner.
- */
 settingsRoute.delete('/members/:memberId', async (c) => {
-  const authUser = c.get('authUser');
-  const member = await getMember(authUser.id);
-  if (!member) return c.json({ error: 'No household found' }, 404);
-  if (member.role !== 'owner') return c.json({ error: 'Only owners can remove members' }, 403);
+  const householdId = c.get('householdId');
+  const currentMemberId = c.get('memberId');
+  const db = c.get('userClient');
+  const role = c.get('memberRole');
+  if (role !== 'owner') return c.json({ error: 'Only owners can remove members' }, 403);
 
   const memberId = c.req.param('memberId');
 
-  // Cannot remove yourself via this endpoint
-  if (memberId === member.id) {
+  if (memberId === currentMemberId) {
     return c.json({ error: 'Cannot remove yourself' }, 400);
   }
 
   // Verify target is in same household
-  const { data: target } = await supabase
+  const { data: target } = await db
     .from('member')
-    .select('*')
+    .select('id')
     .eq('id', memberId)
-    .eq('household_id', member.household_id)
+    .eq('household_id', householdId)
     .maybeSingle();
 
   if (!target) return c.json({ error: 'Member not found in your household' }, 404);
 
-  // DB trigger will prevent removing last owner
-  const { error } = await supabase.from('member').delete().eq('id', memberId);
+  const { error } = await db.from('member').delete().eq('id', memberId);
 
   if (error) {
     if (error.message.includes('last owner')) {
@@ -200,20 +167,16 @@ settingsRoute.delete('/members/:memberId', async (c) => {
 
 // ── Invites ──
 
-/**
- * GET /api/settings/invites
- * List pending invites for the household. Owner only.
- */
 settingsRoute.get('/invites', async (c) => {
-  const authUser = c.get('authUser');
-  const member = await getMember(authUser.id);
-  if (!member) return c.json({ error: 'No household found' }, 404);
-  if (member.role !== 'owner') return c.json({ error: 'Only owners can view invites' }, 403);
+  const householdId = c.get('householdId');
+  const db = c.get('userClient');
+  const role = c.get('memberRole');
+  if (role !== 'owner') return c.json({ error: 'Only owners can view invites' }, 403);
 
-  const { data, error } = await supabase
+  const { data, error } = await db
     .from('household_invite')
     .select('*')
-    .eq('household_id', member.household_id)
+    .eq('household_id', householdId)
     .is('accepted_at', null)
     .gt('expires_at', new Date().toISOString())
     .order('created_at', { ascending: false });
@@ -222,16 +185,12 @@ settingsRoute.get('/invites', async (c) => {
   return c.json(data);
 });
 
-/**
- * POST /api/settings/invites
- * Send an invite. Owner only. Role is always 'owner' per spec.
- * Body: { email }
- */
 settingsRoute.post('/invites', async (c) => {
-  const authUser = c.get('authUser');
-  const member = await getMember(authUser.id);
-  if (!member) return c.json({ error: 'No household found' }, 404);
-  if (member.role !== 'owner') return c.json({ error: 'Only owners can send invites' }, 403);
+  const householdId = c.get('householdId');
+  const currentMemberId = c.get('memberId');
+  const db = c.get('userClient');
+  const role = c.get('memberRole');
+  if (role !== 'owner') return c.json({ error: 'Only owners can send invites' }, 403);
 
   const body = await c.req.json();
 
@@ -241,7 +200,7 @@ settingsRoute.post('/invites', async (c) => {
 
   const email = body.email.trim().toLowerCase();
 
-  // Check if email already has a household (single indexed query, no full user scan)
+  // check_email_has_household RPC needs service-role (cross-household lookup)
   const { data: hasHousehold } = await supabase.rpc('check_email_has_household', {
     p_email: email,
   });
@@ -251,10 +210,10 @@ settingsRoute.post('/invites', async (c) => {
   }
 
   // Check for existing pending invite to same email
-  const { data: existingInvite } = await supabase
+  const { data: existingInvite } = await db
     .from('household_invite')
     .select('id')
-    .eq('household_id', member.household_id)
+    .eq('household_id', householdId)
     .eq('email', email)
     .is('accepted_at', null)
     .gt('expires_at', new Date().toISOString())
@@ -264,13 +223,13 @@ settingsRoute.post('/invites', async (c) => {
     return c.json({ error: 'A pending invite already exists for this email' }, 409);
   }
 
-  // Create invite record (role always 'owner' per spec)
-  const { data: invite, error } = await supabase
+  // Create invite record
+  const { data: invite, error } = await db
     .from('household_invite')
     .insert({
-      household_id: member.household_id,
+      household_id: householdId,
       email,
-      invited_by: member.id,
+      invited_by: currentMemberId,
       role: 'owner',
     })
     .select()
@@ -278,39 +237,31 @@ settingsRoute.post('/invites', async (c) => {
 
   if (error) return c.json({ error: error.message }, 500);
 
-  // Send invite email via Supabase Auth magic link
-  // If user doesn't exist yet, this creates an unconfirmed account and sends the link.
-  // If they already have an account, it sends a magic link to sign in.
+  // Admin email operation — requires service-role
   const { error: emailError } = await supabase.auth.admin.inviteUserByEmail(email, {
     redirectTo: `${c.req.header('origin') || env.corsOrigin}/onboarding/accept-invite?inviteId=${invite.id}`,
   });
 
   if (emailError) {
-    // Invite record is still created — email can be resent.
-    // Don't fail the whole request, just flag it.
     return c.json({ ...invite, emailSent: false, emailError: emailError.message }, 201);
   }
 
   return c.json({ ...invite, emailSent: true }, 201);
 });
 
-/**
- * DELETE /api/settings/invites/:inviteId
- * Cancel a pending invite. Owner only.
- */
 settingsRoute.delete('/invites/:inviteId', async (c) => {
-  const authUser = c.get('authUser');
-  const member = await getMember(authUser.id);
-  if (!member) return c.json({ error: 'No household found' }, 404);
-  if (member.role !== 'owner') return c.json({ error: 'Only owners can cancel invites' }, 403);
+  const householdId = c.get('householdId');
+  const db = c.get('userClient');
+  const role = c.get('memberRole');
+  if (role !== 'owner') return c.json({ error: 'Only owners can cancel invites' }, 403);
 
   const inviteId = c.req.param('inviteId');
 
-  const { error } = await supabase
+  const { error } = await db
     .from('household_invite')
     .delete()
     .eq('id', inviteId)
-    .eq('household_id', member.household_id);
+    .eq('household_id', householdId);
 
   if (error) return c.json({ error: error.message }, 500);
   return c.json({ success: true });

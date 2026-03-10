@@ -1,40 +1,4 @@
--- Onboarding: extend household & member, add invites
-
--- ── Household extensions ──
-
-alter table household
-  add column tax_filing_status text,  -- single | married_jointly | married_separately | head_of_household
-  add column state             text,  -- US state abbreviation
-  add column currency          text not null default 'USD';
-
-alter table household
-  add constraint chk_household_tax_filing_status
-    check (tax_filing_status is null or tax_filing_status in (
-      'single', 'married_jointly', 'married_separately', 'head_of_household'
-    )),
-  add constraint chk_household_state
-    check (state is null or length(state) = 2);
-
--- ── Member extensions ──
-
-alter table member
-  add column birthday              date,
-  add column target_retirement_age int,
-  add column annual_income         numeric(14,2),
-  add column employment_type       text,  -- w2 | 1099 | mixed
-  add column risk_tolerance        text;  -- conservative | moderate | aggressive
-
-alter table member
-  add constraint chk_member_birthday
-    check (birthday is null or birthday < current_date),
-  add constraint chk_member_retirement_age
-    check (target_retirement_age is null or target_retirement_age > 0),
-  add constraint chk_member_income
-    check (annual_income is null or annual_income > 0),
-  add constraint chk_member_employment_type
-    check (employment_type is null or employment_type in ('w2', '1099', 'mixed')),
-  add constraint chk_member_risk_tolerance
-    check (risk_tolerance is null or risk_tolerance in ('conservative', 'moderate', 'aggressive'));
+-- Onboarding: invites, RPC functions, and safety triggers
 
 -- ── Household Invites ──
 
@@ -51,6 +15,8 @@ create table household_invite (
 
 create index idx_invite_household on household_invite(household_id);
 create index idx_invite_email on household_invite(email);
+create index idx_invite_pending on household_invite(household_id, email)
+  where accepted_at is null;
 
 -- RLS: invites visible to household members + the invited email user
 alter table household_invite enable row level security;
@@ -139,10 +105,9 @@ as $$
   );
 $$;
 
--- Prevent one auth user from being in multiple households
--- (already enforced by unique constraint on member.auth_user_id,
---  but this trigger blocks a second household insert explicitly)
+-- ── Safety Triggers ──
 
+-- Prevent one auth user from being in multiple households
 create or replace function prevent_multi_household()
 returns trigger as $$
 begin
@@ -160,7 +125,6 @@ create trigger trg_prevent_multi_household
   execute function prevent_multi_household();
 
 -- Prevent removing the last owner from a household
-
 create or replace function prevent_last_owner_removal()
 returns trigger as $$
 begin

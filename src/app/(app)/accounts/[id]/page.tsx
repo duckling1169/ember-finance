@@ -1,17 +1,720 @@
 'use client';
 
-import { use } from 'react';
+import { use, useState, useRef } from 'react';
+import Link from 'next/link';
+import {
+  devBypass,
+  enrichAccounts,
+  mockSources,
+  mockAccountHistory,
+  mockBalanceHistory,
+  type AccountHistoryEvent,
+} from '@/lib/mock-data';
+import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
+import { Button } from '@/components/ui/button';
+import {
+  IconArrowLeft,
+  IconPlugConnected,
+  IconUpload,
+  IconPlus,
+  IconCheck,
+  IconX,
+  IconLink,
+  IconLinkOff,
+  IconRefresh,
+  IconFileUpload,
+  IconPencil,
+  IconCirclePlus,
+  IconPlayerPlay,
+} from '@tabler/icons-react';
+
+function fmt(n: number) {
+  return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(n);
+}
+
+function fmtDateTime(dateStr: string) {
+  return new Date(dateStr).toLocaleDateString('en-US', {
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit',
+  });
+}
+
+const TAX_BUCKET_LABELS: Record<string, string> = {
+  taxable: 'Taxable',
+  traditional: 'Traditional (pre-tax)',
+  roth: 'Roth (after-tax)',
+  hsa: 'HSA',
+  none: 'N/A',
+};
+
+type Tab = 'overview' | 'history';
 
 export default function AccountDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
+  const [activeTab, setActiveTab] = useState<Tab>('overview');
+
+  const account = devBypass ? enrichAccounts().find((a) => a.id === id) : null;
+
+  if (!account) {
+    return (
+      <div className="space-y-3">
+        <Link
+          href="/accounts"
+          className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground transition-colors"
+        >
+          <IconArrowLeft size={16} />
+          Back to Accounts
+        </Link>
+        <p className="text-muted-foreground">Account not found.</p>
+      </div>
+    );
+  }
+
+  const history = mockAccountHistory[id] || [];
+  const balanceHistory = mockBalanceHistory[id] || [];
+
+  const linkConfig = account.linked
+    ? { icon: IconPlugConnected, label: 'Linked', className: 'text-gain' }
+    : { icon: IconLinkOff, label: 'Not Linked', className: 'text-muted-foreground' };
+
+  const LinkIcon = linkConfig.icon;
+
+  const tabs: { key: Tab; label: string; count?: number }[] = [
+    { key: 'overview', label: 'Overview' },
+    { key: 'history', label: 'History', count: history.length },
+  ];
 
   return (
-    <div className="space-y-6">
-      <h1 className="text-2xl font-semibold">Account Detail</h1>
-      <p className="text-sm text-muted-foreground">Account ID: {id}</p>
-      <p className="text-sm text-muted-foreground">
-        Tabs (Overview, Transactions, Holdings, Sources) coming soon.
-      </p>
+    <div className="space-y-3">
+      {/* Back link */}
+      <Link
+        href="/accounts"
+        className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground transition-colors"
+      >
+        <IconArrowLeft size={16} />
+        Accounts
+      </Link>
+
+      {/* Header */}
+      <div className="flex items-start justify-between">
+        <div>
+          <h1 className="text-2xl font-semibold">{account.name}</h1>
+          <div className="mt-1 flex items-center gap-3 text-sm text-muted-foreground">
+            {account.institution && <span>{account.institution}</span>}
+            <span className="capitalize">{account.account_type}</span>
+            {account.tax_bucket && account.tax_bucket !== 'none' && (
+              <>
+                <span>&middot;</span>
+                <span>{TAX_BUCKET_LABELS[account.tax_bucket] || account.tax_bucket}</span>
+              </>
+            )}
+          </div>
+        </div>
+        <div className="text-right">
+          <p className="text-2xl font-semibold font-mono tabular-nums">{fmt(account.balance)}</p>
+          <div className="mt-1 flex items-center justify-end gap-2 text-sm">
+            <span className={`inline-flex items-center gap-1 ${linkConfig.className}`}>
+              <LinkIcon size={14} />
+              {linkConfig.label}
+            </span>
+            {account.last_updated && (
+              <>
+                <span className="text-muted-foreground">&middot;</span>
+                <span className="text-muted-foreground">{fmtDateTime(account.last_updated)}</span>
+              </>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* Tabs */}
+      <div className="flex gap-1 border-b border-border">
+        {tabs.map((tab) => (
+          <button
+            key={tab.key}
+            onClick={() => setActiveTab(tab.key)}
+            className={`px-4 py-2 text-sm font-medium transition-colors border-b-2 -mb-px ${
+              activeTab === tab.key
+                ? 'border-primary text-foreground'
+                : 'border-transparent text-muted-foreground hover:text-foreground'
+            }`}
+          >
+            {tab.label}
+            {tab.count !== undefined && tab.count > 0 && (
+              <span className="ml-1.5 text-xs text-muted-foreground">({tab.count})</span>
+            )}
+          </button>
+        ))}
+      </div>
+
+      {/* Tab content */}
+      {activeTab === 'overview' && (
+        <OverviewTab account={account} balanceHistory={balanceHistory} />
+      )}
+      {activeTab === 'history' && <HistoryTab history={history} accountId={id} />}
+    </div>
+  );
+}
+
+// ── Overview Tab ──
+
+function OverviewTab({
+  account,
+  balanceHistory,
+}: {
+  account: ReturnType<typeof enrichAccounts>[0];
+  balanceHistory: { date: string; balance: number }[];
+}) {
+  return (
+    <div className="space-y-3">
+      {/* Balance over time chart */}
+      {balanceHistory.length > 1 && (
+        <Card>
+          <CardContent className="pt-5">
+            <p className="text-sm text-muted-foreground mb-3">Balance Over Time</p>
+            <BalanceChart data={balanceHistory} />
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Account details */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Details</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <dl className="grid grid-cols-2 gap-x-8 gap-y-3 text-sm">
+            <div>
+              <dt className="text-muted-foreground">Institution</dt>
+              <dd className="font-medium">{account.institution || '\u2014'}</dd>
+            </div>
+            <div>
+              <dt className="text-muted-foreground">Type</dt>
+              <dd className="font-medium capitalize">{account.account_type}</dd>
+            </div>
+            <div>
+              <dt className="text-muted-foreground">Tax Bucket</dt>
+              <dd className="font-medium">
+                {TAX_BUCKET_LABELS[account.tax_bucket] || account.tax_bucket}
+              </dd>
+            </div>
+            <div>
+              <dt className="text-muted-foreground">Linked</dt>
+              <dd className="font-medium">{account.linked ? 'Yes' : 'No'}</dd>
+            </div>
+            {account.notes && (
+              <div className="col-span-2">
+                <dt className="text-muted-foreground">Notes</dt>
+                <dd className="font-medium">{account.notes}</dd>
+              </div>
+            )}
+          </dl>
+        </CardContent>
+      </Card>
+
+      {/* Connection management */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Connection</CardTitle>
+        </CardHeader>
+        <CardContent>
+          {account.linked ? (
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="flex h-10 w-10 items-center justify-center rounded-full bg-gain/10">
+                  <IconPlugConnected size={20} className="text-gain" />
+                </div>
+                <div>
+                  <p className="text-sm font-medium">Connected via API</p>
+                  <p className="text-xs text-muted-foreground">
+                    Last synced {account.last_updated ? fmtDateTime(account.last_updated) : 'never'}
+                  </p>
+                </div>
+              </div>
+              <Button variant="outline" size="sm">
+                <IconLinkOff size={14} />
+                Disconnect
+              </Button>
+            </div>
+          ) : (
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="flex h-10 w-10 items-center justify-center rounded-full bg-muted">
+                  <IconLink size={20} className="text-muted-foreground" />
+                </div>
+                <div>
+                  <p className="text-sm font-medium">Not linked</p>
+                  <p className="text-xs text-muted-foreground">
+                    Connect to automatically sync balances and transactions
+                  </p>
+                </div>
+              </div>
+              <Button
+                variant="outline"
+                size="sm"
+                className="hover:bg-primary hover:text-primary-foreground hover:border-primary"
+              >
+                <IconLink size={14} />
+                Link Account
+              </Button>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
+// ── History Tab ──
+
+const EVENT_CONFIG: Record<
+  AccountHistoryEvent['type'],
+  { icon: typeof IconRefresh; label: string; className: string }
+> = {
+  api_sync: { icon: IconRefresh, label: 'API Sync', className: 'text-gain bg-gain/10' },
+  file_import: {
+    icon: IconFileUpload,
+    label: 'File Import',
+    className: 'text-chart-2 bg-chart-2/10',
+  },
+  manual_override: {
+    icon: IconPencil,
+    label: 'Manual Override',
+    className: 'text-chart-4 bg-chart-4/10',
+  },
+  manual_delta: {
+    icon: IconCirclePlus,
+    label: 'Manual Delta',
+    className: 'text-chart-3 bg-chart-3/10',
+  },
+  link_connected: { icon: IconLink, label: 'Linked', className: 'text-gain bg-gain/10' },
+  link_disconnected: {
+    icon: IconLinkOff,
+    label: 'Unlinked',
+    className: 'text-destructive bg-destructive/10',
+  },
+  account_created: {
+    icon: IconPlayerPlay,
+    label: 'Created',
+    className: 'text-muted-foreground bg-muted',
+  },
+};
+
+function HistoryTab({
+  history: initialHistory,
+  accountId,
+}: {
+  history: AccountHistoryEvent[];
+  accountId: string;
+}) {
+  const [history, setHistory] = useState(initialHistory);
+  const [showManualForm, setShowManualForm] = useState(false);
+  const [showUpload, setShowUpload] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [dragOver, setDragOver] = useState(false);
+
+  function handleManualEntry(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    const form = new FormData(e.currentTarget);
+    const entryType = form.get('entry_type') as 'current' | 'delta';
+    const amount = parseFloat(form.get('amount') as string);
+    const description = form.get('description') as string;
+
+    const newEvent: AccountHistoryEvent = {
+      id: `h-${Date.now()}`,
+      date: new Date().toISOString(),
+      type: entryType === 'current' ? 'manual_override' : 'manual_delta',
+      description:
+        entryType === 'current'
+          ? `Balance set to ${fmt(amount)}`
+          : description || (amount >= 0 ? 'Deposit' : 'Withdrawal'),
+      detail: entryType === 'delta' ? `${amount >= 0 ? '+' : ''}${fmt(amount)}` : undefined,
+      balance_after: entryType === 'current' ? amount : undefined,
+    };
+    setHistory((prev) => [newEvent, ...prev]);
+    setShowManualForm(false);
+  }
+
+  function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (file) handleFileDrop(file);
+  }
+
+  function handleFileDrop(file: File) {
+    const newEvent: AccountHistoryEvent = {
+      id: `h-${Date.now()}`,
+      date: new Date().toISOString(),
+      type: 'file_import',
+      description: `Uploaded ${file.name}`,
+      detail: file.name,
+      records: 0,
+    };
+    setHistory((prev) => [newEvent, ...prev]);
+    setShowUpload(false);
+    // TODO: actual upload via ingestCsv
+  }
+
+  return (
+    <div className="space-y-3">
+      {/* Action buttons */}
+      <div className="flex justify-end gap-2">
+        {showManualForm || showUpload ? (
+          <Button
+            variant="ghost"
+            onClick={() => {
+              setShowManualForm(false);
+              setShowUpload(false);
+            }}
+          >
+            <IconX size={16} />
+            Cancel
+          </Button>
+        ) : (
+          <>
+            <Button
+              variant="outline"
+              className="hover:bg-primary hover:text-primary-foreground hover:border-primary"
+              onClick={() => {
+                setShowUpload(true);
+                setShowManualForm(false);
+              }}
+            >
+              <IconUpload size={16} />
+              Upload File
+            </Button>
+            <Button
+              variant="outline"
+              className="hover:bg-primary hover:text-primary-foreground hover:border-primary"
+              onClick={() => {
+                setShowManualForm(true);
+                setShowUpload(false);
+              }}
+            >
+              <IconPlus size={16} />
+              Manual Entry
+            </Button>
+          </>
+        )}
+      </div>
+
+      {/* Upload zone */}
+      {showUpload && (
+        <Card>
+          <CardContent>
+            <div
+              className={`flex flex-col items-center gap-3 rounded-lg border-2 border-dashed py-8 transition-colors ${
+                dragOver ? 'border-primary bg-primary/5' : 'border-border'
+              }`}
+              onDragOver={(e) => {
+                e.preventDefault();
+                setDragOver(true);
+              }}
+              onDragLeave={() => setDragOver(false)}
+              onDrop={(e) => {
+                e.preventDefault();
+                setDragOver(false);
+                const file = e.dataTransfer.files[0];
+                if (file) handleFileDrop(file);
+              }}
+            >
+              <IconUpload size={28} className="text-muted-foreground" stroke={1.5} />
+              <div className="text-center">
+                <p className="text-sm font-medium">Drop a CSV or PDF here</p>
+                <p className="text-xs text-muted-foreground mt-1">or click to browse</p>
+              </div>
+              <Button variant="outline" size="sm" onClick={() => fileInputRef.current?.click()}>
+                Choose File
+              </Button>
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept=".csv,.pdf"
+                className="hidden"
+                onChange={handleFileChange}
+              />
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Manual entry form */}
+      {showManualForm && (
+        <Card>
+          <CardContent>
+            <form onSubmit={handleManualEntry} className="space-y-4">
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div>
+                  <label className="mb-1.5 block text-sm font-medium">Type</label>
+                  <select
+                    name="entry_type"
+                    required
+                    className="h-9 w-full rounded-md border border-input bg-card px-3 text-sm outline-none focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/50"
+                  >
+                    <option value="current">Current Balance (override)</option>
+                    <option value="delta">Delta (add/subtract)</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="mb-1.5 block text-sm font-medium">Amount</label>
+                  <Input name="amount" type="number" step="0.01" required placeholder="50000.00" />
+                </div>
+              </div>
+              <div>
+                <label className="mb-1.5 block text-sm font-medium">Description (optional)</label>
+                <Input name="description" placeholder="Deposit, adjustment, etc." />
+              </div>
+              <div className="flex justify-end">
+                <Button
+                  type="submit"
+                  variant="outline"
+                  className="hover:bg-primary hover:text-primary-foreground hover:border-primary"
+                >
+                  <IconCheck size={16} />
+                  Save Entry
+                </Button>
+              </div>
+            </form>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Timeline */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Account History</CardTitle>
+        </CardHeader>
+        <CardContent>
+          {history.length === 0 ? (
+            <p className="py-6 text-center text-sm text-muted-foreground">No history yet</p>
+          ) : (
+            <div className="space-y-0">
+              {history.map((event, i) => {
+                const config = EVENT_CONFIG[event.type];
+                const Icon = config.icon;
+                const isLast = i === history.length - 1;
+
+                return (
+                  <div key={event.id} className="flex gap-4">
+                    {/* Timeline line + dot */}
+                    <div className="flex flex-col items-center">
+                      <div
+                        className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full ${config.className}`}
+                      >
+                        <Icon size={14} />
+                      </div>
+                      {!isLast && <div className="w-px flex-1 bg-border" />}
+                    </div>
+
+                    {/* Content */}
+                    <div className={`flex-1 pb-6 ${isLast ? '' : ''}`}>
+                      <div className="flex items-start justify-between">
+                        <div>
+                          <p className="text-sm font-medium">{event.description}</p>
+                          <div className="mt-0.5 flex items-center gap-2 text-xs text-muted-foreground">
+                            <span>{fmtDateTime(event.date)}</span>
+                            {event.records !== undefined && event.records > 0 && (
+                              <>
+                                <span>&middot;</span>
+                                <span>{event.records} records</span>
+                              </>
+                            )}
+                          </div>
+                        </div>
+                        {event.balance_after !== undefined && (
+                          <span className="text-sm font-mono tabular-nums font-medium">
+                            {fmt(event.balance_after)}
+                          </span>
+                        )}
+                        {event.detail && event.balance_after === undefined && (
+                          <span className="text-sm font-mono tabular-nums text-muted-foreground">
+                            {event.detail}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
+// ── Balance Chart ──
+
+const SVG_W = 1200;
+const SVG_H = 200;
+const PAD = { top: 12, right: 16, bottom: 28, left: 64 };
+const PLOT_W = SVG_W - PAD.left - PAD.right;
+const PLOT_H = SVG_H - PAD.top - PAD.bottom;
+const AXIS_FONT = 12;
+
+function fmtAxisK(n: number) {
+  if (Math.abs(n) >= 1000) return `$${(n / 1000).toFixed(0)}k`;
+  return `$${n.toFixed(0)}`;
+}
+
+const MONTH_SHORT = [
+  'Jan',
+  'Feb',
+  'Mar',
+  'Apr',
+  'May',
+  'Jun',
+  'Jul',
+  'Aug',
+  'Sep',
+  'Oct',
+  'Nov',
+  'Dec',
+];
+
+function BalanceChart({ data }: { data: { date: string; balance: number }[] }) {
+  const [hoverIdx, setHoverIdx] = useState<number | null>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  const values = data.map((d) => d.balance);
+  const min = Math.min(...values);
+  const max = Math.max(...values);
+  const padding = (max - min) * 0.05 || Math.abs(max) * 0.05 || 100;
+  const chartMin = min - padding;
+  const chartMax = max + padding;
+  const range = chartMax - chartMin || 1;
+
+  const points = data.map((d, i) => {
+    const x = PAD.left + (i / (data.length - 1)) * PLOT_W;
+    const y = PAD.top + (1 - (d.balance - chartMin) / range) * PLOT_H;
+    return { x, y, ...d };
+  });
+
+  const linePath = points.map((p, i) => `${i === 0 ? 'M' : 'L'} ${p.x} ${p.y}`).join(' ');
+  const areaPath = `${linePath} L ${points[points.length - 1].x} ${PAD.top + PLOT_H} L ${points[0].x} ${PAD.top + PLOT_H} Z`;
+
+  const yTicks = [0, 0.25, 0.5, 0.75, 1].map((pct) => ({
+    pct,
+    value: chartMin + pct * range,
+    y: PAD.top + (1 - pct) * PLOT_H,
+  }));
+
+  function handleMouseMove(e: React.MouseEvent) {
+    const el = containerRef.current;
+    if (!el) return;
+    const rect = el.getBoundingClientRect();
+    const svgX = ((e.clientX - rect.left) / rect.width) * SVG_W;
+    let nearest = 0;
+    let minDist = Infinity;
+    for (let i = 0; i < points.length; i++) {
+      const dist = Math.abs(points[i].x - svgX);
+      if (dist < minDist) {
+        minDist = dist;
+        nearest = i;
+      }
+    }
+    setHoverIdx(nearest);
+  }
+
+  const hp = hoverIdx !== null ? points[hoverIdx] : null;
+
+  return (
+    <div
+      ref={containerRef}
+      className="relative"
+      onMouseMove={handleMouseMove}
+      onMouseLeave={() => setHoverIdx(null)}
+    >
+      <svg viewBox={`0 0 ${SVG_W} ${SVG_H}`} className="w-full">
+        {yTicks.map((tick) => (
+          <g key={tick.pct}>
+            {tick.pct > 0 && tick.pct < 1 && (
+              <line
+                x1={PAD.left}
+                x2={SVG_W - PAD.right}
+                y1={tick.y}
+                y2={tick.y}
+                stroke="var(--border)"
+                strokeWidth={0.5}
+              />
+            )}
+            <text
+              x={PAD.left - 8}
+              y={tick.y + 4}
+              textAnchor="end"
+              className="fill-muted-foreground"
+              fontSize={AXIS_FONT}
+            >
+              {fmtAxisK(tick.value)}
+            </text>
+          </g>
+        ))}
+        <defs>
+          <linearGradient id="balanceGrad" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor="var(--chart-1)" stopOpacity={0.5} />
+            <stop offset="100%" stopColor="var(--chart-1)" stopOpacity={0.05} />
+          </linearGradient>
+        </defs>
+        <path d={areaPath} fill="url(#balanceGrad)" />
+        <path d={linePath} fill="none" stroke="var(--chart-1)" strokeWidth={2.5} />
+        {points.map((p, i) => (
+          <circle
+            key={p.date}
+            cx={p.x}
+            cy={p.y}
+            r={hoverIdx === i ? 5 : 3}
+            fill="var(--chart-1)"
+            opacity={hoverIdx === null || hoverIdx === i ? 0.9 : 0.3}
+            stroke={hoverIdx === i ? 'var(--background)' : 'none'}
+            strokeWidth={2}
+          />
+        ))}
+        {data.map((d, i) => {
+          const dateParts = d.date.split('-');
+          const monthIdx = parseInt(dateParts[1], 10) - 1;
+          return (
+            <text
+              key={d.date}
+              x={points[i].x}
+              y={SVG_H - 6}
+              textAnchor="middle"
+              className="fill-muted-foreground"
+              fontSize={AXIS_FONT}
+            >
+              {MONTH_SHORT[monthIdx]}
+            </text>
+          );
+        })}
+        {hp && (
+          <line
+            x1={hp.x}
+            x2={hp.x}
+            y1={PAD.top}
+            y2={PAD.top + PLOT_H}
+            stroke="var(--muted-foreground)"
+            strokeWidth={1}
+            strokeDasharray="4 2"
+            opacity={0.5}
+          />
+        )}
+      </svg>
+      {hp && (
+        <div
+          className="absolute pointer-events-none z-10 rounded-md bg-popover border border-border px-3 py-1.5 text-xs shadow-md whitespace-nowrap"
+          style={{
+            left: `${(hp.x / SVG_W) * 100}%`,
+            top: `${(hp.y / SVG_H) * 100}%`,
+            transform: 'translate(-50%, -140%)',
+          }}
+        >
+          <span className="text-muted-foreground">{hp.date}</span>
+          <span className="ml-2 font-mono tabular-nums font-medium">{fmt(hp.balance)}</span>
+        </div>
+      )}
     </div>
   );
 }

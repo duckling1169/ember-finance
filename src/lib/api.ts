@@ -27,21 +27,52 @@ async function apiFetch<T>(path: string, options: RequestInit = {}): Promise<T> 
   return res.json();
 }
 
-// Onboarding
+// ── Onboarding ──
+
 export function createHousehold(data: Record<string, unknown>) {
   return apiFetch('/api/onboarding', { method: 'POST', body: JSON.stringify(data) });
 }
 
-// Settings
+// ── Settings ──
+
 export function getHousehold() {
   return apiFetch<Record<string, unknown>>('/api/settings/household');
+}
+
+export function updateHousehold(data: Record<string, unknown>) {
+  return apiFetch('/api/settings/household', { method: 'PATCH', body: JSON.stringify(data) });
 }
 
 export function getProfile() {
   return apiFetch<Record<string, unknown>>('/api/settings/profile');
 }
 
-// Accounts
+export function updateProfile(data: Record<string, unknown>) {
+  return apiFetch('/api/settings/profile', { method: 'PATCH', body: JSON.stringify(data) });
+}
+
+export function getMembers() {
+  return apiFetch<Record<string, unknown>[]>('/api/settings/members');
+}
+
+export function removeMember(memberId: string) {
+  return apiFetch(`/api/settings/members/${memberId}`, { method: 'DELETE' });
+}
+
+export function getInvites() {
+  return apiFetch<Record<string, unknown>[]>('/api/settings/invites');
+}
+
+export function sendInvite(data: { email: string; role?: string }) {
+  return apiFetch('/api/settings/invites', { method: 'POST', body: JSON.stringify(data) });
+}
+
+export function cancelInvite(inviteId: string) {
+  return apiFetch(`/api/settings/invites/${inviteId}`, { method: 'DELETE' });
+}
+
+// ── Accounts ──
+
 export function getAccounts(householdId: string) {
   return apiFetch<Record<string, unknown>[]>(`/api/accounts/${householdId}`);
 }
@@ -53,7 +84,40 @@ export function createAccount(householdId: string, data: Record<string, unknown>
   });
 }
 
-// Ingest
+export function updateAccount(
+  householdId: string,
+  accountId: string,
+  data: Record<string, unknown>,
+) {
+  return apiFetch(`/api/accounts/${householdId}/${accountId}`, {
+    method: 'PATCH',
+    body: JSON.stringify(data),
+  });
+}
+
+export function deleteAccount(householdId: string, accountId: string) {
+  return apiFetch(`/api/accounts/${householdId}/${accountId}`, { method: 'DELETE' });
+}
+
+// ── Sources ──
+
+export function getSources(householdId: string, accountId: string) {
+  return apiFetch<Record<string, unknown>[]>(`/api/sources/${householdId}/${accountId}`);
+}
+
+export function createSource(
+  householdId: string,
+  accountId: string,
+  data: { provider: string; provider_account_id?: string },
+) {
+  return apiFetch(`/api/sources/${householdId}/${accountId}`, {
+    method: 'POST',
+    body: JSON.stringify(data),
+  });
+}
+
+// ── Ingest ──
+
 export function ingestManual(
   householdId: string,
   accountId: string,
@@ -87,4 +151,70 @@ export async function ingestCsv(
     throw new Error(body.error || `Upload failed: ${res.status}`);
   }
   return res.json();
+}
+
+export function syncSource(householdId: string, sourceId: string) {
+  return apiFetch(`/api/ingest/sync/${householdId}/${sourceId}`, { method: 'POST' });
+}
+
+// ── History (audit trail + balance snapshots) ──
+
+export function getAccountHistory(householdId: string, accountId: string, limit = 50, offset = 0) {
+  return apiFetch<Record<string, unknown>[]>(
+    `/api/history/${householdId}/${accountId}?limit=${limit}&offset=${offset}`,
+  );
+}
+
+export function getAccountEvents(householdId: string, accountId: string) {
+  return apiFetch<Record<string, unknown>[]>(`/api/history/events/${householdId}/${accountId}`);
+}
+
+export function getBalanceHistory(householdId: string, accountId: string) {
+  return apiFetch<Record<string, unknown>[]>(`/api/history/balances/${householdId}/${accountId}`);
+}
+
+export function getLatestBalance(householdId: string, accountId: string) {
+  return apiFetch<Record<string, unknown>>(
+    `/api/history/balances/${householdId}/${accountId}/latest`,
+  );
+}
+
+// ── Duplicates ──
+
+export function getHiddenTransactions(householdId: string, accountId: string) {
+  return apiFetch<Record<string, unknown>[]>(
+    `/api/duplicates/transactions/${householdId}/${accountId}`,
+  );
+}
+
+export function getHiddenActivity(householdId: string, accountId: string) {
+  return apiFetch<Record<string, unknown>[]>(
+    `/api/duplicates/activity/${householdId}/${accountId}`,
+  );
+}
+
+export function getDuplicatesForReview(householdId: string, accountId: string) {
+  return apiFetch<Record<string, unknown>[]>(`/api/duplicates/review/${householdId}/${accountId}`);
+}
+
+export function hideTransaction(id: string, reason?: string) {
+  return apiFetch(`/api/duplicates/hide/transaction/${id}`, {
+    method: 'POST',
+    body: JSON.stringify({ reason }),
+  });
+}
+
+export function unhideTransaction(id: string) {
+  return apiFetch(`/api/duplicates/unhide/transaction/${id}`, { method: 'POST' });
+}
+
+export function hideActivity(id: string, reason?: string) {
+  return apiFetch(`/api/duplicates/hide/activity/${id}`, {
+    method: 'POST',
+    body: JSON.stringify({ reason }),
+  });
+}
+
+export function unhideActivity(id: string) {
+  return apiFetch(`/api/duplicates/unhide/activity/${id}`, { method: 'POST' });
 }

@@ -8,12 +8,39 @@ import type { AuthEnv } from '../middleware/auth.js';
 
 export const ingestRoute = new Hono<AuthEnv>();
 
+const MAX_CSV_SIZE = 10 * 1024 * 1024; // 10 MB
+
+// Helper: get or create a source for a given provider, scoped to account
+async function getOrCreateSource(householdId: string, accountId: string, provider: string) {
+  const { data: existing, error: lookupErr } = await supabase
+    .from('account_source')
+    .select('*')
+    .eq('account_id', accountId)
+    .eq('household_id', householdId)
+    .eq('provider', provider)
+    .order('created_at', { ascending: true })
+    .limit(1)
+    .maybeSingle();
+
+  if (lookupErr) throw new Error(`Source lookup failed: ${lookupErr.message}`);
+  if (existing) return existing;
+
+  const { data: newSource, error: createErr } = await supabase
+    .from('account_source')
+    .insert({ account_id: accountId, household_id: householdId, provider })
+    .select()
+    .single();
+
+  if (createErr) throw new Error(`Source creation failed: ${createErr.message}`);
+  return newSource;
+}
+
 // Manual entry — submit normalized data directly
 ingestRoute.post('/manual/:householdId/:accountId', async (c) => {
   const { householdId, accountId } = c.req.param();
   const body = await c.req.json();
 
-  // Verify account exists first
+  // Verify account exists (service-role — ingest is a privileged operation)
   const { data: account, error: accError } = await supabase
     .from('account')
     .select('*')
@@ -23,31 +50,8 @@ ingestRoute.post('/manual/:householdId/:accountId', async (c) => {
 
   if (accError || !account) return c.json({ error: 'Account not found' }, 404);
 
-  // Get or create a manual source for this account
-  let { data: source } = await supabase
-    .from('account_source')
-    .select('*')
-    .eq('account_id', accountId)
-    .eq('household_id', householdId)
-    .eq('provider', 'manual')
-    .single();
-
-  if (!source) {
-    const { data: newSource, error } = await supabase
-      .from('account_source')
-      .insert({
-        account_id: accountId,
-        household_id: householdId,
-        provider: 'manual',
-      })
-      .select()
-      .single();
-
-    if (error) return c.json({ error: error.message }, 500);
-    source = newSource;
-  }
-
   try {
+    const source = await getOrCreateSource(householdId, accountId, 'manual');
     const adapter = new ManualAdapter(body);
     const result = await adapter.sync(account as Account, source as AccountSource);
 
@@ -57,6 +61,7 @@ ingestRoute.post('/manual/:householdId/:accountId', async (c) => {
         accountId,
         sourceId: source.id,
         sourceType: 'manual_entry',
+        triggeredBy: c.get('memberId'),
       },
       result,
     );
@@ -78,6 +83,13 @@ ingestRoute.post('/csv/:householdId/:accountId', async (c) => {
 
   if (!file) return c.json({ error: 'No file provided' }, 400);
 
+  if (file.size > MAX_CSV_SIZE) {
+    return c.json(
+      { error: `File too large. Maximum size is ${MAX_CSV_SIZE / 1024 / 1024} MB.` },
+      400,
+    );
+  }
+
   // Verify account exists
   const { data: account, error: accError } = await supabase
     .from('account')
@@ -88,31 +100,8 @@ ingestRoute.post('/csv/:householdId/:accountId', async (c) => {
 
   if (accError || !account) return c.json({ error: 'Account not found' }, 404);
 
-  // Get or create a CSV source
-  let { data: source } = await supabase
-    .from('account_source')
-    .select('*')
-    .eq('account_id', accountId)
-    .eq('household_id', householdId)
-    .eq('provider', 'csv')
-    .single();
-
-  if (!source) {
-    const { data: newSource, error } = await supabase
-      .from('account_source')
-      .insert({
-        account_id: accountId,
-        household_id: householdId,
-        provider: 'csv',
-      })
-      .select()
-      .single();
-
-    if (error) return c.json({ error: error.message }, 500);
-    source = newSource;
-  }
-
   try {
+    const source = await getOrCreateSource(householdId, accountId, 'csv');
     const buffer = Buffer.from(await file.arrayBuffer());
 
     // Auto-detect format if not provided
@@ -135,6 +124,7 @@ ingestRoute.post('/csv/:householdId/:accountId', async (c) => {
         sourceId: source.id,
         sourceType: 'csv_upload',
         sourceRef: file.name,
+        triggeredBy: c.get('memberId'),
       },
       result,
     );

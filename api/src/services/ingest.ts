@@ -9,6 +9,7 @@ interface IngestContext {
   sourceId: string;
   sourceType: string;
   sourceRef?: string;
+  triggeredBy?: string;
 }
 
 export async function processIngest(ctx: IngestContext, result: IngestResult) {
@@ -29,6 +30,7 @@ export async function processIngest(ctx: IngestContext, result: IngestResult) {
       source_ref: ctx.sourceRef || null,
       payload: result,
       record_count: totalRecords,
+      triggered_by: ctx.triggeredBy || null,
       status: 'pending',
     })
     .select()
