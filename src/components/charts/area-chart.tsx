@@ -3,15 +3,7 @@
 import { useMemo, useState, useEffect } from 'react';
 import { ResponsiveLine } from '@nivo/line';
 import { getNivoTheme, CHART_COLORS } from './theme';
-
-function fmt(n: number) {
-  return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(n);
-}
-
-function fmtAxisK(n: number) {
-  if (Math.abs(n) >= 1_000_000) return `$${(n / 1_000_000).toFixed(1)}M`;
-  return `$${(n / 1000).toFixed(0)}k`;
-}
+import { fmt, fmtAxisK } from '@/lib/formatters';
 
 /**
  * Custom layer that draws a gradient fill under the line.

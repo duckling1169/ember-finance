@@ -26,48 +26,14 @@ import {
   SheetTitle,
   SheetDescription,
 } from '@/components/ui/sheet';
-import {
-  IconArrowUpRight,
-  IconArrowDownRight,
-  IconArrowsSort,
-  IconSortAscending,
-  IconSortDescending,
-  IconChevronRight,
-  IconChevronDown,
-  IconCheck,
-} from '@tabler/icons-react';
+import { IconChevronRight, IconChevronDown, IconCheck } from '@tabler/icons-react';
+import { INVESTMENT_ACCOUNT_TYPES } from '@shared/types';
+import { fmt } from '@/lib/formatters';
+import { TAX_BUCKET_LABELS } from '@/lib/constants';
+import { GainCell, PctCell } from '@/components/common/financial-cells';
+import { SortIcon, type SortDir } from '@/components/common/sort-icon';
 
-const INVESTMENT_TYPES = new Set(['brokerage', 'retirement', 'hsa']);
-
-function fmt(n: number) {
-  return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(n);
-}
-
-function GainCell({ value }: { value: number }) {
-  const color = value > 0 ? 'text-gain' : value < 0 ? 'text-loss' : 'text-muted-foreground';
-  const prefix = value > 0 ? '+' : '';
-  return (
-    <span className={`font-mono tabular-nums ${color}`}>
-      {prefix}
-      {fmt(value)}
-    </span>
-  );
-}
-
-function PctCell({ value }: { value: number }) {
-  if (value === 0)
-    return <span className="font-mono tabular-nums text-muted-foreground">&mdash;</span>;
-  const color = value > 0 ? 'text-gain' : 'text-loss';
-  const prefix = value > 0 ? '+' : '';
-  const Icon = value > 0 ? IconArrowUpRight : IconArrowDownRight;
-  return (
-    <span className={`inline-flex items-center gap-1 font-mono tabular-nums ${color}`}>
-      <Icon size={14} />
-      {prefix}
-      {value.toFixed(1)}%
-    </span>
-  );
-}
+const INVESTMENT_TYPES: Set<string> = new Set(INVESTMENT_ACCOUNT_TYPES);
 
 // Aggregated holding row (may combine multiple accounts)
 interface AggregatedHolding {
@@ -107,20 +73,6 @@ interface AccountInfo {
 }
 
 type SortKey = 'symbol' | 'name' | 'shares' | 'price' | 'value' | 'gain' | 'gain_pct';
-type SortDir = 'asc' | 'desc';
-
-function SortIcon({
-  field,
-  sortKey,
-  sortDir,
-}: {
-  field: SortKey;
-  sortKey: SortKey | null;
-  sortDir: SortDir;
-}) {
-  if (sortKey !== field) return <IconArrowsSort size={14} className="text-muted-foreground/50" />;
-  return sortDir === 'asc' ? <IconSortAscending size={14} /> : <IconSortDescending size={14} />;
-}
 
 function computeHoldingPeriod(acquiredDate: string): 'short_term' | 'long_term' {
   const acquired = new Date(acquiredDate);
@@ -702,13 +654,6 @@ function LotDetailPanel({
     if (!byAccount.has(lot.account_id)) byAccount.set(lot.account_id, []);
     byAccount.get(lot.account_id)!.push(lot);
   }
-
-  const TAX_BUCKET_LABELS: Record<string, string> = {
-    traditional: 'Traditional (pre-tax)',
-    roth: 'Roth (tax-free)',
-    taxable: 'Taxable',
-    none: 'N/A',
-  };
 
   return (
     <div className="space-y-3">
