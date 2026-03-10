@@ -5,10 +5,9 @@ import { logger } from 'hono/logger';
 import { env } from './lib/env.js';
 import { healthRoute } from './routes/health.js';
 import { accountsRoute } from './routes/accounts.js';
-import { sourcesRoute } from './routes/sources.js';
+import { holdingsRoute } from './routes/holdings.js';
 import { ingestRoute } from './routes/ingest.js';
 import { duplicatesRoute } from './routes/duplicates.js';
-import { historyRoute } from './routes/history.js';
 import { onboardingRoute } from './routes/onboarding.js';
 import { settingsRoute } from './routes/settings.js';
 import {
@@ -33,14 +32,13 @@ app.use('/api/settings/*', requireMember);
 // Household membership verification for routes with :householdId
 app.use('/api/accounts/:householdId', requireHouseholdMember);
 app.use('/api/accounts/:householdId/*', requireHouseholdMember);
-app.use('/api/sources/:householdId/*', requireHouseholdMember);
+app.use('/api/holdings/:householdId', requireHouseholdMember);
 app.use('/api/ingest/manual/:householdId/*', requireHouseholdMember);
 app.use('/api/ingest/csv/:householdId/*', requireHouseholdMember);
 app.use('/api/ingest/sync/:householdId/*', requireHouseholdMember);
 app.use('/api/duplicates/transactions/:householdId/*', requireHouseholdMember);
 app.use('/api/duplicates/activity/:householdId/*', requireHouseholdMember);
 app.use('/api/duplicates/review/:householdId/*', requireHouseholdMember);
-app.use('/api/history/:householdId/*', requireHouseholdMember);
 
 // Record ownership for duplicate hide/unhide (no householdId in path)
 app.use('/api/duplicates/hide/transaction/:id', requireRecordOwnership('transaction'));
@@ -53,10 +51,9 @@ app.route('/health', healthRoute);
 app.route('/api/onboarding', onboardingRoute);
 app.route('/api/settings', settingsRoute);
 app.route('/api/accounts', accountsRoute);
-app.route('/api/sources', sourcesRoute);
+app.route('/api/holdings', holdingsRoute);
 app.route('/api/ingest', ingestRoute);
 app.route('/api/duplicates', duplicatesRoute);
-app.route('/api/history', historyRoute);
 
 serve({ fetch: app.fetch, port: env.port }, (info) => {
   console.warn(`Ember API running on http://localhost:${info.port}`);
