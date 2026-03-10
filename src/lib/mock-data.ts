@@ -860,13 +860,11 @@ export const mockAllocationHistory = [
   { date: '2026-03', FXAIX: 61907, VTI: 36850, MSFT: 13277, other: 33198 },
 ];
 
-export const devBypass =
-  process.env.NODE_ENV === 'development' && process.env.NEXT_PUBLIC_DEV_BYPASS_AUTH === 'true';
-
 // ── Enriched Account View (composed for frontend display) ──
 // In production, this would be assembled from API calls to accounts + sources + balances.
 
-import { API_PROVIDERS } from '@/lib/constants';
+import { devBypass, API_PROVIDERS } from '@/lib/constants';
+export { devBypass };
 
 export type { EnrichedAccount } from '@shared/types';
 import type { EnrichedAccount } from '@shared/types';

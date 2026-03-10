@@ -3,45 +3,10 @@
 import { useMemo, useState, useEffect } from 'react';
 import { ResponsiveLine } from '@nivo/line';
 import { getNivoTheme, CHART_COLORS } from './theme';
+import { createAreaGradientLayer } from './gradient-layer';
 import { fmt, fmtAxisK } from '@/lib/formatters';
 
-/**
- * Custom layer that draws a gradient fill under the line.
- */
-function AreaGradientLayer(props: Record<string, unknown>) {
-  const { series, xScale, yScale, innerHeight } = props as {
-    series: { data: { data: { x: Date; y: number } }[] }[];
-    xScale: (v: Date) => number;
-    yScale: (v: number) => number;
-    innerHeight: number;
-  };
-  if (!series?.[0]?.data?.length) return null;
-  const id = 'area-gradient';
-  const points = series[0].data;
-  const path = points
-    .map((p, i) => {
-      const x = xScale(p.data.x);
-      const y = yScale(p.data.y);
-      return `${i === 0 ? 'M' : 'L'} ${x} ${y}`;
-    })
-    .join(' ');
-
-  const lastX = xScale(points[points.length - 1].data.x);
-  const firstX = xScale(points[0].data.x);
-  const areaPath = `${path} L ${lastX} ${innerHeight} L ${firstX} ${innerHeight} Z`;
-
-  return (
-    <>
-      <defs>
-        <linearGradient id={id} x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stopColor={CHART_COLORS[0]} stopOpacity={0.4} />
-          <stop offset="100%" stopColor={CHART_COLORS[0]} stopOpacity={0.02} />
-        </linearGradient>
-      </defs>
-      <path d={areaPath} fill={`url(#${id})`} />
-    </>
-  );
-}
+const AreaGradientLayer = createAreaGradientLayer('area-gradient');
 
 interface AreaChartProps {
   data: { date: string; value: number }[];

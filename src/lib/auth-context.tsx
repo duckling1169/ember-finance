@@ -3,6 +3,7 @@
 import { createContext, useContext, useEffect, useState } from 'react';
 import type { Session, User } from '@supabase/supabase-js';
 import { supabase } from './supabase';
+import { devBypass } from './constants';
 
 interface AuthState {
   user: User | null;
@@ -19,9 +20,6 @@ const AuthContext = createContext<AuthState>({
 export function useAuth() {
   return useContext(AuthContext);
 }
-
-const devBypass =
-  process.env.NODE_ENV === 'development' && process.env.NEXT_PUBLIC_DEV_BYPASS_AUTH === 'true';
 
 const mockUser = {
   id: 'dev-mock-user',
