@@ -108,7 +108,12 @@ export default function AccountsPage() {
 
 function AccountsContent() {
   const router = useRouter();
-  const { data: apiAccounts, isLoading: swrLoading, householdId } = useAccounts();
+  const {
+    data: apiAccounts,
+    isLoading: swrLoading,
+    householdId,
+    error: fetchError,
+  } = useAccounts();
   const [mockAccts, setMockAccts] = useState<AccountData[]>(devBypass ? enrichAccounts() : []);
   const accounts: AccountData[] = devBypass
     ? mockAccts
@@ -183,6 +188,17 @@ function AccountsContent() {
 
   if (loading) {
     return <div className="py-10 text-muted-foreground">Loading...</div>;
+  }
+
+  if (!devBypass && fetchError) {
+    return (
+      <div className="space-y-3">
+        <h1 className="text-2xl font-semibold">Accounts</h1>
+        <div className="rounded-md bg-destructive/10 p-4 text-sm text-destructive">
+          Failed to load accounts. {fetchError.message || 'Please try again later.'}
+        </div>
+      </div>
+    );
   }
 
   return (

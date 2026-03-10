@@ -131,7 +131,7 @@ export default function AccountDetailPage({ params }: { params: Promise<{ id: st
   const [activeTab, setActiveTab] = useState<Tab>('overview');
 
   const { householdId } = useAccounts();
-  const { data: apiDetail, isLoading } = useAccountDetail(devBypass ? undefined : id);
+  const { data: apiDetail, isLoading, error } = useAccountDetail(devBypass ? undefined : id);
 
   let account: AccountView | null = null;
   let history: AccountHistoryEvent[] = [];
@@ -153,6 +153,23 @@ export default function AccountDetailPage({ params }: { params: Promise<{ id: st
 
   if (!devBypass && isLoading) {
     return <div className="py-10 text-muted-foreground">Loading...</div>;
+  }
+
+  if (!devBypass && error) {
+    return (
+      <div className="space-y-3">
+        <Link
+          href="/accounts"
+          className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground transition-colors"
+        >
+          <IconArrowLeft size={16} />
+          Back to Accounts
+        </Link>
+        <div className="rounded-md bg-destructive/10 p-4 text-sm text-destructive">
+          Failed to load account. {error.message || 'Please try again later.'}
+        </div>
+      </div>
+    );
   }
 
   if (!account) {
@@ -412,6 +429,7 @@ function HistoryTab({
   const [showManualForm, setShowManualForm] = useState(false);
   const [showUpload, setShowUpload] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [formError, setFormError] = useState('');
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [dragOver, setDragOver] = useState(false);
 
@@ -425,6 +443,7 @@ function HistoryTab({
     if (!devBypass && householdId) {
       try {
         setSubmitting(true);
+        setFormError('');
         await ingestManual(householdId, accountId, {
           entry_type: entryType,
           amount,
@@ -433,7 +452,7 @@ function HistoryTab({
         await Promise.all([mutateAccountDetail(accountId), mutateAccounts()]);
         setShowManualForm(false);
       } catch (err) {
-        console.error('Manual entry failed:', err);
+        setFormError(err instanceof Error ? err.message : 'Manual entry failed');
       } finally {
         setSubmitting(false);
       }
@@ -464,11 +483,12 @@ function HistoryTab({
     if (!devBypass && householdId) {
       try {
         setSubmitting(true);
+        setFormError('');
         await ingestCsv(householdId, accountId, file);
         await Promise.all([mutateAccountDetail(accountId), mutateAccounts()]);
         setShowUpload(false);
       } catch (err) {
-        console.error('CSV upload failed:', err);
+        setFormError(err instanceof Error ? err.message : 'File upload failed');
       } finally {
         setSubmitting(false);
       }
@@ -489,6 +509,10 @@ function HistoryTab({
 
   return (
     <div className="space-y-3">
+      {formError && (
+        <div className="rounded-md bg-destructive/10 p-3 text-sm text-destructive">{formError}</div>
+      )}
+
       {/* Action buttons */}
       <div className="flex justify-end gap-2">
         {showManualForm || showUpload ? (
@@ -497,6 +521,7 @@ function HistoryTab({
             onClick={() => {
               setShowManualForm(false);
               setShowUpload(false);
+              setFormError('');
             }}
           >
             <IconX size={16} />
