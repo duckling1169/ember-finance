@@ -212,6 +212,48 @@ export function syncSource(householdId: string, sourceId: string) {
   return apiFetch(`/api/ingest/sync/${householdId}/${sourceId}`, { method: 'POST' });
 }
 
+// ── Activity ──
+
+export function getTransactions(
+  householdId: string,
+  params?: { accountId?: string; from?: string; to?: string; limit?: number; offset?: number },
+) {
+  const search = new URLSearchParams();
+  if (params?.accountId) search.set('accountId', params.accountId);
+  if (params?.from) search.set('from', params.from);
+  if (params?.to) search.set('to', params.to);
+  if (params?.limit) search.set('limit', String(params.limit));
+  if (params?.offset) search.set('offset', String(params.offset));
+  const qs = search.toString();
+  return apiFetch<Transaction[]>(`/api/activity/transactions/${householdId}${qs ? `?${qs}` : ''}`);
+}
+
+export function getInvestmentActivity(
+  householdId: string,
+  params?: {
+    accountId?: string;
+    from?: string;
+    to?: string;
+    symbol?: string;
+    activityType?: string;
+    limit?: number;
+    offset?: number;
+  },
+) {
+  const search = new URLSearchParams();
+  if (params?.accountId) search.set('accountId', params.accountId);
+  if (params?.from) search.set('from', params.from);
+  if (params?.to) search.set('to', params.to);
+  if (params?.symbol) search.set('symbol', params.symbol);
+  if (params?.activityType) search.set('activityType', params.activityType);
+  if (params?.limit) search.set('limit', String(params.limit));
+  if (params?.offset) search.set('offset', String(params.offset));
+  const qs = search.toString();
+  return apiFetch<InvestmentActivity[]>(
+    `/api/activity/investments/${householdId}${qs ? `?${qs}` : ''}`,
+  );
+}
+
 // ── Duplicates ──
 
 export function getHiddenTransactions(householdId: string, accountId: string) {
