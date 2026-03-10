@@ -1,5 +1,13 @@
 import useSWR, { mutate } from 'swr';
-import { getHousehold, getAccounts, getProfile, getMembers, getInvites } from './api';
+import {
+  getHousehold,
+  getAccounts,
+  getAccountDetail,
+  getHouseholdHoldings,
+  getProfile,
+  getMembers,
+  getInvites,
+} from './api';
 
 // ── Household ──
 
@@ -13,13 +21,16 @@ export function mutateHousehold() {
   return mutate('household');
 }
 
-// ── Accounts (depends on household ID) ──
+// Helper to extract householdId from the household hook
+function useHouseholdId() {
+  const { data } = useHousehold();
+  return (data as Record<string, unknown> | null | undefined)?.id as string | undefined;
+}
+
+// ── Accounts (enriched list — depends on household ID) ──
 
 export function useAccounts() {
-  const { data: household } = useHousehold();
-  const householdId = (household as Record<string, unknown> | null | undefined)?.id as
-    | string
-    | undefined;
+  const householdId = useHouseholdId();
 
   const result = useSWR(
     householdId ? ['accounts', householdId] : null,
@@ -31,8 +42,37 @@ export function useAccounts() {
 }
 
 export function mutateAccounts() {
-  // Invalidate all account keys
   return mutate((key: unknown) => Array.isArray(key) && key[0] === 'accounts');
+}
+
+// ── Account detail (full picture for a single account) ──
+
+export function useAccountDetail(accountId: string | undefined) {
+  const householdId = useHouseholdId();
+
+  return useSWR(
+    householdId && accountId ? ['account-detail', householdId, accountId] : null,
+    ([, hhId, acctId]) => getAccountDetail(hhId, acctId),
+    { revalidateOnFocus: false },
+  );
+}
+
+export function mutateAccountDetail(accountId: string) {
+  return mutate(
+    (key: unknown) => Array.isArray(key) && key[0] === 'account-detail' && key[2] === accountId,
+  );
+}
+
+// ── Household holdings (cross-account) ──
+
+export function useHouseholdHoldings() {
+  const householdId = useHouseholdId();
+
+  return useSWR(
+    householdId ? ['holdings', householdId] : null,
+    ([, id]) => getHouseholdHoldings(id),
+    { revalidateOnFocus: false },
+  );
 }
 
 // ── Profile ──

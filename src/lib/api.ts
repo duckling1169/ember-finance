@@ -81,6 +81,32 @@ export function getAccounts(householdId: string) {
   return apiFetch<Record<string, unknown>[]>(`/api/accounts/${householdId}`);
 }
 
+export function getAccountDetail(householdId: string, accountId: string) {
+  return apiFetch<Record<string, unknown>>(`/api/accounts/${householdId}/${accountId}`);
+}
+
+export function getAccountHoldings(householdId: string, accountId: string) {
+  return apiFetch<Record<string, unknown>[]>(`/api/accounts/${householdId}/${accountId}/holdings`);
+}
+
+export function getAccountLots(householdId: string, accountId: string) {
+  return apiFetch<Record<string, unknown>[]>(`/api/accounts/${householdId}/${accountId}/lots`);
+}
+
+export function getAccountBalances(householdId: string, accountId: string) {
+  return apiFetch<Record<string, unknown>[]>(`/api/accounts/${householdId}/${accountId}/balances`);
+}
+
+export function getAccountHistory(householdId: string, accountId: string, limit = 50, offset = 0) {
+  return apiFetch<Record<string, unknown>[]>(
+    `/api/accounts/${householdId}/${accountId}/history?limit=${limit}&offset=${offset}`,
+  );
+}
+
+export function getHouseholdHoldings(householdId: string) {
+  return apiFetch<Record<string, unknown>>(`/api/holdings/${householdId}`);
+}
+
 export function createAccount(householdId: string, data: Record<string, unknown>) {
   return apiFetch(`/api/accounts/${householdId}`, {
     method: 'POST',
@@ -101,23 +127,6 @@ export function updateAccount(
 
 export function deleteAccount(householdId: string, accountId: string) {
   return apiFetch(`/api/accounts/${householdId}/${accountId}`, { method: 'DELETE' });
-}
-
-// ── Sources ──
-
-export function getSources(householdId: string, accountId: string) {
-  return apiFetch<Record<string, unknown>[]>(`/api/sources/${householdId}/${accountId}`);
-}
-
-export function createSource(
-  householdId: string,
-  accountId: string,
-  data: { provider: string; provider_account_id?: string },
-) {
-  return apiFetch(`/api/sources/${householdId}/${accountId}`, {
-    method: 'POST',
-    body: JSON.stringify(data),
-  });
 }
 
 // ── Ingest ──
@@ -159,28 +168,6 @@ export async function ingestCsv(
 
 export function syncSource(householdId: string, sourceId: string) {
   return apiFetch(`/api/ingest/sync/${householdId}/${sourceId}`, { method: 'POST' });
-}
-
-// ── History (audit trail + balance snapshots) ──
-
-export function getAccountHistory(householdId: string, accountId: string, limit = 50, offset = 0) {
-  return apiFetch<Record<string, unknown>[]>(
-    `/api/history/${householdId}/${accountId}?limit=${limit}&offset=${offset}`,
-  );
-}
-
-export function getAccountEvents(householdId: string, accountId: string) {
-  return apiFetch<Record<string, unknown>[]>(`/api/history/events/${householdId}/${accountId}`);
-}
-
-export function getBalanceHistory(householdId: string, accountId: string) {
-  return apiFetch<Record<string, unknown>[]>(`/api/history/balances/${householdId}/${accountId}`);
-}
-
-export function getLatestBalance(householdId: string, accountId: string) {
-  return apiFetch<Record<string, unknown>>(
-    `/api/history/balances/${householdId}/${accountId}/latest`,
-  );
 }
 
 // ── Duplicates ──

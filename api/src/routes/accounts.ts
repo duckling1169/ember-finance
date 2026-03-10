@@ -4,7 +4,6 @@ import type { AuthEnv } from '../middleware/auth.js';
 
 export const accountsRoute = new Hono<AuthEnv>();
 
-// Allowed fields for account updates
 const UPDATABLE_FIELDS = new Set([
   'name',
   'institution',
@@ -15,23 +14,239 @@ const UPDATABLE_FIELDS = new Set([
   'is_active',
 ]);
 
-// List accounts for a household
+// ── List accounts (enriched with latest balance + source status) ──
+
 accountsRoute.get('/:householdId', async (c) => {
   const householdId = c.req.param('householdId');
   const db = c.get('userClient');
 
+  // Fetch accounts, latest balances (via view), and sources in parallel
+  const [accountsRes, balancesRes, sourcesRes] = await Promise.all([
+    db
+      .from('account')
+      .select('*')
+      .eq('household_id', householdId)
+      .eq('is_active', true)
+      .order('created_at', { ascending: true }),
+    db
+      .from('latest_account_balances')
+      .select('account_id, balance, date')
+      .eq('household_id', householdId),
+    db
+      .from('account_source')
+      .select('account_id, provider, is_active, last_synced')
+      .eq('household_id', householdId),
+  ]);
+
+  if (accountsRes.error) return c.json({ error: accountsRes.error.message }, 500);
+
+  const accounts = accountsRes.data || [];
+
+  // Build lookup maps
+  const balanceMap = new Map<string, { balance: number; date: string }>();
+  if (balancesRes.data) {
+    for (const b of balancesRes.data as { account_id: string; balance: number; date: string }[]) {
+      balanceMap.set(b.account_id, { balance: b.balance, date: b.date });
+    }
+  }
+
+  const sourceMap = new Map<string, { linked: boolean; last_synced: string | null }>();
+  if (sourcesRes.data) {
+    for (const s of sourcesRes.data as {
+      account_id: string;
+      provider: string;
+      is_active: boolean;
+      last_synced: string | null;
+    }[]) {
+      const existing = sourceMap.get(s.account_id);
+      const isLinked = s.is_active && ['teller', 'snaptrade'].includes(s.provider);
+      const lastSynced = s.last_synced;
+      sourceMap.set(s.account_id, {
+        linked: existing?.linked || isLinked,
+        last_synced: !existing?.last_synced
+          ? lastSynced
+          : lastSynced && lastSynced > existing.last_synced
+            ? lastSynced
+            : existing.last_synced,
+      });
+    }
+  }
+
+  // Enrich accounts
+  const enriched = accounts.map((a: Record<string, unknown>) => {
+    const bal = balanceMap.get(a.id as string);
+    const src = sourceMap.get(a.id as string);
+    const meta = (a.meta || {}) as Record<string, unknown>;
+    return {
+      ...a,
+      balance: bal?.balance ?? 0,
+      balance_date: bal?.date ?? null,
+      linked: src?.linked ?? false,
+      last_synced: src?.last_synced ?? null,
+      tax_bucket: meta.tax_bucket ?? 'taxable',
+    };
+  });
+
+  return c.json(enriched);
+});
+
+// ── Account detail (full picture: account + balance + holdings + lots + recent history) ──
+
+accountsRoute.get('/:householdId/:accountId', async (c) => {
+  const { householdId, accountId } = c.req.param();
+  const db = c.get('userClient');
+
+  // Fetch everything in parallel
+  // Balance history defaults to last 1 year; use /balances sub-route for custom ranges
+  const oneYearAgo = new Date();
+  oneYearAgo.setFullYear(oneYearAgo.getFullYear() - 1);
+  const balanceFrom = oneYearAgo.toISOString().slice(0, 10);
+
+  const [accountRes, balanceRes, balanceHistoryRes, holdingsRes, lotsRes, sourcesRes, historyRes] =
+    await Promise.all([
+      db.from('account').select('*').eq('id', accountId).eq('household_id', householdId).single(),
+      db
+        .from('latest_account_balances')
+        .select('balance, available, date, source')
+        .eq('household_id', householdId)
+        .eq('account_id', accountId)
+        .maybeSingle(),
+      db
+        .from('balance_snapshot')
+        .select('date, balance, source')
+        .eq('household_id', householdId)
+        .eq('account_id', accountId)
+        .gte('date', balanceFrom)
+        .order('date', { ascending: true }),
+      db
+        .from('current_positions')
+        .select('*')
+        .eq('household_id', householdId)
+        .eq('account_id', accountId),
+      db
+        .from('open_tax_lots')
+        .select('*')
+        .eq('household_id', householdId)
+        .eq('account_id', accountId),
+      db
+        .from('account_source')
+        .select('id, provider, provider_account_id, is_active, last_synced, created_at')
+        .eq('household_id', householdId)
+        .eq('account_id', accountId)
+        .order('created_at', { ascending: true }),
+      db
+        .from('account_timeline')
+        .select('id, kind, event_type, detail, triggered_by, created_at')
+        .eq('household_id', householdId)
+        .eq('account_id', accountId)
+        .order('created_at', { ascending: false })
+        .limit(50),
+    ]);
+
+  if (accountRes.error) {
+    return c.json(
+      { error: accountRes.error.message },
+      accountRes.error.code === 'PGRST116' ? 404 : 500,
+    );
+  }
+
+  return c.json({
+    account: accountRes.data,
+    balance: balanceRes.data ?? null,
+    balance_history: balanceHistoryRes.data ?? [],
+    holdings: holdingsRes.data ?? [],
+    lots: lotsRes.data ?? [],
+    sources: sourcesRes.data ?? [],
+    history: historyRes.data ?? [],
+  });
+});
+
+// ── Holdings for a single account ──
+
+accountsRoute.get('/:householdId/:accountId/holdings', async (c) => {
+  const { householdId, accountId } = c.req.param();
+  const db = c.get('userClient');
+
   const { data, error } = await db
-    .from('account')
+    .from('current_positions')
     .select('*')
     .eq('household_id', householdId)
-    .eq('is_active', true)
-    .order('created_at', { ascending: true });
+    .eq('account_id', accountId);
 
   if (error) return c.json({ error: error.message }, 500);
   return c.json(data);
 });
 
-// Create account
+// ── Tax lots for a single account ──
+
+accountsRoute.get('/:householdId/:accountId/lots', async (c) => {
+  const { householdId, accountId } = c.req.param();
+  const db = c.get('userClient');
+
+  const { data, error } = await db
+    .from('open_tax_lots')
+    .select('*')
+    .eq('household_id', householdId)
+    .eq('account_id', accountId);
+
+  if (error) return c.json({ error: error.message }, 500);
+  return c.json(data);
+});
+
+// ── Balance history for a single account ──
+// Supports ?from=YYYY-MM-DD&to=YYYY-MM-DD for date range filtering.
+
+accountsRoute.get('/:householdId/:accountId/balances', async (c) => {
+  const { householdId, accountId } = c.req.param();
+  const db = c.get('userClient');
+  const from = c.req.query('from');
+  const to = c.req.query('to');
+
+  let query = db
+    .from('balance_snapshot')
+    .select('id, date, balance, available, source, created_at')
+    .eq('household_id', householdId)
+    .eq('account_id', accountId);
+
+  if (from) query = query.gte('date', from);
+  if (to) query = query.lte('date', to);
+
+  const { data, error } = await query.order('date', { ascending: true });
+
+  if (error) return c.json({ error: error.message }, 500);
+  return c.json(data);
+});
+
+// ── History/timeline for a single account ──
+// Supports ?limit=50&offset=0&from=YYYY-MM-DD&to=YYYY-MM-DD
+
+accountsRoute.get('/:householdId/:accountId/history', async (c) => {
+  const { householdId, accountId } = c.req.param();
+  const db = c.get('userClient');
+  const limit = parseInt(c.req.query('limit') || '50', 10);
+  const offset = parseInt(c.req.query('offset') || '0', 10);
+  const from = c.req.query('from');
+  const to = c.req.query('to');
+
+  let query = db
+    .from('account_timeline')
+    .select('id, kind, event_type, detail, triggered_by, created_at')
+    .eq('household_id', householdId)
+    .eq('account_id', accountId);
+
+  if (from) query = query.gte('created_at', `${from}T00:00:00Z`);
+  if (to) query = query.lte('created_at', `${to}T23:59:59Z`);
+
+  const { data, error } = await query
+    .order('created_at', { ascending: false })
+    .range(offset, offset + limit - 1);
+
+  if (error) return c.json({ error: error.message }, 500);
+  return c.json(data);
+});
+
+// ── Create account ──
+
 accountsRoute.post('/:householdId', async (c) => {
   const householdId = c.req.param('householdId');
   const db = c.get('userClient');
@@ -65,7 +280,6 @@ accountsRoute.post('/:householdId', async (c) => {
 
   if (error) return c.json({ error: error.message }, 500);
 
-  // Log account_created event
   await db.from('account_event').insert({
     household_id: householdId,
     account_id: data.id,
@@ -81,13 +295,13 @@ accountsRoute.post('/:householdId', async (c) => {
   return c.json(data, 201);
 });
 
-// Update account
+// ── Update account ──
+
 accountsRoute.patch('/:householdId/:accountId', async (c) => {
   const { householdId, accountId } = c.req.param();
   const db = c.get('userClient');
   const body = await c.req.json();
 
-  // Whitelist allowed fields
   const update: Record<string, unknown> = {};
   for (const key of Object.keys(body)) {
     if (UPDATABLE_FIELDS.has(key)) {
@@ -99,7 +313,6 @@ accountsRoute.patch('/:householdId/:accountId', async (c) => {
     return c.json({ error: 'No valid fields to update' }, 400);
   }
 
-  // Recompute is_liability if account_type changed
   if (update.account_type) {
     update.is_liability = LIABILITY_TYPES.includes(update.account_type as AccountType);
   }
@@ -114,7 +327,6 @@ accountsRoute.patch('/:householdId/:accountId', async (c) => {
 
   if (error) return c.json({ error: error.message }, 500);
 
-  // Log account_updated event
   await db.from('account_event').insert({
     household_id: householdId,
     account_id: accountId,
@@ -126,7 +338,8 @@ accountsRoute.patch('/:householdId/:accountId', async (c) => {
   return c.json(data);
 });
 
-// Soft-delete account
+// ── Soft-delete account ──
+
 accountsRoute.delete('/:householdId/:accountId', async (c) => {
   const { householdId, accountId } = c.req.param();
   const db = c.get('userClient');
