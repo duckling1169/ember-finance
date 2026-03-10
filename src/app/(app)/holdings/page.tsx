@@ -8,6 +8,7 @@ import {
   mockAccounts,
   type MockTaxLot,
 } from '@/lib/mock-data';
+import { useHouseholdHoldings, useAccounts } from '@/lib/swr';
 import { Card, CardContent } from '@/components/ui/card';
 import {
   Table,
@@ -25,7 +26,6 @@ import {
   SheetDescription,
 } from '@/components/ui/sheet';
 import {
-  IconChartLine,
   IconArrowUpRight,
   IconArrowDownRight,
   IconArrowsSort,
@@ -37,10 +37,6 @@ import {
 } from '@tabler/icons-react';
 
 const INVESTMENT_TYPES = new Set(['brokerage', 'retirement', 'hsa']);
-
-const investmentAccounts = mockAccounts.filter(
-  (a) => INVESTMENT_TYPES.has(a.account_type) && a.is_active,
-);
 
 function fmt(n: number) {
   return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(n);
@@ -83,7 +79,30 @@ interface AggregatedHolding {
   gain: number;
   gain_pct: number;
   account_ids: string[];
-  lots: MockTaxLot[];
+  lots: LotView[];
+}
+
+interface LotView {
+  id: string;
+  account_id: string;
+  symbol: string;
+  acquired_date: string;
+  quantity: number;
+  cost_basis_per_share: number;
+  cost_basis_total: number;
+  live_market_value: number;
+  unrealized_gain_loss: number;
+  holding_period: 'short_term' | 'long_term';
+  source: string;
+}
+
+interface AccountInfo {
+  id: string;
+  name: string;
+  institution: string | null;
+  account_type: string;
+  tax_bucket: string;
+  is_active: boolean;
 }
 
 type SortKey = 'symbol' | 'name' | 'shares' | 'price' | 'value' | 'gain' | 'gain_pct';
@@ -102,69 +121,72 @@ function SortIcon({
   return sortDir === 'asc' ? <IconSortAscending size={14} /> : <IconSortDescending size={14} />;
 }
 
+function computeHoldingPeriod(acquiredDate: string): 'short_term' | 'long_term' {
+  const acquired = new Date(acquiredDate);
+  const oneYearAgo = new Date();
+  oneYearAgo.setFullYear(oneYearAgo.getFullYear() - 1);
+  return acquired <= oneYearAgo ? 'long_term' : 'short_term';
+}
+
 export default function HoldingsPage() {
-  const [selectedAccountIds, setSelectedAccountIds] = useState<Set<string>>(
-    () => new Set(investmentAccounts.map((a) => a.id)),
-  );
+  const { data: apiAccounts, isLoading: acctsLoading } = useAccounts();
+  const { data: apiHoldings, isLoading: holdingsLoading } = useHouseholdHoldings();
+
+  // Build account list from either mock or API data
+  const accountList: AccountInfo[] = useMemo(() => {
+    if (devBypass) {
+      return mockAccounts
+        .filter((a) => INVESTMENT_TYPES.has(a.account_type) && a.is_active)
+        .map((a) => ({
+          id: a.id,
+          name: a.name,
+          institution: a.institution,
+          account_type: a.account_type,
+          tax_bucket: (a.meta?.tax_bucket as string) || 'taxable',
+          is_active: a.is_active,
+        }));
+    }
+    if (!apiAccounts) return [];
+    return (apiAccounts as Record<string, unknown>[])
+      .filter((a) => INVESTMENT_TYPES.has(a.account_type as string) && a.is_active !== false)
+      .map((a) => ({
+        id: a.id as string,
+        name: a.name as string,
+        institution: (a.institution as string) || null,
+        account_type: a.account_type as string,
+        tax_bucket:
+          (a.tax_bucket as string) ||
+          ((a.meta as Record<string, unknown>)?.tax_bucket as string) ||
+          'taxable',
+        is_active: true,
+      }));
+  }, [apiAccounts]);
+
+  const [selectedAccountIds, setSelectedAccountIds] = useState<Set<string> | null>(null);
+  // Initialize selectedAccountIds from accountList once available
+  const effectiveSelectedIds = selectedAccountIds ?? new Set(accountList.map((a) => a.id));
+
   const [sortKey, setSortKey] = useState<SortKey | null>('value');
   const [sortDir, setSortDir] = useState<SortDir>('desc');
   const [expandedSymbol, setExpandedSymbol] = useState<string | null>(null);
   const [sheetSymbol, setSheetSymbol] = useState<string | null>(null);
   const [filterOpen, setFilterOpen] = useState(false);
 
-  // Aggregate holdings by symbol across selected accounts
+  // Build aggregated holdings from either mock or API data
   const holdings = useMemo(() => {
-    const filtered = mockHoldings.filter((h) => selectedAccountIds.has(h.account_id));
-    const bySymbol = new Map<string, AggregatedHolding>();
-
-    for (const h of filtered) {
-      const existing = bySymbol.get(h.symbol);
-      const lots = mockTaxLots.filter(
-        (l) => l.symbol === h.symbol && selectedAccountIds.has(l.account_id),
-      );
-      if (existing) {
-        existing.shares += h.shares;
-        existing.value += h.value;
-        existing.cost_basis += h.cost_basis;
-        existing.gain += h.gain;
-        if (!existing.account_ids.includes(h.account_id)) {
-          existing.account_ids.push(h.account_id);
-        }
-        existing.lots = lots;
-      } else {
-        bySymbol.set(h.symbol, {
-          symbol: h.symbol,
-          name: h.name,
-          shares: h.shares,
-          price: h.price,
-          value: h.value,
-          cost_basis: h.cost_basis,
-          gain: h.gain,
-          gain_pct: 0,
-          account_ids: [h.account_id],
-          lots,
-        });
-      }
+    if (devBypass) {
+      return buildMockHoldings(effectiveSelectedIds, sortKey, sortDir);
     }
+    if (!apiHoldings) return [];
+    return buildApiHoldings(
+      apiHoldings as Record<string, unknown>,
+      effectiveSelectedIds,
+      sortKey,
+      sortDir,
+    );
+  }, [apiHoldings, effectiveSelectedIds, sortKey, sortDir]);
 
-    // Recompute gain_pct from totals
-    for (const h of bySymbol.values()) {
-      h.gain_pct = h.cost_basis ? (h.gain / h.cost_basis) * 100 : 0;
-    }
-
-    const arr = Array.from(bySymbol.values());
-    if (sortKey) {
-      arr.sort((a, b) => {
-        const aVal = a[sortKey];
-        const bVal = b[sortKey];
-        if (typeof aVal === 'string' && typeof bVal === 'string') {
-          return sortDir === 'asc' ? aVal.localeCompare(bVal) : bVal.localeCompare(aVal);
-        }
-        return sortDir === 'asc' ? Number(aVal) - Number(bVal) : Number(bVal) - Number(aVal);
-      });
-    }
-    return arr;
-  }, [selectedAccountIds, sortKey, sortDir]);
+  const loading = !devBypass && (acctsLoading || holdingsLoading);
 
   const totalValue = holdings.reduce((s, h) => s + h.value, 0);
   const totalCost = holdings.reduce((s, h) => s + h.cost_basis, 0);
@@ -173,22 +195,8 @@ export default function HoldingsPage() {
 
   const sheetHolding = sheetSymbol ? holdings.find((h) => h.symbol === sheetSymbol) : null;
 
-  if (!devBypass) {
-    return (
-      <div className="space-y-3">
-        <h1 className="text-2xl font-semibold">Holdings</h1>
-        <Card>
-          <CardContent>
-            <div className="flex flex-col items-center gap-3 py-12 text-center">
-              <IconChartLine size={32} className="text-muted-foreground" stroke={1.5} />
-              <p className="text-sm text-muted-foreground">
-                Per-account holdings, tax lots, and cost basis detail coming soon.
-              </p>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-    );
+  if (loading) {
+    return <div className="py-10 text-muted-foreground">Loading...</div>;
   }
 
   function toggleSort(key: SortKey) {
@@ -202,7 +210,8 @@ export default function HoldingsPage() {
 
   function toggleAccount(id: string) {
     setSelectedAccountIds((prev) => {
-      const next = new Set(prev);
+      const current = prev ?? new Set(accountList.map((a) => a.id));
+      const next = new Set(current);
       if (next.has(id)) {
         if (next.size > 1) next.delete(id);
       } else {
@@ -213,17 +222,16 @@ export default function HoldingsPage() {
   }
 
   function toggleAll() {
-    if (selectedAccountIds.size === investmentAccounts.length) return;
-    setSelectedAccountIds(new Set(investmentAccounts.map((a) => a.id)));
+    if (effectiveSelectedIds.size === accountList.length) return;
+    setSelectedAccountIds(new Set(accountList.map((a) => a.id)));
   }
 
   function accountName(id: string) {
-    return mockAccounts.find((a) => a.id === id)?.name || id;
+    return accountList.find((a) => a.id === id)?.name || id;
   }
 
   function accountTaxBucket(id: string) {
-    const a = mockAccounts.find((a) => a.id === id);
-    return (a?.meta?.tax_bucket as string) || 'taxable';
+    return accountList.find((a) => a.id === id)?.tax_bucket || 'taxable';
   }
 
   const columns: { key: SortKey; label: string; align?: 'right' }[] = [
@@ -247,9 +255,9 @@ export default function HoldingsPage() {
             onClick={() => setFilterOpen((p) => !p)}
             className="inline-flex items-center gap-2 rounded-md border border-border px-3 py-1.5 text-sm text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-colors"
           >
-            {selectedAccountIds.size === investmentAccounts.length
+            {effectiveSelectedIds.size === accountList.length
               ? 'All accounts'
-              : `${selectedAccountIds.size} account${selectedAccountIds.size !== 1 ? 's' : ''}`}
+              : `${effectiveSelectedIds.size} account${effectiveSelectedIds.size !== 1 ? 's' : ''}`}
             <IconChevronDown size={14} />
           </button>
 
@@ -262,25 +270,25 @@ export default function HoldingsPage() {
                   className="flex w-full items-center gap-2 px-3 py-2 text-sm hover:bg-muted/50 transition-colors"
                 >
                   <span
-                    className={`h-4 w-4 rounded border flex items-center justify-center ${selectedAccountIds.size === investmentAccounts.length ? 'bg-primary border-primary' : 'border-border'}`}
+                    className={`h-4 w-4 rounded border flex items-center justify-center ${effectiveSelectedIds.size === accountList.length ? 'bg-primary border-primary' : 'border-border'}`}
                   >
-                    {selectedAccountIds.size === investmentAccounts.length && (
+                    {effectiveSelectedIds.size === accountList.length && (
                       <IconCheck size={12} className="text-primary-foreground" />
                     )}
                   </span>
                   <span className="font-medium">All accounts</span>
                 </button>
                 <div className="h-px bg-border mx-2 my-1" />
-                {investmentAccounts.map((a) => (
+                {accountList.map((a) => (
                   <button
                     key={a.id}
                     onClick={() => toggleAccount(a.id)}
                     className="flex w-full items-center gap-2 px-3 py-2 text-sm hover:bg-muted/50 transition-colors"
                   >
                     <span
-                      className={`h-4 w-4 rounded border flex items-center justify-center ${selectedAccountIds.has(a.id) ? 'bg-primary border-primary' : 'border-border'}`}
+                      className={`h-4 w-4 rounded border flex items-center justify-center ${effectiveSelectedIds.has(a.id) ? 'bg-primary border-primary' : 'border-border'}`}
                     >
-                      {selectedAccountIds.has(a.id) && (
+                      {effectiveSelectedIds.has(a.id) && (
                         <IconCheck size={12} className="text-primary-foreground" />
                       )}
                     </span>
@@ -411,7 +419,177 @@ export default function HoldingsPage() {
   );
 }
 
-// ── Holding Row with inline lot expansion ──
+// -- Data builders --
+
+function buildMockHoldings(
+  selectedAccountIds: Set<string>,
+  sortKey: SortKey | null,
+  sortDir: SortDir,
+): AggregatedHolding[] {
+  const filtered = mockHoldings.filter((h) => selectedAccountIds.has(h.account_id));
+  const bySymbol = new Map<string, AggregatedHolding>();
+
+  for (const h of filtered) {
+    const existing = bySymbol.get(h.symbol);
+    const lots: LotView[] = mockTaxLots
+      .filter((l) => l.symbol === h.symbol && selectedAccountIds.has(l.account_id))
+      .map((l) => ({
+        id: l.id,
+        account_id: l.account_id,
+        symbol: l.symbol,
+        acquired_date: l.acquired_date,
+        quantity: l.quantity,
+        cost_basis_per_share: l.cost_basis_per_share,
+        cost_basis_total: l.cost_basis_total,
+        live_market_value: l.live_market_value,
+        unrealized_gain_loss: l.unrealized_gain_loss,
+        holding_period: l.holding_period,
+        source: l.source,
+      }));
+    if (existing) {
+      existing.shares += h.shares;
+      existing.value += h.value;
+      existing.cost_basis += h.cost_basis;
+      existing.gain += h.gain;
+      if (!existing.account_ids.includes(h.account_id)) {
+        existing.account_ids.push(h.account_id);
+      }
+      existing.lots = lots;
+    } else {
+      bySymbol.set(h.symbol, {
+        symbol: h.symbol,
+        name: h.name,
+        shares: h.shares,
+        price: h.price,
+        value: h.value,
+        cost_basis: h.cost_basis,
+        gain: h.gain,
+        gain_pct: 0,
+        account_ids: [h.account_id],
+        lots,
+      });
+    }
+  }
+
+  for (const h of bySymbol.values()) {
+    h.gain_pct = h.cost_basis ? (h.gain / h.cost_basis) * 100 : 0;
+  }
+
+  return sortHoldings(Array.from(bySymbol.values()), sortKey, sortDir);
+}
+
+function buildApiHoldings(
+  data: Record<string, unknown>,
+  selectedAccountIds: Set<string>,
+  sortKey: SortKey | null,
+  sortDir: SortDir,
+): AggregatedHolding[] {
+  const summary = (data.summary || []) as Record<string, unknown>[];
+  const positions = (data.positions || []) as Record<string, unknown>[];
+  const rawLots = (data.lots || []) as Record<string, unknown>[];
+
+  // Build a price lookup from summary
+  const priceBySymbol = new Map<string, number>();
+  for (const s of summary) {
+    priceBySymbol.set(s.symbol as string, (s.live_price as number) ?? 0);
+  }
+
+  // Build lots with computed fields
+  const allLots: LotView[] = rawLots
+    .filter((l) => !(l.is_closed as boolean))
+    .map((l) => {
+      const symbol = l.symbol as string;
+      const quantity = l.quantity as number;
+      const costBasisPerShare = l.cost_basis_per_share as number;
+      const costBasisTotal = l.cost_basis_total as number;
+      const livePrice = priceBySymbol.get(symbol) ?? 0;
+      const liveMarketValue = quantity * livePrice;
+      return {
+        id: l.id as string,
+        account_id: l.account_id as string,
+        symbol,
+        acquired_date: l.acquired_date as string,
+        quantity,
+        cost_basis_per_share: costBasisPerShare,
+        cost_basis_total: costBasisTotal,
+        live_market_value: liveMarketValue,
+        unrealized_gain_loss: liveMarketValue - costBasisTotal,
+        holding_period: computeHoldingPeriod(l.acquired_date as string),
+        source: (l.source as string) || 'unknown',
+      };
+    });
+
+  // Build position account mapping
+  const accountsBySymbol = new Map<string, string[]>();
+  for (const p of positions) {
+    const sym = p.symbol as string;
+    const acctId = p.account_id as string;
+    if (!selectedAccountIds.has(acctId)) continue;
+    if (!accountsBySymbol.has(sym)) accountsBySymbol.set(sym, []);
+    const arr = accountsBySymbol.get(sym)!;
+    if (!arr.includes(acctId)) arr.push(acctId);
+  }
+
+  const holdings: AggregatedHolding[] = [];
+  for (const s of summary) {
+    const symbol = s.symbol as string;
+    const accountIds = accountsBySymbol.get(symbol) || [];
+    if (accountIds.length === 0) continue;
+
+    // Filter positions by selected accounts to compute filtered totals
+    const filteredPositions = positions.filter(
+      (p) => (p.symbol as string) === symbol && selectedAccountIds.has(p.account_id as string),
+    );
+
+    const shares = filteredPositions.reduce((sum, p) => sum + ((p.quantity as number) ?? 0), 0);
+    const value = filteredPositions.reduce(
+      (sum, p) =>
+        sum + ((p.live_market_value as number) ?? (p.snapshot_market_value as number) ?? 0),
+      0,
+    );
+    const costBasis = filteredPositions.reduce(
+      (sum, p) => sum + ((p.cost_basis as number) ?? 0),
+      0,
+    );
+    const gain = value - costBasis;
+    const price = (s.live_price as number) ?? 0;
+
+    const lots = allLots.filter((l) => l.symbol === symbol && selectedAccountIds.has(l.account_id));
+
+    holdings.push({
+      symbol,
+      name: (s.name as string) || symbol,
+      shares,
+      price,
+      value,
+      cost_basis: costBasis,
+      gain,
+      gain_pct: costBasis ? (gain / costBasis) * 100 : 0,
+      account_ids: accountIds,
+      lots,
+    });
+  }
+
+  return sortHoldings(holdings, sortKey, sortDir);
+}
+
+function sortHoldings(
+  arr: AggregatedHolding[],
+  sortKey: SortKey | null,
+  sortDir: SortDir,
+): AggregatedHolding[] {
+  if (!sortKey) return arr;
+  return arr.sort((a, b) => {
+    const aVal = a[sortKey];
+    const bVal = b[sortKey];
+    if (typeof aVal === 'string' && typeof bVal === 'string') {
+      return sortDir === 'asc' ? aVal.localeCompare(bVal) : bVal.localeCompare(aVal);
+    }
+    return sortDir === 'asc' ? Number(aVal) - Number(bVal) : Number(bVal) - Number(aVal);
+  });
+}
+
+// -- Holding Row with inline lot expansion --
 
 function HoldingRow({
   holding,
@@ -501,7 +679,7 @@ function HoldingRow({
   );
 }
 
-// ── Sidebar detail panel ──
+// -- Sidebar detail panel --
 
 function LotDetailPanel({
   holding,
@@ -519,7 +697,7 @@ function LotDetailPanel({
   const stGain = shortTermLots.reduce((s, l) => s + l.unrealized_gain_loss, 0);
 
   // Group lots by account
-  const byAccount = new Map<string, MockTaxLot[]>();
+  const byAccount = new Map<string, LotView[]>();
   for (const lot of h.lots) {
     if (!byAccount.has(lot.account_id)) byAccount.set(lot.account_id, []);
     byAccount.get(lot.account_id)!.push(lot);

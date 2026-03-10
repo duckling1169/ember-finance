@@ -3,7 +3,7 @@
 import { useState, useMemo, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { useHousehold, useAccounts } from '@/lib/swr';
+import { useHousehold, useAccounts, useHouseholdHoldings } from '@/lib/swr';
 import {
   devBypass,
   enrichAccounts,
@@ -92,6 +92,7 @@ export default function DashboardPage() {
   const router = useRouter();
   const { data: household, isLoading: hhLoading } = useHousehold();
   const { data: apiAccounts, isLoading: acctsLoading } = useAccounts();
+  const { data: apiHoldings } = useHouseholdHoldings();
 
   const accounts: EnrichedAccount[] = devBypass
     ? enrichAccounts()
@@ -151,8 +152,24 @@ export default function DashboardPage() {
     .map(([name, value]) => ({ name, value }));
   const taxBucketTotal = taxBuckets.reduce((s, b) => s + b.value, 0);
 
-  // Holdings by value (for donut) — mock data only in dev bypass
-  const holdingsByValue = devBypass ? [...mockHoldings].sort((a, b) => b.value - a.value) : [];
+  // Holdings by value (for donut)
+  const holdingsByValue = useMemo(() => {
+    if (devBypass) return [...mockHoldings].sort((a, b) => b.value - a.value);
+    if (!apiHoldings) return [];
+    const summary = ((apiHoldings as Record<string, unknown>).summary || []) as Record<
+      string,
+      unknown
+    >[];
+    return summary
+      .map((s) => ({
+        id: s.symbol as string,
+        symbol: s.symbol as string,
+        name: (s.name as string) || (s.symbol as string),
+        value: (s.total_market_value as number) ?? 0,
+      }))
+      .filter((h) => h.value > 0)
+      .sort((a, b) => b.value - a.value);
+  }, [apiHoldings]);
   const holdingsTotal = holdingsByValue.reduce((s, h) => s + h.value, 0);
 
   const TAX_BUCKET_LABELS: Record<string, string> = {
