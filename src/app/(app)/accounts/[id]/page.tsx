@@ -5,11 +5,12 @@ import Link from 'next/link';
 import {
   devBypass,
   enrichAccounts,
-  mockSources,
   mockAccountHistory,
   mockBalanceHistory,
   type AccountHistoryEvent,
 } from '@/lib/mock-data';
+import { useAccountDetail, useAccounts, mutateAccountDetail, mutateAccounts } from '@/lib/swr';
+import { ingestManual, ingestCsv } from '@/lib/api';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { BalanceChart } from '@/components/charts';
 import { Input } from '@/components/ui/input';
@@ -52,13 +53,107 @@ const TAX_BUCKET_LABELS: Record<string, string> = {
   none: 'N/A',
 };
 
+const API_PROVIDERS = ['teller', 'snaptrade'];
+
 type Tab = 'overview' | 'history';
+
+interface AccountView {
+  id: string;
+  name: string;
+  institution: string | null;
+  account_type: string;
+  balance: number;
+  linked: boolean;
+  last_updated: string | null;
+  tax_bucket: string;
+  notes: string;
+}
+
+function mapApiDetail(
+  id: string,
+  detail: Record<string, unknown>,
+): {
+  account: AccountView;
+  history: AccountHistoryEvent[];
+  balanceHistory: { date: string; balance: number }[];
+} {
+  const acct = detail.account as Record<string, unknown>;
+  const bal = detail.balance as Record<string, unknown> | null;
+  const sources = (detail.sources || []) as Record<string, unknown>[];
+  const rawHistory = (detail.history || []) as Record<string, unknown>[];
+  const rawBalHistory = (detail.balance_history || []) as Record<string, unknown>[];
+  const meta = (acct?.meta || {}) as Record<string, unknown>;
+
+  const linked = sources.some((s) => API_PROVIDERS.includes(s.provider as string) && s.is_active);
+  const lastSynced =
+    sources
+      .map((s) => s.last_synced as string | null)
+      .filter(Boolean)
+      .sort()
+      .reverse()[0] || null;
+
+  const account: AccountView = {
+    id,
+    name: (acct?.name as string) || '',
+    institution: (acct?.institution as string) || null,
+    account_type: (acct?.account_type as string) || 'other',
+    balance: (bal?.balance as number) ?? 0,
+    linked,
+    last_updated: lastSynced,
+    tax_bucket: (meta.tax_bucket as string) || 'none',
+    notes: (meta.notes as string) || '',
+  };
+
+  const history: AccountHistoryEvent[] = rawHistory.map((h) => {
+    const hDetail = (h.detail || {}) as Record<string, unknown>;
+    const eventType = (h.event_type as string) || 'account_created';
+    return {
+      id: h.id as string,
+      date: h.created_at as string,
+      type: eventType as AccountHistoryEvent['type'],
+      description: (hDetail.description as string) || eventType.replace(/_/g, ' '),
+      detail: hDetail.filename as string | undefined,
+      balance_after: hDetail.balance_after as number | undefined,
+      records: hDetail.records as number | undefined,
+    };
+  });
+
+  const balanceHistory = rawBalHistory.map((b) => ({
+    date: b.date as string,
+    balance: b.balance as number,
+  }));
+
+  return { account, history, balanceHistory };
+}
 
 export default function AccountDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
   const [activeTab, setActiveTab] = useState<Tab>('overview');
 
-  const account = devBypass ? enrichAccounts().find((a) => a.id === id) : null;
+  const { householdId } = useAccounts();
+  const { data: apiDetail, isLoading } = useAccountDetail(devBypass ? undefined : id);
+
+  let account: AccountView | null = null;
+  let history: AccountHistoryEvent[] = [];
+  let balanceHistory: { date: string; balance: number }[] = [];
+
+  if (devBypass) {
+    const enriched = enrichAccounts().find((a) => a.id === id);
+    if (enriched) {
+      account = enriched;
+      history = mockAccountHistory[id] || [];
+      balanceHistory = mockBalanceHistory[id] || [];
+    }
+  } else if (apiDetail) {
+    const mapped = mapApiDetail(id, apiDetail);
+    account = mapped.account;
+    history = mapped.history;
+    balanceHistory = mapped.balanceHistory;
+  }
+
+  if (!devBypass && isLoading) {
+    return <div className="py-10 text-muted-foreground">Loading...</div>;
+  }
 
   if (!account) {
     return (
@@ -74,9 +169,6 @@ export default function AccountDetailPage({ params }: { params: Promise<{ id: st
       </div>
     );
   }
-
-  const history = mockAccountHistory[id] || [];
-  const balanceHistory = mockBalanceHistory[id] || [];
 
   const linkConfig = account.linked
     ? { icon: IconPlugConnected, label: 'Linked', className: 'text-gain' }
@@ -156,18 +248,20 @@ export default function AccountDetailPage({ params }: { params: Promise<{ id: st
       {activeTab === 'overview' && (
         <OverviewTab account={account} balanceHistory={balanceHistory} />
       )}
-      {activeTab === 'history' && <HistoryTab history={history} accountId={id} />}
+      {activeTab === 'history' && (
+        <HistoryTab history={history} accountId={id} householdId={householdId} />
+      )}
     </div>
   );
 }
 
-// ── Overview Tab ──
+// -- Overview Tab --
 
 function OverviewTab({
   account,
   balanceHistory,
 }: {
-  account: ReturnType<typeof enrichAccounts>[0];
+  account: AccountView;
   balanceHistory: { date: string; balance: number }[];
 }) {
   return (
@@ -270,7 +364,7 @@ function OverviewTab({
   );
 }
 
-// ── History Tab ──
+// -- History Tab --
 
 const EVENT_CONFIG: Record<
   AccountHistoryEvent['type'],
@@ -308,22 +402,43 @@ const EVENT_CONFIG: Record<
 function HistoryTab({
   history: initialHistory,
   accountId,
+  householdId,
 }: {
   history: AccountHistoryEvent[];
   accountId: string;
+  householdId: string | undefined;
 }) {
   const [history, setHistory] = useState(initialHistory);
   const [showManualForm, setShowManualForm] = useState(false);
   const [showUpload, setShowUpload] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [dragOver, setDragOver] = useState(false);
 
-  function handleManualEntry(e: React.FormEvent<HTMLFormElement>) {
+  async function handleManualEntry(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     const form = new FormData(e.currentTarget);
     const entryType = form.get('entry_type') as 'current' | 'delta';
     const amount = parseFloat(form.get('amount') as string);
     const description = form.get('description') as string;
+
+    if (!devBypass && householdId) {
+      try {
+        setSubmitting(true);
+        await ingestManual(householdId, accountId, {
+          entry_type: entryType,
+          amount,
+          description: description || undefined,
+        });
+        await Promise.all([mutateAccountDetail(accountId), mutateAccounts()]);
+        setShowManualForm(false);
+      } catch (err) {
+        console.error('Manual entry failed:', err);
+      } finally {
+        setSubmitting(false);
+      }
+      return;
+    }
 
     const newEvent: AccountHistoryEvent = {
       id: `h-${Date.now()}`,
@@ -345,7 +460,21 @@ function HistoryTab({
     if (file) handleFileDrop(file);
   }
 
-  function handleFileDrop(file: File) {
+  async function handleFileDrop(file: File) {
+    if (!devBypass && householdId) {
+      try {
+        setSubmitting(true);
+        await ingestCsv(householdId, accountId, file);
+        await Promise.all([mutateAccountDetail(accountId), mutateAccounts()]);
+        setShowUpload(false);
+      } catch (err) {
+        console.error('CSV upload failed:', err);
+      } finally {
+        setSubmitting(false);
+      }
+      return;
+    }
+
     const newEvent: AccountHistoryEvent = {
       id: `h-${Date.now()}`,
       date: new Date().toISOString(),
@@ -356,7 +485,6 @@ function HistoryTab({
     };
     setHistory((prev) => [newEvent, ...prev]);
     setShowUpload(false);
-    // TODO: actual upload via ingestCsv
   }
 
   return (
@@ -427,8 +555,13 @@ function HistoryTab({
                 <p className="text-sm font-medium">Drop a CSV or PDF here</p>
                 <p className="text-xs text-muted-foreground mt-1">or click to browse</p>
               </div>
-              <Button variant="outline" size="sm" onClick={() => fileInputRef.current?.click()}>
-                Choose File
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={submitting}
+                onClick={() => fileInputRef.current?.click()}
+              >
+                {submitting ? 'Uploading...' : 'Choose File'}
               </Button>
               <input
                 ref={fileInputRef}
@@ -472,10 +605,11 @@ function HistoryTab({
                 <Button
                   type="submit"
                   variant="outline"
+                  disabled={submitting}
                   className="hover:bg-primary hover:text-primary-foreground hover:border-primary"
                 >
                   <IconCheck size={16} />
-                  Save Entry
+                  {submitting ? 'Saving...' : 'Save Entry'}
                 </Button>
               </div>
             </form>
@@ -494,7 +628,7 @@ function HistoryTab({
           ) : (
             <div className="space-y-0">
               {history.map((event, i) => {
-                const config = EVENT_CONFIG[event.type];
+                const config = EVENT_CONFIG[event.type] || EVENT_CONFIG.account_created;
                 const Icon = config.icon;
                 const isLast = i === history.length - 1;
 
