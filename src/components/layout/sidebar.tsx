@@ -11,33 +11,52 @@ import {
   IconMenu2,
   IconPin,
   IconPinFilled,
+  IconFlame,
 } from '@tabler/icons-react';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
 import { Button } from '@/components/ui/button';
 
 const SIDEBAR_KEY = 'ember-sidebar-pinned';
+const COLLAPSED_WIDTH = 'w-14';
+const EXPANDED_WIDTH = 'w-60';
 
 const navItems = [
   { href: '/accounts', label: 'Accounts', icon: IconBuildingBank },
   { href: '/investments', label: 'Investments', icon: IconChartLine },
 ];
 
-function SidebarNav({ onNavigate }: { onNavigate?: () => void }) {
+function SidebarNav({
+  collapsed = false,
+  onNavigate,
+}: {
+  collapsed?: boolean;
+  onNavigate?: () => void;
+}) {
   const pathname = usePathname();
 
   return (
     <div className="flex h-full flex-col">
-      <div className="p-6">
+      <div className={cn('p-6', collapsed && 'px-4 py-6')}>
         <Link
           href="/"
           onClick={onNavigate}
-          className="text-xl font-semibold tracking-tight text-foreground hover:text-primary transition-colors"
+          className={cn(
+            'flex items-center gap-2 text-xl font-semibold tracking-tight text-foreground hover:text-primary transition-colors',
+            collapsed && 'justify-center',
+          )}
         >
-          Ember
+          {collapsed ? (
+            <IconFlame size={22} className="text-primary" />
+          ) : (
+            <>
+              Ember
+              <IconFlame size={22} className="text-primary" />
+            </>
+          )}
         </Link>
       </div>
 
-      <nav className="flex-1 px-3 space-y-1">
+      <nav className={cn('flex-1 px-3 space-y-1', collapsed && 'px-2')}>
         {navItems.map((item) => {
           const isActive = pathname === item.href || pathname.startsWith(item.href + '/');
           return (
@@ -45,33 +64,37 @@ function SidebarNav({ onNavigate }: { onNavigate?: () => void }) {
               key={item.href}
               href={item.href}
               onClick={onNavigate}
+              title={collapsed ? item.label : undefined}
               className={cn(
                 'flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors',
+                collapsed && 'justify-center px-0',
                 isActive
                   ? 'bg-muted text-foreground'
                   : 'text-muted-foreground hover:bg-muted/50 hover:text-foreground',
               )}
             >
               <item.icon size={20} stroke={1.5} />
-              {item.label}
+              {!collapsed && item.label}
             </Link>
           );
         })}
       </nav>
 
-      <div className="border-t border-border/50 px-3 py-3">
+      <div className={cn('border-t border-border/50 px-3 py-3', collapsed && 'px-2')}>
         <Link
           href="/profile"
           onClick={onNavigate}
+          title={collapsed ? 'Profile' : undefined}
           className={cn(
             'flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors',
+            collapsed && 'justify-center px-0',
             pathname === '/profile'
               ? 'bg-muted text-foreground'
               : 'text-muted-foreground hover:bg-muted/50 hover:text-foreground',
           )}
         >
           <IconUser size={20} stroke={1.5} />
-          Profile
+          {!collapsed && 'Profile'}
         </Link>
       </div>
     </div>
@@ -112,43 +135,40 @@ export function Sidebar() {
   }, [togglePin]);
 
   if (!mounted) {
-    return <div className="hidden lg:block w-60 shrink-0" />;
+    return <div className={cn('hidden lg:block shrink-0', EXPANDED_WIDTH)} />;
   }
 
-  const visible = pinned || hovered;
+  const expanded = pinned || hovered;
 
   return (
     <>
       {/* Desktop sidebar */}
       <div className="hidden lg:block">
-        {/* Spacer when pinned */}
-        {pinned && <div className="w-60 shrink-0" />}
-
-        {/* Hover trigger zone when unpinned */}
-        {!pinned && (
-          <div className="fixed inset-y-0 left-0 w-3 z-40" onMouseEnter={() => setHovered(true)} />
-        )}
+        {/* Spacer to push content over */}
+        <div className={cn('shrink-0', pinned ? EXPANDED_WIDTH : COLLAPSED_WIDTH)} />
 
         {/* Sidebar panel */}
         <aside
           className={cn(
-            'fixed inset-y-0 left-0 z-40 w-60 bg-card transition-transform duration-200',
-            !pinned && 'shadow-md',
-            visible ? 'translate-x-0' : '-translate-x-full',
+            'fixed inset-y-0 left-0 z-40 bg-card transition-[width] duration-200 overflow-hidden',
+            expanded ? EXPANDED_WIDTH : COLLAPSED_WIDTH,
+            !pinned && hovered && 'shadow-md',
           )}
           onMouseEnter={() => !pinned && setHovered(true)}
           onMouseLeave={() => !pinned && setHovered(false)}
         >
-          <div className="absolute top-4 right-3">
-            <button
-              onClick={togglePin}
-              className="text-muted-foreground hover:text-foreground transition-colors p-1 rounded-md hover:bg-muted"
-              title={pinned ? 'Unpin sidebar (Cmd+/)' : 'Pin sidebar (Cmd+/)'}
-            >
-              {pinned ? <IconPinFilled size={16} /> : <IconPin size={16} />}
-            </button>
-          </div>
-          <SidebarNav />
+          {expanded && (
+            <div className="absolute top-4 right-3">
+              <button
+                onClick={togglePin}
+                className="text-muted-foreground hover:text-foreground transition-colors p-1 rounded-md hover:bg-muted"
+                title={pinned ? 'Unpin sidebar (Cmd+/)' : 'Pin sidebar (Cmd+/)'}
+              >
+                {pinned ? <IconPinFilled size={16} /> : <IconPin size={16} />}
+              </button>
+            </div>
+          )}
+          <SidebarNav collapsed={!expanded} />
         </aside>
       </div>
 
