@@ -4,6 +4,7 @@ import { useMemo, useState, useEffect } from 'react';
 import { ResponsiveLine } from '@nivo/line';
 import { getNivoTheme, CHART_COLORS } from './theme';
 import { createAreaGradientLayer } from './gradient-layer';
+import { ChartTooltip } from './chart-tooltip';
 import { fmt, fmtAxisK } from '@/lib/formatters';
 
 const AreaGradientLayer = createAreaGradientLayer('balance-gradient');
@@ -65,17 +66,7 @@ export function BalanceChart({ data }: BalanceChartProps) {
         enableCrosshair
         crosshairType="x"
         tooltip={({ point }) => (
-          <div
-            style={{
-              background: 'var(--popover)',
-              color: 'var(--popover-foreground)',
-              border: '1px solid var(--border)',
-              borderRadius: 6,
-              padding: '6px 10px',
-              fontSize: 12,
-              boxShadow: '0 4px 6px -1px rgb(0 0 0 / .1)',
-            }}
-          >
+          <ChartTooltip>
             <span style={{ color: 'var(--muted-foreground)' }}>
               {(point.data.x as Date).toLocaleDateString('en-US', {
                 month: 'short',
@@ -86,7 +77,7 @@ export function BalanceChart({ data }: BalanceChartProps) {
             <span style={{ marginLeft: 8, fontFamily: 'var(--font-mono, monospace)' }}>
               {fmt(point.data.y as number)}
             </span>
-          </div>
+          </ChartTooltip>
         )}
         layers={[
           'grid',

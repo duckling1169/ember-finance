@@ -3,6 +3,7 @@
 import { useMemo, useState, useEffect } from 'react';
 import { ResponsivePie } from '@nivo/pie';
 import { getNivoTheme, CHART_COLORS } from './theme';
+import { ChartTooltip } from './chart-tooltip';
 import { fmt } from '@/lib/formatters';
 
 interface DonutChartProps {
@@ -46,20 +47,7 @@ export function DonutChart({ segments, total, className = 'w-28 h-28' }: DonutCh
         enableArcLinkLabels={false}
         activeOuterRadiusOffset={4}
         tooltip={({ datum }) => (
-          <div
-            style={{
-              background: 'var(--popover)',
-              color: 'var(--popover-foreground)',
-              border: '1px solid var(--border)',
-              borderRadius: 6,
-              padding: '6px 10px',
-              fontSize: 12,
-              boxShadow: '0 4px 6px -1px rgb(0 0 0 / .1)',
-              display: 'flex',
-              alignItems: 'center',
-              gap: 6,
-            }}
-          >
+          <ChartTooltip style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
             <span
               style={{
                 width: 8,
@@ -77,7 +65,7 @@ export function DonutChart({ segments, total, className = 'w-28 h-28' }: DonutCh
             <span style={{ fontFamily: 'var(--font-mono, monospace)', marginLeft: 4 }}>
               {((datum.value / total) * 100).toFixed(1)}%
             </span>
-          </div>
+          </ChartTooltip>
         )}
       />
     </div>
