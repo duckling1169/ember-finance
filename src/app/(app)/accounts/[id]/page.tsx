@@ -661,7 +661,7 @@ function HistoryTab({
                     </div>
 
                     {/* Content */}
-                    <div className={`flex-1 pb-6 ${isLast ? '' : ''}`}>
+                    <div className="flex-1 pb-6">
                       <div className="flex items-start justify-between">
                         <div>
                           <p className="text-sm font-medium">{event.description}</p>
