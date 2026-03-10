@@ -844,29 +844,12 @@ export const mockPortfolioHistory = generateDailyHistory(
   0.003,
 );
 
-// Allocation over time (stacked area) — top 4 holdings by value
-export const mockAllocationHistory = [
-  { date: '2025-04', FXAIX: 48000, VTI: 30000, MSFT: 10000, other: 32000 },
-  { date: '2025-05', FXAIX: 49500, VTI: 31200, MSFT: 10800, other: 33000 },
-  { date: '2025-06', FXAIX: 48200, VTI: 30500, MSFT: 10400, other: 32700 },
-  { date: '2025-07', FXAIX: 51800, VTI: 32800, MSFT: 11200, other: 33100 },
-  { date: '2025-08', FXAIX: 50500, VTI: 32000, MSFT: 10900, other: 32800 },
-  { date: '2025-09', FXAIX: 53200, VTI: 33500, MSFT: 11600, other: 34100 },
-  { date: '2025-10', FXAIX: 52000, VTI: 32800, MSFT: 11300, other: 33700 },
-  { date: '2025-11', FXAIX: 55000, VTI: 34500, MSFT: 12000, other: 35000 },
-  { date: '2025-12', FXAIX: 54200, VTI: 34000, MSFT: 11800, other: 34200 },
-  { date: '2026-01', FXAIX: 57500, VTI: 35200, MSFT: 12500, other: 34600 },
-  { date: '2026-02', FXAIX: 59800, VTI: 36100, MSFT: 12900, other: 34300 },
-  { date: '2026-03', FXAIX: 61907, VTI: 36850, MSFT: 13277, other: 33198 },
-];
-
 // ── Enriched Account View (composed for frontend display) ──
 // In production, this would be assembled from API calls to accounts + sources + balances.
 
 import { devBypass, API_PROVIDERS } from '@/lib/constants';
 export { devBypass };
 
-export type { EnrichedAccount } from '@shared/types';
 import type { EnrichedAccount } from '@shared/types';
 
 export function enrichAccounts(): EnrichedAccount[] {

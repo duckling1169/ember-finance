@@ -21,7 +21,7 @@ export function useAuth() {
   return useContext(AuthContext);
 }
 
-const mockUser = {
+const mockUser: User = {
   id: 'dev-mock-user',
   email: 'dev@ember.local',
   aud: 'authenticated',
@@ -29,7 +29,9 @@ const mockUser = {
   app_metadata: {},
   user_metadata: { display_name: 'Dev User' },
   created_at: '2025-01-01T00:00:00.000Z',
-} as unknown as User;
+  updated_at: '',
+  is_anonymous: false,
+};
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [state, setState] = useState<AuthState>(
