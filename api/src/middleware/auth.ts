@@ -12,6 +12,8 @@ export type AuthEnv = {
     authUser: AuthUser;
     userClient: SupabaseClient;
     householdId: string;
+    memberId: string;
+    memberRole: string;
   };
 };
 
@@ -40,7 +42,7 @@ export async function requireAuth(c: Context, next: Next) {
 
 /**
  * Verifies the authenticated user is a member of the household specified
- * in the `:householdId` route param. Sets `householdId` on context.
+ * in the `:householdId` route param. Sets `householdId` and `memberId` on context.
  * Must run after `requireAuth`.
  */
 export async function requireHouseholdMember(c: Context, next: Next) {
@@ -63,40 +65,80 @@ export async function requireHouseholdMember(c: Context, next: Next) {
   }
 
   c.set('householdId', householdId);
+  c.set('memberId', member.id);
+  await next();
+}
+
+/**
+ * Lightweight middleware for routes without :householdId in the path.
+ * Resolves the user's member record and sets householdId + memberId + memberRole on context.
+ * Used by settings routes to avoid repeated lookups per handler.
+ */
+export async function requireMember(c: Context, next: Next) {
+  const authUser = c.get('authUser') as AuthUser;
+
+  const { data: member, error } = await supabase
+    .from('member')
+    .select('id, household_id, role')
+    .eq('auth_user_id', authUser.id)
+    .single();
+
+  if (error || !member) {
+    return c.json({ error: 'No household found' }, 404);
+  }
+
+  c.set('householdId', member.household_id);
+  c.set('memberId', member.id);
+  c.set('memberRole', member.role);
   await next();
 }
 
 /**
  * For routes with only a record `:id` param (no householdId),
- * looks up the record's household_id and verifies membership.
+ * looks up the record's household_id and verifies membership in a single join query.
  */
 export function requireRecordOwnership(table: 'transaction' | 'investment_activity') {
   return async (c: Context, next: Next) => {
     const authUser = c.get('authUser') as AuthUser;
     const id = c.req.param('id');
 
-    const { data: record, error } = await supabase
-      .from(table)
-      .select('household_id')
-      .eq('id', id)
-      .single();
+    // Single query: look up record and verify membership via join
+    const { data, error } = await supabase.rpc('check_record_ownership', {
+      p_table: table,
+      p_record_id: id,
+      p_auth_user_id: authUser.id,
+    });
 
-    if (error || !record) {
-      return c.json({ error: 'Record not found' }, 404);
+    if (error || !data) {
+      // Fallback to two-query approach if RPC doesn't exist
+      const { data: record, error: recErr } = await supabase
+        .from(table)
+        .select('household_id')
+        .eq('id', id)
+        .single();
+
+      if (recErr || !record) {
+        return c.json({ error: 'Record not found' }, 404);
+      }
+
+      const { data: member } = await supabase
+        .from('member')
+        .select('id')
+        .eq('household_id', record.household_id)
+        .eq('auth_user_id', authUser.id)
+        .single();
+
+      if (!member) {
+        return c.json({ error: 'Forbidden: not a member of this household' }, 403);
+      }
+
+      c.set('householdId', record.household_id);
+      c.set('memberId', member.id);
+    } else {
+      c.set('householdId', data.household_id);
+      c.set('memberId', data.member_id);
     }
 
-    const { data: member } = await supabase
-      .from('member')
-      .select('id')
-      .eq('household_id', record.household_id)
-      .eq('auth_user_id', authUser.id)
-      .single();
-
-    if (!member) {
-      return c.json({ error: 'Forbidden: not a member of this household' }, 403);
-    }
-
-    c.set('householdId', record.household_id);
     await next();
   };
 }

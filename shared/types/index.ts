@@ -194,7 +194,26 @@ export interface RawIngest {
   record_count: number | null;
   status: 'pending' | 'processed' | 'failed' | 'skipped';
   error: string | null;
+  triggered_by: string | null;
   processed_at: string | null;
+  created_at: string;
+}
+
+export type AccountEventType =
+  | 'account_created'
+  | 'account_updated'
+  | 'link_connected'
+  | 'link_disconnected'
+  | 'source_added'
+  | 'source_removed';
+
+export interface AccountEvent {
+  id: string;
+  household_id: string;
+  account_id: string;
+  event_type: AccountEventType;
+  triggered_by: string | null;
+  detail: Record<string, unknown>;
   created_at: string;
 }
 

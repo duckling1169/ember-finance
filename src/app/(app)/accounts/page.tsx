@@ -1,9 +1,10 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
+import { useRouter } from 'next/navigation';
 import { getHousehold, getAccounts, createAccount } from '@/lib/api';
-import { devBypass, mockAccounts } from '@/lib/mock-data';
-import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
+import { devBypass, enrichAccounts, type EnrichedAccount } from '@/lib/mock-data';
+import { Card, CardContent } from '@/components/ui/card';
 import {
   Table,
   TableHeader,
@@ -18,8 +19,11 @@ import {
   IconPlus,
   IconX,
   IconBuildingBank,
-  IconArrowUpRight,
-  IconArrowDownRight,
+  IconLink,
+  IconPlugConnected,
+  IconArrowsSort,
+  IconSortAscending,
+  IconSortDescending,
 } from '@tabler/icons-react';
 
 const ACCOUNT_TYPES = [
@@ -36,33 +40,65 @@ const ACCOUNT_TYPES = [
   'other',
 ];
 
-interface AccountData {
-  id: string;
-  name: string;
-  institution: string | null;
-  account_type: string;
-  balance?: number;
-  change_pct?: number;
-  [key: string]: unknown;
+const TAX_BUCKETS = [
+  { value: 'taxable', label: 'Taxable' },
+  { value: 'traditional', label: 'Traditional (pre-tax)' },
+  { value: 'roth', label: 'Roth (after-tax)' },
+  { value: 'hsa', label: 'HSA' },
+  { value: 'none', label: 'N/A' },
+];
+
+type AccountData = EnrichedAccount;
+
+type SortKey = 'name' | 'institution' | 'account_type' | 'linked' | 'balance' | 'last_updated';
+type SortDir = 'asc' | 'desc';
+
+function SortIcon({
+  field,
+  sortKey,
+  sortDir,
+}: {
+  field: SortKey;
+  sortKey: SortKey;
+  sortDir: SortDir;
+}) {
+  if (sortKey !== field) return <IconArrowsSort size={14} className="text-muted-foreground/50" />;
+  return sortDir === 'asc' ? <IconSortAscending size={14} /> : <IconSortDescending size={14} />;
 }
 
 function fmt(n: number) {
   return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(n);
 }
 
-function ChangeCell({ value }: { value: number }) {
-  if (value === 0)
-    return <span className="font-mono tabular-nums text-muted-foreground">&mdash;</span>;
-  const color = value > 0 ? 'text-gain' : 'text-loss';
-  const prefix = value > 0 ? '+' : '';
-  const Icon = value > 0 ? IconArrowUpRight : IconArrowDownRight;
+function LinkedBadge({ linked }: { linked?: boolean }) {
+  if (linked) {
+    return (
+      <span className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium text-gain bg-gain/10">
+        <IconPlugConnected size={12} />
+        Linked
+      </span>
+    );
+  }
   return (
-    <span className={`inline-flex items-center gap-1 font-mono tabular-nums ${color}`}>
-      <Icon size={14} />
-      {prefix}
-      {value.toFixed(1)}%
+    <span className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium text-muted-foreground bg-muted">
+      Not Linked
     </span>
   );
+}
+
+function timeAgo(dateStr: string) {
+  const now = new Date();
+  const then = new Date(dateStr);
+  const diffMs = now.getTime() - then.getTime();
+  const diffMins = Math.floor(diffMs / 60000);
+  const diffHours = Math.floor(diffMins / 60);
+  const diffDays = Math.floor(diffHours / 24);
+
+  if (diffMins < 1) return 'Just now';
+  if (diffMins < 60) return `${diffMins}m ago`;
+  if (diffHours < 24) return `${diffHours}h ago`;
+  if (diffDays < 7) return `${diffDays}d ago`;
+  return then.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
 }
 
 export default function AccountsPage() {
@@ -70,14 +106,28 @@ export default function AccountsPage() {
 }
 
 function AccountsContent() {
+  const router = useRouter();
   const [householdId, setHouseholdId] = useState<string | null>(
     devBypass ? 'mock-household' : null,
   );
-  const [accounts, setAccounts] = useState<AccountData[]>(devBypass ? mockAccounts : []);
+  const [accounts, setAccounts] = useState<AccountData[]>(devBypass ? enrichAccounts() : []);
   const [loading, setLoading] = useState(!devBypass);
   const [showForm, setShowForm] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
+  const [sortKey, setSortKey] = useState<SortKey>('last_updated');
+  const [sortDir, setSortDir] = useState<SortDir>('desc');
+
+  function toggleSort(key: SortKey) {
+    if (sortKey === key) {
+      setSortDir((d) => (d === 'asc' ? 'desc' : 'asc'));
+    } else {
+      setSortKey(key);
+      setSortDir(
+        key === 'name' || key === 'institution' || key === 'account_type' ? 'asc' : 'desc',
+      );
+    }
+  }
 
   const loadData = useCallback(async () => {
     if (devBypass) return;
@@ -85,7 +135,7 @@ function AccountsContent() {
       const h = (await getHousehold()) as { id: string };
       setHouseholdId(h.id);
       const accts = await getAccounts(h.id);
-      setAccounts(accts as AccountData[]);
+      setAccounts(accts as unknown as AccountData[]);
     } catch {
       // no household
     } finally {
@@ -105,14 +155,24 @@ function AccountsContent() {
     const form = new FormData(e.currentTarget);
 
     if (devBypass) {
-      // Add to local state in dev mode
       const newAccount: AccountData = {
         id: `mock-${Date.now()}`,
         name: form.get('name') as string,
-        institution: null,
+        institution: (form.get('institution') as string) || null,
         account_type: form.get('account_type') as string,
+        currency: 'USD',
+        meta: {
+          tax_bucket: form.get('tax_bucket') as string,
+          notes: '',
+        },
+        is_active: true,
+        is_liability: ['credit', 'loan', 'mortgage'].includes(form.get('account_type') as string),
+        created_at: new Date().toISOString(),
         balance: 0,
-        change_pct: 0,
+        linked: false,
+        last_updated: new Date().toISOString(),
+        tax_bucket: form.get('tax_bucket') as string,
+        notes: '',
       };
       setAccounts((prev) => [...prev, newAccount]);
       setShowForm(false);
@@ -123,11 +183,13 @@ function AccountsContent() {
     try {
       await createAccount(householdId, {
         name: form.get('name'),
+        institution: form.get('institution'),
         account_type: form.get('account_type'),
+        tax_bucket: form.get('tax_bucket'),
       });
       setShowForm(false);
       const accts = await getAccounts(householdId);
-      setAccounts(accts as AccountData[]);
+      setAccounts(accts as unknown as AccountData[]);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to add account');
     } finally {
@@ -140,24 +202,38 @@ function AccountsContent() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-3">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-semibold">Accounts</h1>
-        {showForm ? (
-          <Button variant="ghost" onClick={() => setShowForm(false)}>
-            <IconX size={16} />
-            Cancel
-          </Button>
-        ) : (
-          <Button
-            variant="outline"
-            className="hover:bg-primary hover:text-primary-foreground hover:border-primary"
-            onClick={() => setShowForm(true)}
-          >
-            <IconPlus size={16} />
-            Add Account
-          </Button>
-        )}
+        <div className="flex items-center gap-2">
+          {showForm ? (
+            <Button variant="ghost" onClick={() => setShowForm(false)}>
+              <IconX size={16} />
+              Cancel
+            </Button>
+          ) : (
+            <>
+              <Button
+                variant="outline"
+                className="hover:bg-primary hover:text-primary-foreground hover:border-primary"
+                onClick={() => {
+                  /* TODO: Teller/Snap link flow */
+                }}
+              >
+                <IconLink size={16} />
+                Link Account
+              </Button>
+              <Button
+                variant="outline"
+                className="hover:bg-primary hover:text-primary-foreground hover:border-primary"
+                onClick={() => setShowForm(true)}
+              >
+                <IconPlus size={16} />
+                Add Manual
+              </Button>
+            </>
+          )}
+        </div>
       </div>
 
       {error && (
@@ -168,23 +244,45 @@ function AccountsContent() {
         <Card>
           <CardContent>
             <form onSubmit={handleAdd} className="space-y-4">
-              <div>
-                <label className="mb-1.5 block text-sm font-medium">Account Name</label>
-                <Input name="name" required placeholder="Fidelity 401(k)" />
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div>
+                  <label className="mb-1.5 block text-sm font-medium">Account Name</label>
+                  <Input name="name" required placeholder="Fidelity 401(k)" />
+                </div>
+                <div>
+                  <label className="mb-1.5 block text-sm font-medium">Institution</label>
+                  <Input name="institution" placeholder="Fidelity, Chase, etc." />
+                </div>
               </div>
-              <div>
-                <label className="mb-1.5 block text-sm font-medium">Type</label>
-                <select
-                  name="account_type"
-                  required
-                  className="h-9 w-full rounded-md border border-input bg-card px-3 text-sm capitalize outline-none focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/50"
-                >
-                  {ACCOUNT_TYPES.map((t) => (
-                    <option key={t} value={t} className="capitalize">
-                      {t.charAt(0).toUpperCase() + t.slice(1).replace('_', ' ')}
-                    </option>
-                  ))}
-                </select>
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div>
+                  <label className="mb-1.5 block text-sm font-medium">Type</label>
+                  <select
+                    name="account_type"
+                    required
+                    className="h-9 w-full rounded-md border border-input bg-card px-3 text-sm capitalize outline-none focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/50"
+                  >
+                    {ACCOUNT_TYPES.map((t) => (
+                      <option key={t} value={t}>
+                        {t.charAt(0).toUpperCase() + t.slice(1).replace('_', ' ')}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="mb-1.5 block text-sm font-medium">Tax Bucket</label>
+                  <select
+                    name="tax_bucket"
+                    required
+                    className="h-9 w-full rounded-md border border-input bg-card px-3 text-sm outline-none focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/50"
+                  >
+                    {TAX_BUCKETS.map((t) => (
+                      <option key={t.value} value={t.value}>
+                        {t.label}
+                      </option>
+                    ))}
+                  </select>
+                </div>
               </div>
               <div className="flex justify-end">
                 <Button
@@ -215,35 +313,119 @@ function AccountsContent() {
               </button>
             </div>
           ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Name</TableHead>
-                  <TableHead>Institution</TableHead>
-                  <TableHead>Type</TableHead>
-                  <TableHead className="text-right">Balance</TableHead>
-                  <TableHead className="text-right">Change</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {accounts.map((a) => (
-                  <TableRow key={a.id}>
-                    <TableCell className="font-medium">{a.name}</TableCell>
-                    <TableCell>{a.institution || '\u2014'}</TableCell>
-                    <TableCell className="capitalize">{a.account_type}</TableCell>
-                    <TableCell className="text-right font-mono tabular-nums">
-                      {fmt(a.balance ?? 0)}
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <ChangeCell value={a.change_pct ?? 0} />
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
+            <AccountsTable
+              accounts={accounts}
+              sortKey={sortKey}
+              sortDir={sortDir}
+              onSort={toggleSort}
+              onRowClick={(id) => router.push(`/accounts/${id}`)}
+            />
           )}
         </CardContent>
       </Card>
     </div>
+  );
+}
+
+// ── Sortable Accounts Table ──
+
+const columns: { key: SortKey; label: string; align?: 'right' }[] = [
+  { key: 'name', label: 'Name' },
+  { key: 'institution', label: 'Institution' },
+  { key: 'account_type', label: 'Type' },
+  { key: 'linked', label: 'Status' },
+  { key: 'balance', label: 'Balance', align: 'right' },
+  { key: 'last_updated', label: 'Updated', align: 'right' },
+];
+
+function AccountsTable({
+  accounts,
+  sortKey,
+  sortDir,
+  onSort,
+  onRowClick,
+}: {
+  accounts: AccountData[];
+  sortKey: SortKey;
+  sortDir: SortDir;
+  onSort: (key: SortKey) => void;
+  onRowClick: (id: string) => void;
+}) {
+  const sorted = [...accounts].sort((a, b) => {
+    let aVal: string | number | boolean | undefined;
+    let bVal: string | number | boolean | undefined;
+
+    switch (sortKey) {
+      case 'name':
+        aVal = a.name.toLowerCase();
+        bVal = b.name.toLowerCase();
+        break;
+      case 'institution':
+        aVal = (a.institution || '').toLowerCase();
+        bVal = (b.institution || '').toLowerCase();
+        break;
+      case 'account_type':
+        aVal = a.account_type;
+        bVal = b.account_type;
+        break;
+      case 'linked':
+        aVal = a.linked ? 1 : 0;
+        bVal = b.linked ? 1 : 0;
+        break;
+      case 'balance':
+        aVal = a.balance ?? 0;
+        bVal = b.balance ?? 0;
+        break;
+      case 'last_updated':
+        aVal = a.last_updated || '';
+        bVal = b.last_updated || '';
+        break;
+    }
+
+    if (typeof aVal === 'string' && typeof bVal === 'string') {
+      return sortDir === 'asc' ? aVal.localeCompare(bVal) : bVal.localeCompare(aVal);
+    }
+    const aNum = Number(aVal);
+    const bNum = Number(bVal);
+    return sortDir === 'asc' ? aNum - bNum : bNum - aNum;
+  });
+
+  return (
+    <Table>
+      <TableHeader>
+        <TableRow>
+          {columns.map((col) => (
+            <TableHead
+              key={col.key}
+              className={`cursor-pointer select-none hover:text-foreground transition-colors ${col.align === 'right' ? 'text-right' : ''}`}
+              onClick={() => onSort(col.key)}
+            >
+              <span className="inline-flex items-center gap-1">
+                {col.label}
+                <SortIcon field={col.key} sortKey={sortKey} sortDir={sortDir} />
+              </span>
+            </TableHead>
+          ))}
+        </TableRow>
+      </TableHeader>
+      <TableBody>
+        {sorted.map((a) => (
+          <TableRow key={a.id} className="cursor-pointer" onClick={() => onRowClick(a.id)}>
+            <TableCell className="font-medium">{a.name}</TableCell>
+            <TableCell>{a.institution || '\u2014'}</TableCell>
+            <TableCell className="capitalize">{a.account_type}</TableCell>
+            <TableCell>
+              <LinkedBadge linked={a.linked} />
+            </TableCell>
+            <TableCell className="text-right font-mono tabular-nums">
+              {fmt(a.balance ?? 0)}
+            </TableCell>
+            <TableCell className="text-right text-muted-foreground text-xs">
+              {a.last_updated ? timeAgo(a.last_updated) : '\u2014'}
+            </TableCell>
+          </TableRow>
+        ))}
+      </TableBody>
+    </Table>
   );
 }

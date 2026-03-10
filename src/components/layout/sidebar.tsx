@@ -6,7 +6,7 @@ import { usePathname } from 'next/navigation';
 import { cn } from '@/lib/utils';
 import {
   IconBuildingBank,
-  IconChartLine,
+  IconWallet,
   IconUser,
   IconMenu2,
   IconPin,
@@ -22,7 +22,7 @@ const EXPANDED_WIDTH = 'w-60';
 
 const navItems = [
   { href: '/accounts', label: 'Accounts', icon: IconBuildingBank },
-  { href: '/investments', label: 'Investments', icon: IconChartLine },
+  { href: '/holdings', label: 'Holdings', icon: IconWallet },
 ];
 
 function SidebarNav({
