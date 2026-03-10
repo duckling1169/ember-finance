@@ -1,9 +1,9 @@
 'use client';
 
-import { useEffect, useCallback, useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { getHousehold, getAccounts } from '@/lib/api';
+import { useHousehold, useAccounts } from '@/lib/swr';
 import {
   devBypass,
   enrichAccounts,
@@ -90,32 +90,23 @@ function ChangeIndicator({ value, label }: { value: number; label: string }) {
 
 export default function DashboardPage() {
   const router = useRouter();
-  const [accounts, setAccounts] = useState<EnrichedAccount[]>(devBypass ? enrichAccounts() : []);
-  const [loading, setLoading] = useState(!devBypass);
+  const { data: household, isLoading: hhLoading } = useHousehold();
+  const { data: apiAccounts, isLoading: acctsLoading } = useAccounts();
+
+  const accounts: EnrichedAccount[] = devBypass
+    ? enrichAccounts()
+    : ((apiAccounts as unknown as EnrichedAccount[]) ?? []);
+  const loading = !devBypass && (hhLoading || acctsLoading);
+
   const [range, setRange] = useState<RangeKey>('YTD');
   const [customStart, setCustomStart] = useState('');
   const [customEnd, setCustomEnd] = useState('');
 
-  const loadData = useCallback(async () => {
-    if (devBypass) return;
-    try {
-      const h = (await getHousehold()) as { id: string } | null;
-      if (!h) {
-        router.replace('/onboarding');
-        return;
-      }
-      const accts = await getAccounts(h.id);
-      setAccounts(accts as unknown as EnrichedAccount[]);
-    } catch {
-      // Not set up
-    } finally {
-      setLoading(false);
-    }
-  }, [router]);
-
+  // Redirect to onboarding if no household
+  const needsOnboarding = !devBypass && !hhLoading && !household;
   useEffect(() => {
-    loadData();
-  }, [loadData]);
+    if (needsOnboarding) router.replace('/onboarding');
+  }, [needsOnboarding, router]);
 
   const nwData = useMemo(
     () => (devBypass ? filterByRange(mockNetWorthHistory, range, customStart, customEnd) : []),
@@ -126,7 +117,7 @@ export default function DashboardPage() {
     [range, customStart, customEnd],
   );
 
-  if (loading) {
+  if (loading || needsOnboarding) {
     return <div className="py-10 text-muted-foreground">Loading...</div>;
   }
 

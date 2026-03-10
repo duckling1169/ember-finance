@@ -1,21 +1,21 @@
 'use client';
 
-import { useEffect, useState, useCallback } from 'react';
+import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/lib/auth-context';
 import { useTheme } from '@/lib/theme-context';
+import { updateHousehold, updateProfile, removeMember, sendInvite, cancelInvite } from '@/lib/api';
 import {
-  getHousehold,
-  updateHousehold,
-  getProfile,
-  updateProfile,
-  getMembers,
-  removeMember,
-  getInvites,
-  sendInvite,
-  cancelInvite,
-} from '@/lib/api';
+  useHousehold,
+  useProfile,
+  useMembers,
+  useInvites,
+  mutateHousehold,
+  mutateProfile,
+  mutateMembers,
+  mutateInvites,
+} from '@/lib/swr';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -31,7 +31,7 @@ import {
   IconCrown,
   IconUser,
 } from '@tabler/icons-react';
-// Types matching shared/types — keep in sync
+
 type TaxFilingStatus = 'single' | 'married_jointly' | 'married_separately' | 'head_of_household';
 type EmploymentType = 'w2' | '1099' | 'mixed';
 type RiskTolerance = 'conservative' | 'moderate' | 'aggressive';
@@ -122,97 +122,66 @@ function SelectField({
   );
 }
 
-export default function ProfilePage() {
+export default function SettingsPage() {
   const router = useRouter();
   const { user } = useAuth();
   const { theme, setTheme } = useTheme();
 
-  const [loading, setLoading] = useState(true);
+  const { data: hhData, isLoading: hhLoading } = useHousehold();
+  const { data: profData, isLoading: profLoading } = useProfile();
+  const { data: memsData, isLoading: memsLoading } = useMembers();
+  const { data: invsData, isLoading: invsLoading } = useInvites();
+
+  const household = hhData as unknown as Household | null;
+  const profile = profData as unknown as Member | null;
+  const members = (memsData || []) as unknown as Member[];
+  const invites = (invsData || []) as unknown as HouseholdInvite[];
+  const loading = hhLoading || profLoading || memsLoading || invsLoading;
+
   const [saving, setSaving] = useState<string | null>(null);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
 
-  // Household
-  const [household, setHousehold] = useState<Household | null>(null);
+  // Household form state
   const [hhName, setHhName] = useState('');
   const [hhTaxStatus, setHhTaxStatus] = useState('');
   const [hhState, setHhState] = useState('');
+  const [hhInitialized, setHhInitialized] = useState(false);
 
-  // Profile
-  const [profile, setProfile] = useState<Member | null>(null);
+  // Profile form state
   const [displayName, setDisplayName] = useState('');
   const [birthday, setBirthday] = useState('');
   const [retirementAge, setRetirementAge] = useState('');
   const [annualIncome, setAnnualIncome] = useState('');
   const [employmentType, setEmploymentType] = useState('');
   const [riskTolerance, setRiskTolerance] = useState('');
+  const [profInitialized, setProfInitialized] = useState(false);
 
-  // Members & Invites
-  const [members, setMembers] = useState<Member[]>([]);
-  const [invites, setInvites] = useState<HouseholdInvite[]>([]);
   const [inviteEmail, setInviteEmail] = useState('');
 
-  const loadData = useCallback(async () => {
-    try {
-      const [hh, prof, mems, invs] = await Promise.all([
-        getHousehold().catch(() => null),
-        getProfile().catch(() => null),
-        getMembers().catch(() => []),
-        getInvites().catch(() => []),
-      ]);
+  const isOwner = profile?.role === 'owner';
 
-      if (hh) {
-        const h = hh as unknown as Household;
-        setHousehold(h);
-        setHhName(h.name || '');
-        setHhTaxStatus(h.tax_filing_status || '');
-        setHhState(h.state || '');
-      }
-
-      if (prof) {
-        const p = prof as unknown as Member;
-        setProfile(p);
-        setDisplayName(p.display_name || '');
-        setBirthday(p.birthday || '');
-        setRetirementAge(p.target_retirement_age?.toString() || '');
-        setAnnualIncome(p.annual_income?.toString() || '');
-        setEmploymentType(p.employment_type || '');
-        setRiskTolerance(p.risk_tolerance || '');
-      }
-
-      setMembers((mems || []) as unknown as Member[]);
-      setInvites((invs || []) as unknown as HouseholdInvite[]);
-    } catch {
-      // API may not be running
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    loadData();
-  }, [loadData]);
+  // Sync SWR data into form state once loaded
+  if (household && !hhInitialized) {
+    setHhName(household.name || '');
+    setHhTaxStatus(household.tax_filing_status || '');
+    setHhState(household.state || '');
+    setHhInitialized(true);
+  }
+  if (profile && !profInitialized) {
+    setDisplayName(profile.display_name || '');
+    setBirthday(profile.birthday || '');
+    setRetirementAge(profile.target_retirement_age?.toString() || '');
+    setAnnualIncome(profile.annual_income?.toString() || '');
+    setEmploymentType(profile.employment_type || '');
+    setRiskTolerance(profile.risk_tolerance || '');
+    setProfInitialized(true);
+  }
 
   function flash(msg: string) {
     setSuccess(msg);
     setError('');
     setTimeout(() => setSuccess(''), 3000);
-  }
-
-  async function saveHousehold() {
-    setSaving('household');
-    setError('');
-    try {
-      await updateHousehold({
-        name: hhName,
-        state: hhState || null,
-      });
-      flash('Household updated');
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'Failed to update');
-    } finally {
-      setSaving(null);
-    }
   }
 
   async function saveProfile() {
@@ -227,7 +196,26 @@ export default function ProfilePage() {
         employmentType: employmentType || null,
         riskTolerance: riskTolerance || null,
       });
+      await mutateProfile();
       flash('Profile updated');
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Failed to update');
+    } finally {
+      setSaving(null);
+    }
+  }
+
+  async function saveHousehold() {
+    setSaving('household');
+    setError('');
+    try {
+      await updateHousehold({
+        name: hhName,
+        taxFilingStatus: hhTaxStatus || null,
+        state: hhState || null,
+      });
+      await mutateHousehold();
+      flash('Household updated');
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Failed to update');
     } finally {
@@ -243,8 +231,7 @@ export default function ProfilePage() {
     try {
       await sendInvite({ email: inviteEmail, role: 'viewer' });
       setInviteEmail('');
-      const invs = await getInvites().catch(() => []);
-      setInvites(invs as unknown as HouseholdInvite[]);
+      await mutateInvites();
       flash('Invite sent');
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Failed to send invite');
@@ -256,7 +243,7 @@ export default function ProfilePage() {
   async function handleCancelInvite(id: string) {
     try {
       await cancelInvite(id);
-      setInvites((prev) => prev.filter((i) => i.id !== id));
+      await mutateInvites();
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Failed to cancel invite');
     }
@@ -265,7 +252,7 @@ export default function ProfilePage() {
   async function handleRemoveMember(id: string) {
     try {
       await removeMember(id);
-      setMembers((prev) => prev.filter((m) => m.id !== id));
+      await mutateMembers();
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Failed to remove member');
     }
@@ -287,7 +274,7 @@ export default function ProfilePage() {
 
   return (
     <div className="space-y-3">
-      <h1 className="text-2xl font-semibold">Profile</h1>
+      <h1 className="text-2xl font-semibold">Settings</h1>
 
       {error && (
         <div className="rounded-md border border-destructive/50 bg-destructive/10 px-4 py-2 text-sm text-destructive">
@@ -300,11 +287,11 @@ export default function ProfilePage() {
         </div>
       )}
 
-      {/* Personal Info */}
+      {/* Profile */}
       <Card>
         <CardHeader>
-          <CardTitle>Personal</CardTitle>
-          <CardDescription>Your member profile</CardDescription>
+          <CardTitle>Profile</CardTitle>
+          <CardDescription>Your personal information</CardDescription>
         </CardHeader>
         <CardContent>
           <div className="grid gap-4 sm:grid-cols-2">
@@ -350,24 +337,12 @@ export default function ProfilePage() {
               onChange={setRiskTolerance}
               options={RISK_OPTIONS}
             />
-            <SelectField
-              label="Tax Filing Status"
-              value={hhTaxStatus}
-              onChange={setHhTaxStatus}
-              options={TAX_FILING_OPTIONS}
-            />
           </div>
           <div className="mt-4 flex justify-end">
             <Button
               variant="outline"
               disabled={saving === 'profile'}
-              onClick={async () => {
-                await saveProfile();
-                // Tax filing status is stored on household for now
-                if (hhTaxStatus !== (household?.tax_filing_status || '')) {
-                  await updateHousehold({ taxFilingStatus: hhTaxStatus || null }).catch(() => {});
-                }
-              }}
+              onClick={saveProfile}
               className="hover:bg-primary hover:text-primary-foreground hover:border-primary"
             >
               {saving === 'profile' ? (
@@ -381,147 +356,153 @@ export default function ProfilePage() {
         </CardContent>
       </Card>
 
-      {/* Household */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Household</CardTitle>
-          <CardDescription>Shared household settings</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="grid gap-4 sm:grid-cols-2">
-            <div>
-              <label className="mb-1.5 block text-sm font-medium">Household Name</label>
-              <Input value={hhName} onChange={(e) => setHhName(e.target.value)} />
-            </div>
-            <div>
-              <label className="mb-1.5 block text-sm font-medium">State</label>
-              <Input
-                value={hhState}
-                onChange={(e) => setHhState(e.target.value.toUpperCase())}
-                placeholder="CA"
-                maxLength={2}
-              />
-            </div>
-          </div>
-          <div className="mt-4 flex justify-end">
-            <Button
-              variant="outline"
-              disabled={saving === 'household'}
-              onClick={saveHousehold}
-              className="hover:bg-primary hover:text-primary-foreground hover:border-primary"
-            >
-              {saving === 'household' ? (
-                <IconLoader2 size={14} className="animate-spin" />
-              ) : (
-                <IconCheck size={14} />
-              )}
-              Save Household
-            </Button>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Members */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Members</CardTitle>
-          <CardDescription>People in your household</CardDescription>
-        </CardHeader>
-        <CardContent>
-          {members.length === 0 ? (
-            <p className="text-sm text-muted-foreground py-4 text-center">No members found</p>
-          ) : (
-            <div className="space-y-2">
-              {members.map((m) => (
-                <div
-                  key={m.id}
-                  className="flex items-center justify-between rounded-md border border-border px-4 py-3"
+      {/* Household — owner only */}
+      {isOwner && (
+        <>
+          <Card>
+            <CardHeader>
+              <CardTitle>Household</CardTitle>
+              <CardDescription>Shared household settings</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div>
+                  <label className="mb-1.5 block text-sm font-medium">Household Name</label>
+                  <Input value={hhName} onChange={(e) => setHhName(e.target.value)} />
+                </div>
+                <div>
+                  <label className="mb-1.5 block text-sm font-medium">State</label>
+                  <Input
+                    value={hhState}
+                    onChange={(e) => setHhState(e.target.value.toUpperCase())}
+                    placeholder="CA"
+                    maxLength={2}
+                  />
+                </div>
+                <SelectField
+                  label="Tax Filing Status"
+                  value={hhTaxStatus}
+                  onChange={setHhTaxStatus}
+                  options={TAX_FILING_OPTIONS}
+                />
+              </div>
+              <div className="mt-4 flex justify-end">
+                <Button
+                  variant="outline"
+                  disabled={saving === 'household'}
+                  onClick={saveHousehold}
+                  className="hover:bg-primary hover:text-primary-foreground hover:border-primary"
                 >
-                  <div className="flex items-center gap-3">
-                    <div className="flex h-8 w-8 items-center justify-center rounded-full bg-muted">
-                      {m.role === 'owner' ? (
-                        <IconCrown size={14} className="text-primary" />
-                      ) : (
-                        <IconUser size={14} className="text-muted-foreground" />
+                  {saving === 'household' ? (
+                    <IconLoader2 size={14} className="animate-spin" />
+                  ) : (
+                    <IconCheck size={14} />
+                  )}
+                  Save Household
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Members */}
+          <Card>
+            <CardHeader>
+              <CardTitle>Members</CardTitle>
+              <CardDescription>People in your household</CardDescription>
+            </CardHeader>
+            <CardContent>
+              {members.length === 0 ? (
+                <p className="text-sm text-muted-foreground py-4 text-center">No members found</p>
+              ) : (
+                <div className="space-y-2">
+                  {members.map((m) => (
+                    <div
+                      key={m.id}
+                      className="flex items-center justify-between rounded-md border border-border px-4 py-3"
+                    >
+                      <div className="flex items-center gap-3">
+                        <div className="flex h-8 w-8 items-center justify-center rounded-full bg-muted">
+                          {m.role === 'owner' ? (
+                            <IconCrown size={14} className="text-primary" />
+                          ) : (
+                            <IconUser size={14} className="text-muted-foreground" />
+                          )}
+                        </div>
+                        <div>
+                          <p className="text-sm font-medium">{m.display_name}</p>
+                          <p className="text-xs text-muted-foreground capitalize">{m.role}</p>
+                        </div>
+                      </div>
+                      {m.role !== 'owner' && m.id !== profile?.id && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="text-destructive hover:text-destructive"
+                          onClick={() => handleRemoveMember(m.id)}
+                        >
+                          <IconTrash size={14} />
+                        </Button>
                       )}
                     </div>
-                    <div>
-                      <p className="text-sm font-medium">{m.display_name}</p>
-                      <p className="text-xs text-muted-foreground capitalize">{m.role}</p>
-                    </div>
-                  </div>
-                  {m.role !== 'owner' && m.id !== profile?.id && (
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="text-destructive hover:text-destructive"
-                      onClick={() => handleRemoveMember(m.id)}
-                    >
-                      <IconTrash size={14} />
-                    </Button>
-                  )}
-                </div>
-              ))}
-            </div>
-          )}
-
-          {/* Pending invites */}
-          {invites.length > 0 && (
-            <div className="mt-4">
-              <p className="text-sm font-medium text-muted-foreground mb-2">Pending Invites</p>
-              <div className="space-y-2">
-                {invites
-                  .filter((i) => !i.accepted_at)
-                  .map((inv) => (
-                    <div
-                      key={inv.id}
-                      className="flex items-center justify-between rounded-md border border-dashed border-border px-4 py-2"
-                    >
-                      <div>
-                        <p className="text-sm">{inv.email}</p>
-                        <p className="text-xs text-muted-foreground capitalize">{inv.role}</p>
-                      </div>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="text-destructive hover:text-destructive"
-                        onClick={() => handleCancelInvite(inv.id)}
-                      >
-                        <IconX size={14} />
-                      </Button>
-                    </div>
                   ))}
-              </div>
-            </div>
-          )}
+                </div>
+              )}
 
-          {/* Invite form */}
-          {profile?.role === 'owner' && (
-            <form onSubmit={handleInvite} className="mt-4 flex gap-2">
-              <Input
-                type="email"
-                value={inviteEmail}
-                onChange={(e) => setInviteEmail(e.target.value)}
-                placeholder="partner@email.com"
-                className="flex-1"
-              />
-              <Button
-                type="submit"
-                variant="outline"
-                disabled={saving === 'invite' || !inviteEmail}
-                className="hover:bg-primary hover:text-primary-foreground hover:border-primary"
-              >
-                {saving === 'invite' ? (
-                  <IconLoader2 size={14} className="animate-spin" />
-                ) : (
-                  <IconSend size={14} />
-                )}
-                Invite
-              </Button>
-            </form>
-          )}
-        </CardContent>
-      </Card>
+              {invites.filter((i) => !i.accepted_at).length > 0 && (
+                <div className="mt-4">
+                  <p className="text-sm font-medium text-muted-foreground mb-2">Pending Invites</p>
+                  <div className="space-y-2">
+                    {invites
+                      .filter((i) => !i.accepted_at)
+                      .map((inv) => (
+                        <div
+                          key={inv.id}
+                          className="flex items-center justify-between rounded-md border border-dashed border-border px-4 py-2"
+                        >
+                          <div>
+                            <p className="text-sm">{inv.email}</p>
+                            <p className="text-xs text-muted-foreground capitalize">{inv.role}</p>
+                          </div>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="text-destructive hover:text-destructive"
+                            onClick={() => handleCancelInvite(inv.id)}
+                          >
+                            <IconX size={14} />
+                          </Button>
+                        </div>
+                      ))}
+                  </div>
+                </div>
+              )}
+
+              <form onSubmit={handleInvite} className="mt-4 flex gap-2">
+                <Input
+                  type="email"
+                  value={inviteEmail}
+                  onChange={(e) => setInviteEmail(e.target.value)}
+                  placeholder="partner@email.com"
+                  className="flex-1"
+                />
+                <Button
+                  type="submit"
+                  variant="outline"
+                  disabled={saving === 'invite' || !inviteEmail}
+                  className="hover:bg-primary hover:text-primary-foreground hover:border-primary"
+                >
+                  {saving === 'invite' ? (
+                    <IconLoader2 size={14} className="animate-spin" />
+                  ) : (
+                    <IconSend size={14} />
+                  )}
+                  Invite
+                </Button>
+              </form>
+            </CardContent>
+          </Card>
+        </>
+      )}
 
       {/* Appearance */}
       <Card>

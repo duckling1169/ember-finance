@@ -7,7 +7,7 @@ import { cn } from '@/lib/utils';
 import {
   IconBuildingBank,
   IconWallet,
-  IconUser,
+  IconSettings,
   IconMenu2,
   IconPin,
   IconPinFilled,
@@ -82,19 +82,19 @@ function SidebarNav({
 
       <div className={cn('border-t border-border/50 px-3 py-3', collapsed && 'px-2')}>
         <Link
-          href="/profile"
+          href="/settings"
           onClick={onNavigate}
-          title={collapsed ? 'Profile' : undefined}
+          title={collapsed ? 'Settings' : undefined}
           className={cn(
             'flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors',
             collapsed && 'justify-center px-0',
-            pathname === '/profile'
+            pathname === '/settings'
               ? 'bg-muted text-foreground'
               : 'text-muted-foreground hover:bg-muted/50 hover:text-foreground',
           )}
         >
-          <IconUser size={20} stroke={1.5} />
-          {!collapsed && 'Profile'}
+          <IconSettings size={20} stroke={1.5} />
+          {!collapsed && 'Settings'}
         </Link>
       </div>
     </div>
@@ -145,7 +145,12 @@ export function Sidebar() {
       {/* Desktop sidebar */}
       <div className="hidden lg:block">
         {/* Spacer to push content over */}
-        <div className={cn('shrink-0', pinned ? EXPANDED_WIDTH : COLLAPSED_WIDTH)} />
+        <div
+          className={cn(
+            'shrink-0 transition-[width] duration-200',
+            expanded ? EXPANDED_WIDTH : COLLAPSED_WIDTH,
+          )}
+        />
 
         {/* Sidebar panel */}
         <aside

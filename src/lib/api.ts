@@ -33,6 +33,10 @@ export function createHousehold(data: Record<string, unknown>) {
   return apiFetch('/api/onboarding', { method: 'POST', body: JSON.stringify(data) });
 }
 
+export function acceptInvite(data: Record<string, unknown>) {
+  return apiFetch('/api/onboarding/accept-invite', { method: 'POST', body: JSON.stringify(data) });
+}
+
 // ── Settings ──
 
 export function getHousehold() {
