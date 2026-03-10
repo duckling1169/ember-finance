@@ -21,7 +21,7 @@ export function useAuth() {
 }
 
 const devBypass =
-  process.env.NODE_ENV === 'development' && !process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+  process.env.NODE_ENV === 'development' && process.env.NEXT_PUBLIC_DEV_BYPASS_AUTH === 'true';
 
 const mockUser = {
   id: 'dev-mock-user',
@@ -30,7 +30,7 @@ const mockUser = {
   role: 'authenticated',
   app_metadata: {},
   user_metadata: { display_name: 'Dev User' },
-  created_at: new Date().toISOString(),
+  created_at: '2025-01-01T00:00:00.000Z',
 } as unknown as User;
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {

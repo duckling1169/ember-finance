@@ -52,8 +52,8 @@ export default function LoginPage() {
       <Card className="w-full max-w-sm">
         <CardHeader>
           <div className="flex items-center gap-2 text-2xl font-semibold tracking-tight text-foreground hover:text-primary transition-colors cursor-default">
-            <IconFlame size={24} className="text-primary" />
             Ember
+            <IconFlame size={24} className="text-primary" />
           </div>
           <CardDescription>
             {isSignUp ? 'Create an account' : 'Sign in to your account'}
