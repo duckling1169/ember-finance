@@ -6,6 +6,8 @@ import {
   getHouseholdHoldings,
   getNetWorthHistory,
   getInvestmentHistory,
+  getTransactions,
+  getInvestmentActivity,
   getProfile,
   getMembers,
   getInvites,
@@ -98,6 +100,47 @@ export function useHouseholdHoldings() {
     ([, id]) => getHouseholdHoldings(id),
     { revalidateOnFocus: false },
   );
+}
+
+// ── Activity (transactions + investment activity) ──
+
+export function useTransactions(params?: {
+  accountId?: string;
+  from?: string;
+  to?: string;
+  limit?: number;
+  offset?: number;
+}) {
+  const householdId = useHouseholdId();
+  const key = householdId ? ['transactions', householdId, JSON.stringify(params)] : null;
+
+  return useSWR(key, ([, id]) => getTransactions(id, params), {
+    revalidateOnFocus: false,
+  });
+}
+
+export function useInvestmentActivity(params?: {
+  accountId?: string;
+  from?: string;
+  to?: string;
+  symbol?: string;
+  activityType?: string;
+  limit?: number;
+  offset?: number;
+}) {
+  const householdId = useHouseholdId();
+  const key = householdId ? ['investment-activity', householdId, JSON.stringify(params)] : null;
+
+  return useSWR(key, ([, id]) => getInvestmentActivity(id, params), {
+    revalidateOnFocus: false,
+  });
+}
+
+export function mutateActivity() {
+  return Promise.all([
+    mutate((key: unknown) => Array.isArray(key) && key[0] === 'transactions'),
+    mutate((key: unknown) => Array.isArray(key) && key[0] === 'investment-activity'),
+  ]);
 }
 
 // ── Profile ──
