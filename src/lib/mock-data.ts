@@ -868,23 +868,8 @@ export const devBypass =
 
 const API_PROVIDERS = ['teller', 'snaptrade'];
 
-export interface EnrichedAccount {
-  id: string;
-  name: string;
-  institution: string | null;
-  account_type: string;
-  currency: string;
-  meta: Record<string, unknown>;
-  is_active: boolean;
-  is_liability: boolean;
-  created_at: string;
-  // Composed fields
-  balance: number;
-  linked: boolean;
-  last_updated: string | null;
-  tax_bucket: string;
-  notes: string;
-}
+export type { EnrichedAccount } from '@shared/types';
+import type { EnrichedAccount } from '@shared/types';
 
 export function enrichAccounts(): EnrichedAccount[] {
   return mockAccounts.map((a) => {
@@ -899,20 +884,13 @@ export function enrichAccounts(): EnrichedAccount[] {
         .reverse()[0] || null;
 
     return {
-      id: a.id,
-      name: a.name,
-      institution: a.institution,
-      account_type: a.account_type,
-      currency: a.currency,
-      meta: a.meta,
-      is_active: a.is_active,
-      is_liability: a.is_liability,
-      created_at: a.created_at,
+      ...a,
+      member_id: null,
       balance: latestBalance?.balance ?? 0,
+      balance_date: latestBalance ? '2026-03-09' : null,
       linked,
-      last_updated: lastSynced,
+      last_synced: lastSynced,
       tax_bucket: (a.meta.tax_bucket as string) || 'none',
-      notes: (a.meta.notes as string) || '',
-    };
+    } as EnrichedAccount;
   });
 }

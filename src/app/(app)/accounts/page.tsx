@@ -4,7 +4,8 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { createAccount } from '@/lib/api';
 import { useAccounts, mutateAccounts } from '@/lib/swr';
-import { devBypass, enrichAccounts, type EnrichedAccount } from '@/lib/mock-data';
+import { devBypass, enrichAccounts } from '@/lib/mock-data';
+import type { EnrichedAccount, AccountType } from '@shared/types';
 import { Card, CardContent } from '@/components/ui/card';
 import {
   Table,
@@ -51,7 +52,7 @@ const TAX_BUCKETS = [
 
 type AccountData = EnrichedAccount;
 
-type SortKey = 'name' | 'institution' | 'account_type' | 'linked' | 'balance' | 'last_updated';
+type SortKey = 'name' | 'institution' | 'account_type' | 'linked' | 'balance' | 'last_synced';
 type SortDir = 'asc' | 'desc';
 
 function SortIcon({
@@ -115,15 +116,13 @@ function AccountsContent() {
     error: fetchError,
   } = useAccounts();
   const [mockAccts, setMockAccts] = useState<AccountData[]>(devBypass ? enrichAccounts() : []);
-  const accounts: AccountData[] = devBypass
-    ? mockAccts
-    : ((apiAccounts as unknown as AccountData[]) ?? []);
+  const accounts: AccountData[] = devBypass ? mockAccts : (apiAccounts ?? []);
   const loading = !devBypass && swrLoading;
 
   const [showForm, setShowForm] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
-  const [sortKey, setSortKey] = useState<SortKey>('last_updated');
+  const [sortKey, setSortKey] = useState<SortKey>('last_synced');
   const [sortDir, setSortDir] = useState<SortDir>('desc');
 
   function toggleSort(key: SortKey) {
@@ -147,22 +146,23 @@ function AccountsContent() {
     if (devBypass) {
       const newAccount: AccountData = {
         id: `mock-${Date.now()}`,
+        household_id: 'mock-household',
+        member_id: null,
         name: form.get('name') as string,
         institution: (form.get('institution') as string) || null,
-        account_type: form.get('account_type') as string,
+        account_type: form.get('account_type') as AccountType,
         currency: 'USD',
         meta: {
           tax_bucket: form.get('tax_bucket') as string,
-          notes: '',
         },
         is_active: true,
         is_liability: ['credit', 'loan', 'mortgage'].includes(form.get('account_type') as string),
         created_at: new Date().toISOString(),
         balance: 0,
+        balance_date: null,
         linked: false,
-        last_updated: new Date().toISOString(),
+        last_synced: null,
         tax_bucket: form.get('tax_bucket') as string,
-        notes: '',
       };
       setMockAccts((prev) => [...prev, newAccount]);
       setShowForm(false);
@@ -172,10 +172,10 @@ function AccountsContent() {
 
     try {
       await createAccount(householdId, {
-        name: form.get('name'),
-        institution: form.get('institution'),
-        account_type: form.get('account_type'),
-        tax_bucket: form.get('tax_bucket'),
+        name: form.get('name') as string,
+        institution: (form.get('institution') as string) || undefined,
+        account_type: form.get('account_type') as AccountType,
+        meta: { tax_bucket: form.get('tax_bucket') as string },
       });
       setShowForm(false);
       await mutateAccounts();
@@ -335,7 +335,7 @@ const columns: { key: SortKey; label: string; align?: 'right' }[] = [
   { key: 'account_type', label: 'Type' },
   { key: 'linked', label: 'Status' },
   { key: 'balance', label: 'Balance', align: 'right' },
-  { key: 'last_updated', label: 'Updated', align: 'right' },
+  { key: 'last_synced', label: 'Last Synced', align: 'right' },
 ];
 
 function AccountsTable({
@@ -376,9 +376,9 @@ function AccountsTable({
         aVal = a.balance ?? 0;
         bVal = b.balance ?? 0;
         break;
-      case 'last_updated':
-        aVal = a.last_updated || '';
-        bVal = b.last_updated || '';
+      case 'last_synced':
+        aVal = a.last_synced || '';
+        bVal = b.last_synced || '';
         break;
     }
 
@@ -421,7 +421,7 @@ function AccountsTable({
               {fmt(a.balance ?? 0)}
             </TableCell>
             <TableCell className="text-right text-muted-foreground text-xs">
-              {a.last_updated ? timeAgo(a.last_updated) : '\u2014'}
+              {a.last_synced ? timeAgo(a.last_synced) : '\u2014'}
             </TableCell>
           </TableRow>
         ))}

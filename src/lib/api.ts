@@ -1,3 +1,27 @@
+import type {
+  Household,
+  Member,
+  MemberSummary,
+  HouseholdInvite,
+  Account,
+  EnrichedAccount,
+  AccountDetailResponse,
+  CurrentPosition,
+  TaxLot,
+  BalanceSnapshot,
+  AccountTimelineEvent,
+  HouseholdHoldingsResponse,
+  CreateHouseholdInput,
+  AcceptInviteInput,
+  UpdateHouseholdInput,
+  UpdateProfileInput,
+  CreateAccountInput,
+  UpdateAccountInput,
+  ManualIngestInput,
+  Transaction,
+  InvestmentActivity,
+} from '@shared/types';
+
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
 
 async function getToken(): Promise<string | null> {
@@ -29,34 +53,40 @@ async function apiFetch<T>(path: string, options: RequestInit = {}): Promise<T> 
 
 // ── Onboarding ──
 
-export function createHousehold(data: Record<string, unknown>) {
+export function createHousehold(data: CreateHouseholdInput) {
   return apiFetch('/api/onboarding', { method: 'POST', body: JSON.stringify(data) });
 }
 
-export function acceptInvite(data: Record<string, unknown>) {
+export function acceptInvite(data: AcceptInviteInput) {
   return apiFetch('/api/onboarding/accept-invite', { method: 'POST', body: JSON.stringify(data) });
 }
 
 // ── Settings ──
 
 export function getHousehold() {
-  return apiFetch<Record<string, unknown>>('/api/settings/household');
+  return apiFetch<Household>('/api/settings/household');
 }
 
-export function updateHousehold(data: Record<string, unknown>) {
-  return apiFetch('/api/settings/household', { method: 'PATCH', body: JSON.stringify(data) });
+export function updateHousehold(data: UpdateHouseholdInput) {
+  return apiFetch<Household>('/api/settings/household', {
+    method: 'PATCH',
+    body: JSON.stringify(data),
+  });
 }
 
 export function getProfile() {
-  return apiFetch<Record<string, unknown>>('/api/settings/profile');
+  return apiFetch<Member>('/api/settings/profile');
 }
 
-export function updateProfile(data: Record<string, unknown>) {
-  return apiFetch('/api/settings/profile', { method: 'PATCH', body: JSON.stringify(data) });
+export function updateProfile(data: UpdateProfileInput) {
+  return apiFetch<Member>('/api/settings/profile', {
+    method: 'PATCH',
+    body: JSON.stringify(data),
+  });
 }
 
 export function getMembers() {
-  return apiFetch<Record<string, unknown>[]>('/api/settings/members');
+  return apiFetch<MemberSummary[]>('/api/settings/members');
 }
 
 export function removeMember(memberId: string) {
@@ -64,7 +94,7 @@ export function removeMember(memberId: string) {
 }
 
 export function getInvites() {
-  return apiFetch<Record<string, unknown>[]>('/api/settings/invites');
+  return apiFetch<HouseholdInvite[]>('/api/settings/invites');
 }
 
 export function sendInvite(data: { email: string; role?: string }) {
@@ -78,48 +108,44 @@ export function cancelInvite(inviteId: string) {
 // ── Accounts ──
 
 export function getAccounts(householdId: string) {
-  return apiFetch<Record<string, unknown>[]>(`/api/accounts/${householdId}`);
+  return apiFetch<EnrichedAccount[]>(`/api/accounts/${householdId}`);
 }
 
 export function getAccountDetail(householdId: string, accountId: string) {
-  return apiFetch<Record<string, unknown>>(`/api/accounts/${householdId}/${accountId}`);
+  return apiFetch<AccountDetailResponse>(`/api/accounts/${householdId}/${accountId}`);
 }
 
 export function getAccountHoldings(householdId: string, accountId: string) {
-  return apiFetch<Record<string, unknown>[]>(`/api/accounts/${householdId}/${accountId}/holdings`);
+  return apiFetch<CurrentPosition[]>(`/api/accounts/${householdId}/${accountId}/holdings`);
 }
 
 export function getAccountLots(householdId: string, accountId: string) {
-  return apiFetch<Record<string, unknown>[]>(`/api/accounts/${householdId}/${accountId}/lots`);
+  return apiFetch<TaxLot[]>(`/api/accounts/${householdId}/${accountId}/lots`);
 }
 
 export function getAccountBalances(householdId: string, accountId: string) {
-  return apiFetch<Record<string, unknown>[]>(`/api/accounts/${householdId}/${accountId}/balances`);
+  return apiFetch<BalanceSnapshot[]>(`/api/accounts/${householdId}/${accountId}/balances`);
 }
 
 export function getAccountHistory(householdId: string, accountId: string, limit = 50, offset = 0) {
-  return apiFetch<Record<string, unknown>[]>(
+  return apiFetch<AccountTimelineEvent[]>(
     `/api/accounts/${householdId}/${accountId}/history?limit=${limit}&offset=${offset}`,
   );
 }
 
 export function getHouseholdHoldings(householdId: string) {
-  return apiFetch<Record<string, unknown>>(`/api/holdings/${householdId}`);
+  return apiFetch<HouseholdHoldingsResponse>(`/api/holdings/${householdId}`);
 }
 
-export function createAccount(householdId: string, data: Record<string, unknown>) {
-  return apiFetch(`/api/accounts/${householdId}`, {
+export function createAccount(householdId: string, data: CreateAccountInput) {
+  return apiFetch<Account>(`/api/accounts/${householdId}`, {
     method: 'POST',
     body: JSON.stringify(data),
   });
 }
 
-export function updateAccount(
-  householdId: string,
-  accountId: string,
-  data: Record<string, unknown>,
-) {
-  return apiFetch(`/api/accounts/${householdId}/${accountId}`, {
+export function updateAccount(householdId: string, accountId: string, data: UpdateAccountInput) {
+  return apiFetch<Account>(`/api/accounts/${householdId}/${accountId}`, {
     method: 'PATCH',
     body: JSON.stringify(data),
   });
@@ -131,11 +157,7 @@ export function deleteAccount(householdId: string, accountId: string) {
 
 // ── Ingest ──
 
-export function ingestManual(
-  householdId: string,
-  accountId: string,
-  data: Record<string, unknown>,
-) {
+export function ingestManual(householdId: string, accountId: string, data: ManualIngestInput) {
   return apiFetch(`/api/ingest/manual/${householdId}/${accountId}`, {
     method: 'POST',
     body: JSON.stringify(data),
@@ -173,19 +195,17 @@ export function syncSource(householdId: string, sourceId: string) {
 // ── Duplicates ──
 
 export function getHiddenTransactions(householdId: string, accountId: string) {
-  return apiFetch<Record<string, unknown>[]>(
-    `/api/duplicates/transactions/${householdId}/${accountId}`,
-  );
+  return apiFetch<Transaction[]>(`/api/duplicates/transactions/${householdId}/${accountId}`);
 }
 
 export function getHiddenActivity(householdId: string, accountId: string) {
-  return apiFetch<Record<string, unknown>[]>(
-    `/api/duplicates/activity/${householdId}/${accountId}`,
-  );
+  return apiFetch<InvestmentActivity[]>(`/api/duplicates/activity/${householdId}/${accountId}`);
 }
 
 export function getDuplicatesForReview(householdId: string, accountId: string) {
-  return apiFetch<Record<string, unknown>[]>(`/api/duplicates/review/${householdId}/${accountId}`);
+  return apiFetch<(Transaction | InvestmentActivity)[]>(
+    `/api/duplicates/review/${householdId}/${accountId}`,
+  );
 }
 
 export function hideTransaction(id: string, reason?: string) {

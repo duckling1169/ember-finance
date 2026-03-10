@@ -8,11 +8,12 @@ import {
   getMembers,
   getInvites,
 } from './api';
+import type { Household } from '@shared/types';
 
 // ── Household ──
 
 export function useHousehold() {
-  return useSWR('household', () => getHousehold() as Promise<Record<string, unknown> | null>, {
+  return useSWR('household', () => getHousehold() as Promise<Household | null>, {
     revalidateOnFocus: false,
   });
 }
@@ -24,7 +25,7 @@ export function mutateHousehold() {
 // Helper to extract householdId from the household hook
 function useHouseholdId() {
   const { data } = useHousehold();
-  return (data as Record<string, unknown> | null | undefined)?.id as string | undefined;
+  return data?.id;
 }
 
 // ── Accounts (enriched list — depends on household ID) ──
