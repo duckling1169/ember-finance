@@ -32,38 +32,16 @@ import {
   IconUser,
 } from '@tabler/icons-react';
 
-type TaxFilingStatus = 'single' | 'married_jointly' | 'married_separately' | 'head_of_household';
-type EmploymentType = 'w2' | '1099' | 'mixed';
-type RiskTolerance = 'conservative' | 'moderate' | 'aggressive';
-
-interface Household {
-  id: string;
-  name: string;
-  tax_filing_status: TaxFilingStatus | null;
-  state: string | null;
-  currency: string;
-}
-
-interface Member {
-  id: string;
-  household_id: string;
-  auth_user_id: string | null;
-  display_name: string;
-  role: 'owner' | 'viewer';
-  birthday: string | null;
-  target_retirement_age: number | null;
-  annual_income: number | null;
-  employment_type: EmploymentType | null;
-  risk_tolerance: RiskTolerance | null;
-}
-
-interface HouseholdInvite {
-  id: string;
-  household_id: string;
-  email: string;
-  role: 'owner' | 'viewer';
-  accepted_at: string | null;
-}
+import type {
+  Household,
+  Member,
+  MemberSummary,
+  HouseholdInvite,
+  TaxFilingStatus,
+  EmploymentType,
+  RiskTolerance,
+  USState,
+} from '@shared/types';
 
 const TAX_FILING_OPTIONS: { value: TaxFilingStatus; label: string }[] = [
   { value: 'single', label: 'Single' },
@@ -132,10 +110,10 @@ export default function SettingsPage() {
   const { data: memsData, isLoading: memsLoading } = useMembers();
   const { data: invsData, isLoading: invsLoading } = useInvites();
 
-  const household = hhData as unknown as Household | null;
-  const profile = profData as unknown as Member | null;
-  const members = (memsData || []) as unknown as Member[];
-  const invites = (invsData || []) as unknown as HouseholdInvite[];
+  const household = hhData ?? null;
+  const profile = profData ?? null;
+  const members = memsData || [];
+  const invites = (invsData || []) as HouseholdInvite[];
   const loading = hhLoading || profLoading || memsLoading || invsLoading;
 
   const [saving, setSaving] = useState<string | null>(null);
@@ -193,8 +171,8 @@ export default function SettingsPage() {
         birthday: birthday || null,
         targetRetirementAge: retirementAge ? parseInt(retirementAge) : null,
         annualIncome: annualIncome ? parseFloat(annualIncome) : null,
-        employmentType: employmentType || null,
-        riskTolerance: riskTolerance || null,
+        employmentType: (employmentType as EmploymentType) || null,
+        riskTolerance: (riskTolerance as RiskTolerance) || null,
       });
       await mutateProfile();
       flash('Profile updated');
@@ -211,8 +189,8 @@ export default function SettingsPage() {
     try {
       await updateHousehold({
         name: hhName,
-        taxFilingStatus: hhTaxStatus || null,
-        state: hhState || null,
+        taxFilingStatus: (hhTaxStatus as TaxFilingStatus) || null,
+        state: (hhState as USState) || null,
       });
       await mutateHousehold();
       flash('Household updated');

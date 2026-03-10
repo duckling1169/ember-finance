@@ -8,6 +8,7 @@ import {
   mockAccounts,
   type MockTaxLot,
 } from '@/lib/mock-data';
+import type { HouseholdHoldingsResponse } from '@shared/types';
 import { useHouseholdHoldings, useAccounts } from '@/lib/swr';
 import { Card, CardContent } from '@/components/ui/card';
 import {
@@ -151,17 +152,14 @@ export default function HoldingsPage() {
         }));
     }
     if (!apiAccounts) return [];
-    return (apiAccounts as Record<string, unknown>[])
-      .filter((a) => INVESTMENT_TYPES.has(a.account_type as string) && a.is_active !== false)
+    return apiAccounts
+      .filter((a) => INVESTMENT_TYPES.has(a.account_type) && a.is_active !== false)
       .map((a) => ({
-        id: a.id as string,
-        name: a.name as string,
-        institution: (a.institution as string) || null,
-        account_type: a.account_type as string,
-        tax_bucket:
-          (a.tax_bucket as string) ||
-          ((a.meta as Record<string, unknown>)?.tax_bucket as string) ||
-          'taxable',
+        id: a.id,
+        name: a.name,
+        institution: a.institution,
+        account_type: a.account_type,
+        tax_bucket: a.tax_bucket || (a.meta?.tax_bucket as string) || 'taxable',
         is_active: true,
       }));
   }, [apiAccounts]);
@@ -182,12 +180,7 @@ export default function HoldingsPage() {
       return buildMockHoldings(effectiveSelectedIds, sortKey, sortDir);
     }
     if (!apiHoldings) return [];
-    return buildApiHoldings(
-      apiHoldings as Record<string, unknown>,
-      effectiveSelectedIds,
-      sortKey,
-      sortDir,
-    );
+    return buildApiHoldings(apiHoldings, effectiveSelectedIds, sortKey, sortDir);
   }, [apiHoldings, effectiveSelectedIds, sortKey, sortDir]);
 
   const loading = !devBypass && (acctsLoading || holdingsLoading);
@@ -497,86 +490,75 @@ function buildMockHoldings(
 }
 
 function buildApiHoldings(
-  data: Record<string, unknown>,
+  data: HouseholdHoldingsResponse,
   selectedAccountIds: Set<string>,
   sortKey: SortKey | null,
   sortDir: SortDir,
 ): AggregatedHolding[] {
-  const summary = (data.summary || []) as Record<string, unknown>[];
-  const positions = (data.positions || []) as Record<string, unknown>[];
-  const rawLots = (data.lots || []) as Record<string, unknown>[];
+  const { summary, positions, lots: rawLots } = data;
 
   // Build a price lookup from summary
   const priceBySymbol = new Map<string, number>();
   for (const s of summary) {
-    priceBySymbol.set(s.symbol as string, (s.live_price as number) ?? 0);
+    priceBySymbol.set(s.symbol, s.live_price ?? 0);
   }
 
   // Build lots with computed fields
   const allLots: LotView[] = rawLots
-    .filter((l) => !(l.is_closed as boolean))
+    .filter((l) => !l.is_closed)
     .map((l) => {
-      const symbol = l.symbol as string;
-      const quantity = l.quantity as number;
-      const costBasisPerShare = l.cost_basis_per_share as number;
-      const costBasisTotal = l.cost_basis_total as number;
-      const livePrice = priceBySymbol.get(symbol) ?? 0;
-      const liveMarketValue = quantity * livePrice;
+      const livePrice = priceBySymbol.get(l.symbol) ?? 0;
+      const liveMarketValue = l.quantity * livePrice;
       return {
-        id: l.id as string,
-        account_id: l.account_id as string,
-        symbol,
-        acquired_date: l.acquired_date as string,
-        quantity,
-        cost_basis_per_share: costBasisPerShare,
-        cost_basis_total: costBasisTotal,
+        id: l.id,
+        account_id: l.account_id,
+        symbol: l.symbol,
+        acquired_date: l.acquired_date,
+        quantity: l.quantity,
+        cost_basis_per_share: l.cost_basis_per_share,
+        cost_basis_total: l.cost_basis_total,
         live_market_value: liveMarketValue,
-        unrealized_gain_loss: liveMarketValue - costBasisTotal,
-        holding_period: computeHoldingPeriod(l.acquired_date as string),
-        source: (l.source as string) || 'unknown',
+        unrealized_gain_loss: liveMarketValue - l.cost_basis_total,
+        holding_period: computeHoldingPeriod(l.acquired_date),
+        source: l.source || 'unknown',
       };
     });
 
   // Build position account mapping
   const accountsBySymbol = new Map<string, string[]>();
   for (const p of positions) {
-    const sym = p.symbol as string;
-    const acctId = p.account_id as string;
-    if (!selectedAccountIds.has(acctId)) continue;
-    if (!accountsBySymbol.has(sym)) accountsBySymbol.set(sym, []);
-    const arr = accountsBySymbol.get(sym)!;
-    if (!arr.includes(acctId)) arr.push(acctId);
+    if (!selectedAccountIds.has(p.account_id)) continue;
+    if (!accountsBySymbol.has(p.symbol)) accountsBySymbol.set(p.symbol, []);
+    const arr = accountsBySymbol.get(p.symbol)!;
+    if (!arr.includes(p.account_id)) arr.push(p.account_id);
   }
 
   const holdings: AggregatedHolding[] = [];
   for (const s of summary) {
-    const symbol = s.symbol as string;
-    const accountIds = accountsBySymbol.get(symbol) || [];
+    const accountIds = accountsBySymbol.get(s.symbol) || [];
     if (accountIds.length === 0) continue;
 
     // Filter positions by selected accounts to compute filtered totals
     const filteredPositions = positions.filter(
-      (p) => (p.symbol as string) === symbol && selectedAccountIds.has(p.account_id as string),
+      (p) => p.symbol === s.symbol && selectedAccountIds.has(p.account_id),
     );
 
-    const shares = filteredPositions.reduce((sum, p) => sum + ((p.quantity as number) ?? 0), 0);
+    const shares = filteredPositions.reduce((sum, p) => sum + (p.quantity ?? 0), 0);
     const value = filteredPositions.reduce(
-      (sum, p) =>
-        sum + ((p.live_market_value as number) ?? (p.snapshot_market_value as number) ?? 0),
+      (sum, p) => sum + (p.live_market_value ?? p.snapshot_market_value ?? 0),
       0,
     );
-    const costBasis = filteredPositions.reduce(
-      (sum, p) => sum + ((p.cost_basis as number) ?? 0),
-      0,
-    );
+    const costBasis = filteredPositions.reduce((sum, p) => sum + (p.cost_basis ?? 0), 0);
     const gain = value - costBasis;
-    const price = (s.live_price as number) ?? 0;
+    const price = s.live_price ?? 0;
 
-    const lots = allLots.filter((l) => l.symbol === symbol && selectedAccountIds.has(l.account_id));
+    const lots = allLots.filter(
+      (l) => l.symbol === s.symbol && selectedAccountIds.has(l.account_id),
+    );
 
     holdings.push({
-      symbol,
-      name: (s.name as string) || symbol,
+      symbol: s.symbol,
+      name: s.name || s.symbol,
       shares,
       price,
       value,

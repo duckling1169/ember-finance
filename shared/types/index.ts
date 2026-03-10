@@ -229,6 +229,8 @@ export interface Transaction {
   is_transfer: boolean;
   provider_txn_id: string | null;
   fingerprint: string | null;
+  is_hidden: boolean;
+  hidden_reason: string | null;
   created_at: string;
 }
 
@@ -249,6 +251,8 @@ export interface InvestmentActivity {
   lot_id: string | null;
   provider_txn_id: string | null;
   fingerprint: string | null;
+  is_hidden: boolean;
+  hidden_reason: string | null;
   created_at: string;
 }
 
@@ -380,6 +384,111 @@ export interface HouseholdPositionSummary {
   total_unrealized_gain_loss: number | null;
   account_count: number;
   price_updated_at: string | null;
+}
+
+// ── API Response Types ──
+
+export interface EnrichedAccount extends Account {
+  balance: number;
+  balance_date: string | null;
+  linked: boolean;
+  last_synced: string | null;
+  tax_bucket: string;
+}
+
+export interface AccountTimelineEvent {
+  id: string;
+  kind: string;
+  event_type: string;
+  detail: Record<string, unknown>;
+  triggered_by: string | null;
+  created_at: string;
+}
+
+export interface AccountDetailResponse {
+  account: Account;
+  balance: Pick<BalanceSnapshot, 'balance' | 'available' | 'date' | 'source'> | null;
+  balance_history: Pick<BalanceSnapshot, 'date' | 'balance' | 'source'>[];
+  holdings: CurrentPosition[];
+  lots: TaxLot[];
+  sources: AccountSource[];
+  history: AccountTimelineEvent[];
+}
+
+export interface HouseholdHoldingsResponse {
+  positions: CurrentPosition[];
+  summary: HouseholdPositionSummary[];
+  lots: TaxLot[];
+}
+
+export interface MemberSummary {
+  id: string;
+  household_id: string;
+  display_name: string;
+  role: 'owner' | 'viewer';
+  created_at: string;
+}
+
+// ── API Input Types ──
+
+export interface CreateHouseholdInput {
+  householdName: string;
+  displayName: string;
+  birthday?: string | null;
+  targetRetirementAge?: number | null;
+  taxFilingStatus?: TaxFilingStatus | null;
+  state?: USState | null;
+  currency?: string;
+  annualIncome?: number | null;
+  employmentType?: EmploymentType | null;
+  riskTolerance?: RiskTolerance | null;
+}
+
+export interface AcceptInviteInput {
+  inviteId: string;
+  displayName: string;
+  birthday?: string | null;
+}
+
+export interface UpdateHouseholdInput {
+  name?: string;
+  taxFilingStatus?: TaxFilingStatus | null;
+  state?: USState | null;
+  currency?: string;
+}
+
+export interface UpdateProfileInput {
+  displayName?: string;
+  birthday?: string | null;
+  targetRetirementAge?: number | null;
+  annualIncome?: number | null;
+  employmentType?: EmploymentType | null;
+  riskTolerance?: RiskTolerance | null;
+}
+
+export interface CreateAccountInput {
+  name: string;
+  institution?: string;
+  account_type: AccountType;
+  member_id?: string;
+  currency?: string;
+  meta?: Record<string, unknown>;
+}
+
+export interface UpdateAccountInput {
+  name?: string;
+  institution?: string;
+  account_type?: AccountType;
+  member_id?: string;
+  currency?: string;
+  meta?: Record<string, unknown>;
+  is_active?: boolean;
+}
+
+export interface ManualIngestInput {
+  entry_type: 'current' | 'delta';
+  amount: number;
+  description?: string;
 }
 
 // ── Adapter Interfaces ──

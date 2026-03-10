@@ -9,6 +9,7 @@ import {
   mockBalanceHistory,
   type AccountHistoryEvent,
 } from '@/lib/mock-data';
+import type { AccountDetailResponse } from '@shared/types';
 import { useAccountDetail, useAccounts, mutateAccountDetail, mutateAccounts } from '@/lib/swr';
 import { ingestManual, ingestCsv } from '@/lib/api';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
@@ -71,33 +72,35 @@ interface AccountView {
 
 function mapApiDetail(
   id: string,
-  detail: Record<string, unknown>,
+  detail: AccountDetailResponse,
 ): {
   account: AccountView;
   history: AccountHistoryEvent[];
   balanceHistory: { date: string; balance: number }[];
 } {
-  const acct = detail.account as Record<string, unknown>;
-  const bal = detail.balance as Record<string, unknown> | null;
-  const sources = (detail.sources || []) as Record<string, unknown>[];
-  const rawHistory = (detail.history || []) as Record<string, unknown>[];
-  const rawBalHistory = (detail.balance_history || []) as Record<string, unknown>[];
-  const meta = (acct?.meta || {}) as Record<string, unknown>;
+  const {
+    account: acct,
+    balance: bal,
+    sources,
+    history: rawHistory,
+    balance_history: rawBalHistory,
+  } = detail;
+  const meta = acct?.meta || {};
 
-  const linked = sources.some((s) => API_PROVIDERS.includes(s.provider as string) && s.is_active);
+  const linked = sources.some((s) => API_PROVIDERS.includes(s.provider) && s.is_active);
   const lastSynced =
     sources
-      .map((s) => s.last_synced as string | null)
+      .map((s) => s.last_synced)
       .filter(Boolean)
       .sort()
       .reverse()[0] || null;
 
   const account: AccountView = {
     id,
-    name: (acct?.name as string) || '',
-    institution: (acct?.institution as string) || null,
-    account_type: (acct?.account_type as string) || 'other',
-    balance: (bal?.balance as number) ?? 0,
+    name: acct?.name || '',
+    institution: acct?.institution || null,
+    account_type: acct?.account_type || 'other',
+    balance: bal?.balance ?? 0,
     linked,
     last_updated: lastSynced,
     tax_bucket: (meta.tax_bucket as string) || 'none',
@@ -105,11 +108,11 @@ function mapApiDetail(
   };
 
   const history: AccountHistoryEvent[] = rawHistory.map((h) => {
-    const hDetail = (h.detail || {}) as Record<string, unknown>;
-    const eventType = (h.event_type as string) || 'account_created';
+    const hDetail = h.detail || {};
+    const eventType = h.event_type || 'account_created';
     return {
-      id: h.id as string,
-      date: h.created_at as string,
+      id: h.id,
+      date: h.created_at,
       type: eventType as AccountHistoryEvent['type'],
       description: (hDetail.description as string) || eventType.replace(/_/g, ' '),
       detail: hDetail.filename as string | undefined,
@@ -119,8 +122,8 @@ function mapApiDetail(
   });
 
   const balanceHistory = rawBalHistory.map((b) => ({
-    date: b.date as string,
-    balance: b.balance as number,
+    date: b.date,
+    balance: b.balance,
   }));
 
   return { account, history, balanceHistory };
@@ -140,7 +143,17 @@ export default function AccountDetailPage({ params }: { params: Promise<{ id: st
   if (devBypass) {
     const enriched = enrichAccounts().find((a) => a.id === id);
     if (enriched) {
-      account = enriched;
+      account = {
+        id: enriched.id,
+        name: enriched.name,
+        institution: enriched.institution,
+        account_type: enriched.account_type,
+        balance: enriched.balance,
+        linked: enriched.linked,
+        last_updated: enriched.last_synced,
+        tax_bucket: enriched.tax_bucket,
+        notes: (enriched.meta?.notes as string) || '',
+      };
       history = mockAccountHistory[id] || [];
       balanceHistory = mockBalanceHistory[id] || [];
     }

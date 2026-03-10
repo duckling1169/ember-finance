@@ -36,14 +36,14 @@ function OnboardingContent() {
       if (inviteId) {
         await acceptInvite({
           inviteId,
-          displayName: form.get('displayName'),
-          birthday: form.get('birthday'),
+          displayName: form.get('displayName') as string,
+          birthday: (form.get('birthday') as string) || null,
         });
       } else {
         await createHousehold({
-          householdName: form.get('householdName'),
-          displayName: form.get('displayName'),
-          birthday: form.get('birthday'),
+          householdName: form.get('householdName') as string,
+          displayName: form.get('displayName') as string,
+          birthday: (form.get('birthday') as string) || null,
         });
       }
       router.push('/');

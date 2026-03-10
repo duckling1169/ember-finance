@@ -10,8 +10,8 @@ import {
   mockNetWorthHistory,
   mockPortfolioHistory,
   mockHoldings,
-  type EnrichedAccount,
 } from '@/lib/mock-data';
+import type { EnrichedAccount } from '@shared/types';
 import { cn } from '@/lib/utils';
 import { Card, CardContent } from '@/components/ui/card';
 import { AreaChart, DonutChart, CHART_COLORS } from '@/components/charts';
@@ -94,9 +94,7 @@ export default function DashboardPage() {
   const { data: apiAccounts, isLoading: acctsLoading, error: acctsError } = useAccounts();
   const { data: apiHoldings } = useHouseholdHoldings();
 
-  const accounts: EnrichedAccount[] = devBypass
-    ? enrichAccounts()
-    : ((apiAccounts as unknown as EnrichedAccount[]) ?? []);
+  const accounts: EnrichedAccount[] = devBypass ? enrichAccounts() : (apiAccounts ?? []);
   const loading = !devBypass && (hhLoading || acctsLoading);
 
   const [range, setRange] = useState<RangeKey>('YTD');
@@ -170,16 +168,12 @@ export default function DashboardPage() {
   const holdingsByValue = useMemo(() => {
     if (devBypass) return [...mockHoldings].sort((a, b) => b.value - a.value);
     if (!apiHoldings) return [];
-    const summary = ((apiHoldings as Record<string, unknown>).summary || []) as Record<
-      string,
-      unknown
-    >[];
-    return summary
+    return apiHoldings.summary
       .map((s) => ({
-        id: s.symbol as string,
-        symbol: s.symbol as string,
-        name: (s.name as string) || (s.symbol as string),
-        value: (s.total_market_value as number) ?? 0,
+        id: s.symbol,
+        symbol: s.symbol,
+        name: s.name || s.symbol,
+        value: s.total_market_value ?? 0,
       }))
       .filter((h) => h.value > 0)
       .sort((a, b) => b.value - a.value);
