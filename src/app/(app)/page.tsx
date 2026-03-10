@@ -90,8 +90,8 @@ function ChangeIndicator({ value, label }: { value: number; label: string }) {
 
 export default function DashboardPage() {
   const router = useRouter();
-  const { data: household, isLoading: hhLoading } = useHousehold();
-  const { data: apiAccounts, isLoading: acctsLoading } = useAccounts();
+  const { data: household, isLoading: hhLoading, error: hhError } = useHousehold();
+  const { data: apiAccounts, isLoading: acctsLoading, error: acctsError } = useAccounts();
   const { data: apiHoldings } = useHouseholdHoldings();
 
   const accounts: EnrichedAccount[] = devBypass
@@ -118,8 +118,22 @@ export default function DashboardPage() {
     [range, customStart, customEnd],
   );
 
+  const fetchError = !devBypass && (hhError || acctsError);
+
   if (loading || needsOnboarding) {
     return <div className="py-10 text-muted-foreground">Loading...</div>;
+  }
+
+  if (fetchError) {
+    const msg = (hhError || acctsError)?.message || 'Please try again later.';
+    return (
+      <div className="space-y-3">
+        <h1 className="text-2xl font-semibold">Dashboard</h1>
+        <div className="rounded-md bg-destructive/10 p-4 text-sm text-destructive">
+          Failed to load dashboard data. {msg}
+        </div>
+      </div>
+    );
   }
 
   const netWorth = accounts.reduce((sum, a) => sum + (a.balance ?? 0), 0);

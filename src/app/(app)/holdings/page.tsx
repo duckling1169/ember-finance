@@ -129,8 +129,12 @@ function computeHoldingPeriod(acquiredDate: string): 'short_term' | 'long_term' 
 }
 
 export default function HoldingsPage() {
-  const { data: apiAccounts, isLoading: acctsLoading } = useAccounts();
-  const { data: apiHoldings, isLoading: holdingsLoading } = useHouseholdHoldings();
+  const { data: apiAccounts, isLoading: acctsLoading, error: acctsError } = useAccounts();
+  const {
+    data: apiHoldings,
+    isLoading: holdingsLoading,
+    error: holdingsError,
+  } = useHouseholdHoldings();
 
   // Build account list from either mock or API data
   const accountList: AccountInfo[] = useMemo(() => {
@@ -195,8 +199,22 @@ export default function HoldingsPage() {
 
   const sheetHolding = sheetSymbol ? holdings.find((h) => h.symbol === sheetSymbol) : null;
 
+  const fetchError = !devBypass && (acctsError || holdingsError);
+
   if (loading) {
     return <div className="py-10 text-muted-foreground">Loading...</div>;
+  }
+
+  if (fetchError) {
+    const msg = (acctsError || holdingsError)?.message || 'Please try again later.';
+    return (
+      <div className="space-y-3">
+        <h1 className="text-2xl font-semibold">Holdings</h1>
+        <div className="rounded-md bg-destructive/10 p-4 text-sm text-destructive">
+          Failed to load holdings data. {msg}
+        </div>
+      </div>
+    );
   }
 
   function toggleSort(key: SortKey) {
