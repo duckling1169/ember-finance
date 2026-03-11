@@ -1,59 +1,106 @@
-# Ember
+# Ember Finance
 
-A brief description of the project goes here.
+Ember is a household investment manager and planning tool for the FIRE community.
 
-## Getting Started
+The core product idea is simple:
 
-### Prerequisites
+- Track all household accounts (banking, brokerage, retirement, debt, and illiquid assets)
+- Keep investment holdings and tax lots as first-class data
+- Build trustworthy historical records from multiple ingest sources (manual, CSV, API sync)
+- Show portfolio and net-worth views without losing auditability
 
-- Node.js 18.x or later
-- npm
+Ember is designed around two primary planning feature sets:
 
-### Installation
+- Accumulation phase
+- Drawdown/spending phase
+
+## Current Product State (March 2026)
+
+Implemented:
+
+- Supabase auth + onboarding (create household, invite/accept, member profiles)
+- Household settings, profile settings, member management, invite lifecycle
+- Account management (list, create, update, account detail)
+- Household holdings endpoint backed by portfolio/tax-lot views
+- Ingest pipeline for:
+  - manual normalized payloads
+  - CSV upload with format detection + normalization
+- Dedup tooling (auto-hide + review endpoints)
+- Timeline/history model (`raw_ingest` + `account_event` unified as `account_timeline`)
+- Frontend app shell and pages:
+  - Dashboard
+  - Accounts + account detail
+  - Holdings
+  - Settings
+
+In progress / not yet shipped:
+
+- Live provider sync (`/api/ingest/sync/:householdId/:sourceId` currently returns `501`)
+- Link/disconnect provider UX flows in frontend
+- Production dashboard time-series from persisted snapshots (some dashboard series still use dev mocks)
+- PDF ingest adapter
+- Advanced drawdown/withdrawal modeling toolkit
+
+## Architecture
+
+- Frontend: Next.js (App Router), React, Tailwind, SWR
+- API: Hono (TypeScript) in `api/`
+- DB/Auth: Supabase Postgres + Supabase Auth
+- Shared contracts: `shared/types`
+
+The frontend and API are separate services:
+
+- Frontend default: `http://localhost:3000`
+- API default: `http://localhost:3001`
+
+## Local Development
+
+### 1. Install dependencies
 
 ```bash
 npm install
+npm install --prefix api
 ```
 
-### Development Server
+### 2. Configure environment
+
+Copy `.env.example` to `.env.local` and set required keys for Supabase/API integrations.
+
+### 3. Run services
+
+Terminal 1:
 
 ```bash
 npm run dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) in your browser.
-
-### Build
+Terminal 2:
 
 ```bash
-npm run build
+npm run dev:api
 ```
 
-### Start Production Server
+### 4. (Optional) Run Supabase locally
 
 ```bash
-npm start
+npm run db:start
+npm run db:migrate
 ```
 
-## Tech Stack
+## Useful Scripts
 
-- [Next.js](https://nextjs.org/) — React framework with App Router
-- [TypeScript](https://www.typescriptlang.org/) — Type-safe JavaScript
-- [Tailwind CSS](https://tailwindcss.com/) — Utility-first CSS framework
-- [ESLint](https://eslint.org/) — Code linting
+- `npm run lint` - lint frontend + API
+- `npm test` - run API tests
+- `npm run build` - build frontend
+- `npm run db:reset` - reset local Supabase database
 
-## Project Structure
+## Documentation
 
-```
-ember-finance/
-├── src/
-│   └── app/          # App Router pages and layouts
-│       ├── layout.tsx
-│       ├── page.tsx
-│       └── globals.css
-├── public/            # Static assets
-├── next.config.ts     # Next.js configuration
-├── tsconfig.json      # TypeScript configuration
-├── postcss.config.mjs # PostCSS configuration
-└── package.json
-```
+- `docs/vision.md` - product vision and product boundaries
+- `docs/roadmap.md` - implementation order and milestone plan
+- `docs/architecture.md` - system architecture and boundaries
+- `docs/schema.md` - database model and views
+- `docs/api.md` - API routes and behavior
+- `docs/ingest-pipeline.md` - ingest normalization/dedup flow
+- `docs/ui.md` - frontend UI system and implementation notes
+- `docs/decisions.md` - append-only architecture decision log

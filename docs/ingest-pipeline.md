@@ -35,6 +35,12 @@ interface ProviderAdapter {
 
 Every adapter emits the same `IngestResult` shape. The pipeline is source-agnostic.
 
+## Current Contract Note
+
+`POST /api/ingest/manual/:householdId/:accountId` currently expects normalized payload sections (`transactions`, `investmentActivity`, `balances`, `holdings`) that map directly to `IngestResult`.
+
+The account-detail manual-entry UI still uses a legacy `entry_type/amount` payload shape and should be aligned to this normalized ingest contract.
+
 ## Normalized Shapes
 
 ```typescript
