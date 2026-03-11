@@ -430,16 +430,26 @@ function HistoryTab({
     const entryType = form.get('entry_type') as 'current' | 'delta';
     const amount = parseFloat(form.get('amount') as string);
     const description = form.get('description') as string;
+    const today = new Date().toISOString().slice(0, 10);
 
     if (!devBypass && householdId) {
       try {
         setSubmitting(true);
         setFormError('');
-        await ingestManual(householdId, accountId, {
-          entry_type: entryType,
-          amount,
-          description: description || undefined,
-        });
+        const payload =
+          entryType === 'current'
+            ? { balances: [{ date: today, balance: amount }] }
+            : {
+                transactions: [
+                  {
+                    date: today,
+                    amount,
+                    description: description || 'Manual entry',
+                    category: 'manual_adjustment',
+                  },
+                ],
+              };
+        await ingestManual(householdId, accountId, payload);
         await Promise.all([mutateAccountDetail(accountId), mutateAccounts()]);
         setShowManualForm(false);
       } catch (err) {

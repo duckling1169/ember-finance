@@ -486,9 +486,10 @@ export interface UpdateAccountInput {
 }
 
 export interface ManualIngestInput {
-  entry_type: 'current' | 'delta';
-  amount: number;
-  description?: string;
+  transactions?: NormalizedTransaction[];
+  investmentActivity?: NormalizedInvestmentActivity[];
+  balances?: NormalizedBalance[];
+  holdings?: NormalizedHolding[];
 }
 
 // ── Adapter Interfaces ──

@@ -6,12 +6,18 @@ import { CsvAdapter, detectCsvFormat } from '../adapters/csv.js';
 import type { Account, AccountSource, ManualIngestInput } from '../types/index.js';
 import type { AuthEnv } from '../middleware/auth.js';
 
-// Transform simple ManualIngestInput from the UI into normalized adapter payload.
-// If the body already has normalized arrays (transactions, balances, etc.), pass through.
-function normalizeManualPayload(body: Record<string, unknown>) {
-  if (!('entry_type' in body)) return body; // already normalized
+interface LegacyManualIngestInput {
+  entry_type: 'current' | 'delta';
+  amount: number;
+  description?: string;
+}
 
-  const { entry_type, amount, description } = body as unknown as ManualIngestInput;
+// Temporary compatibility shim for older clients using entry_type/amount payloads.
+// New clients should send normalized ManualIngestInput directly.
+function normalizeManualPayload(body: Record<string, unknown>): ManualIngestInput {
+  if (!('entry_type' in body)) return body as ManualIngestInput;
+
+  const { entry_type, amount, description } = body as unknown as LegacyManualIngestInput;
   const today = new Date().toISOString().slice(0, 10);
 
   if (entry_type === 'current') {
@@ -19,7 +25,7 @@ function normalizeManualPayload(body: Record<string, unknown>) {
   }
   // delta
   return {
-    transactions: [{ date: today, amount, description: (description as string) || 'Manual entry' }],
+    transactions: [{ date: today, amount, description: description || 'Manual entry' }],
   };
 }
 
