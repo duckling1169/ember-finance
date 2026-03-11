@@ -136,6 +136,7 @@ export async function cleanupTestHousehold(householdId: string) {
   await db.from('investment_activity').delete().eq('household_id', householdId);
   await db.from('transaction').delete().eq('household_id', householdId);
   await db.from('raw_ingest').delete().eq('household_id', householdId);
+  await db.from('account_event').delete().eq('household_id', householdId);
   await db.from('account_source').delete().eq('household_id', householdId);
   await db.from('account').delete().eq('household_id', householdId);
   await db.from('member').delete().eq('household_id', householdId);

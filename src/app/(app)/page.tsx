@@ -3,7 +3,13 @@
 import { useState, useMemo, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { useHousehold, useAccounts, useHouseholdHoldings } from '@/lib/swr';
+import {
+  useHousehold,
+  useAccounts,
+  useHouseholdHoldings,
+  useNetWorthHistory,
+  useInvestmentHistory,
+} from '@/lib/swr';
 import {
   devBypass,
   enrichAccounts,
@@ -67,6 +73,36 @@ function filterByRange(
   return data.filter((d) => new Date(d.date) >= cutoff);
 }
 
+function rangeToFromTo(
+  range: RangeKey,
+  customStart?: string,
+  customEnd?: string,
+): { from?: string; to?: string } {
+  const today = new Date();
+  const fmt = (d: Date) => d.toISOString().slice(0, 10);
+  switch (range) {
+    case '30D': {
+      const d = new Date(today);
+      d.setDate(d.getDate() - 30);
+      return { from: fmt(d) };
+    }
+    case '90D': {
+      const d = new Date(today);
+      d.setDate(d.getDate() - 90);
+      return { from: fmt(d) };
+    }
+    case 'YTD':
+      return { from: `${today.getFullYear()}-01-01` };
+    case '1Y': {
+      const d = new Date(today);
+      d.setFullYear(d.getFullYear() - 1);
+      return { from: fmt(d) };
+    }
+    case 'Custom':
+      return { from: customStart || undefined, to: customEnd || undefined };
+  }
+}
+
 export default function DashboardPage() {
   const router = useRouter();
   const { data: household, isLoading: hhLoading, error: hhError } = useHousehold();
@@ -80,6 +116,13 @@ export default function DashboardPage() {
   const [customStart, setCustomStart] = useState('');
   const [customEnd, setCustomEnd] = useState('');
 
+  const { from, to } = useMemo(
+    () => rangeToFromTo(range, customStart, customEnd),
+    [range, customStart, customEnd],
+  );
+  const { data: apiNwHistory } = useNetWorthHistory(from, to);
+  const { data: apiInvHistory } = useInvestmentHistory(from, to);
+
   // Redirect to onboarding if no household
   const needsOnboarding = !devBypass && !hhLoading && !household;
   useEffect(() => {
@@ -87,12 +130,18 @@ export default function DashboardPage() {
   }, [needsOnboarding, router]);
 
   const nwData = useMemo(
-    () => (devBypass ? filterByRange(mockNetWorthHistory, range, customStart, customEnd) : []),
-    [range, customStart, customEnd],
+    () =>
+      devBypass
+        ? filterByRange(mockNetWorthHistory, range, customStart, customEnd)
+        : (apiNwHistory ?? []),
+    [range, customStart, customEnd, apiNwHistory],
   );
   const invData = useMemo(
-    () => (devBypass ? filterByRange(mockPortfolioHistory, range, customStart, customEnd) : []),
-    [range, customStart, customEnd],
+    () =>
+      devBypass
+        ? filterByRange(mockPortfolioHistory, range, customStart, customEnd)
+        : (apiInvHistory ?? []),
+    [range, customStart, customEnd, apiInvHistory],
   );
 
   const fetchError = !devBypass && (hhError || acctsError);
@@ -183,7 +232,7 @@ export default function DashboardPage() {
               <p className="text-2xl font-semibold font-mono tabular-nums">{fmt(netWorth)}</p>
               <ChangeIndicator value={nwChange} label={range === 'Custom' ? 'period' : range} />
             </div>
-            {devBypass && <AreaChart data={nwData} className="mt-2 flex-1 min-h-[160px]" />}
+            {nwData.length > 0 && <AreaChart data={nwData} className="mt-2 flex-1 min-h-[160px]" />}
           </CardContent>
         </Card>
 
@@ -355,7 +404,9 @@ export default function DashboardPage() {
                 <ChangeIndicator value={invChange} label={range === 'Custom' ? 'period' : range} />
               </div>
             </div>
-            {devBypass && <AreaChart data={invData} className="mt-2 flex-1 min-h-[160px]" />}
+            {invData.length > 0 && (
+              <AreaChart data={invData} className="mt-2 flex-1 min-h-[160px]" />
+            )}
           </CardContent>
         </Card>
       </div>
