@@ -171,6 +171,7 @@ export interface Account {
   meta: Record<string, unknown>;
   is_active: boolean;
   is_liability: boolean;
+  include_in_fi_portfolio: boolean;
   created_at: string;
 }
 
@@ -489,6 +490,7 @@ export interface UpdateAccountInput {
   currency?: string;
   meta?: Record<string, unknown>;
   is_active?: boolean;
+  include_in_fi_portfolio?: boolean;
 }
 
 export interface ManualIngestInput {
@@ -571,6 +573,24 @@ export type CashflowBucket = (typeof CASHFLOW_BUCKETS)[number];
 export const CASHFLOW_FREQUENCIES = ['monthly', 'biweekly', 'annual', 'one_time'] as const;
 export type CashflowFrequency = (typeof CASHFLOW_FREQUENCIES)[number];
 
+export const INCOME_SOURCE_TYPES = ['employment', 'self_employment', 'passive', 'other'] as const;
+export type IncomeSourceType = (typeof INCOME_SOURCE_TYPES)[number];
+
+export type ContributionGrowthMode = 'inflation' | 'fixed_rate' | 'none';
+
+export interface IncomeSource {
+  id: string;
+  household_id: string;
+  member_id: string;
+  name: string;
+  type: IncomeSourceType;
+  gross_amount: number;
+  frequency: CashflowFrequency;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
 export interface CashflowItem {
   id: string;
   household_id: string;
@@ -585,8 +605,20 @@ export interface CashflowItem {
   include_in_projection: boolean;
   start_date: string;
   end_date: string | null;
+  income_source_id: string | null;
+  destination_account_id: string | null;
   created_at: string;
   updated_at: string;
+}
+
+export interface ScenarioAssumptions {
+  gross_return_rate?: number;
+  inflation_rate?: number;
+  real_return_rate?: number;
+  withdrawal_rate?: number;
+  retirement_annual_spend_override?: number | null;
+  contribution_growth_mode?: ContributionGrowthMode;
+  contribution_growth_rate?: number | null;
 }
 
 export interface PlanningScenario {
@@ -594,12 +626,29 @@ export interface PlanningScenario {
   household_id: string;
   name: string;
   is_base: boolean;
-  assumptions: Record<string, unknown>;
+  assumptions: ScenarioAssumptions;
   created_at: string;
   updated_at: string;
 }
 
 // ── Planning API Input Types ──
+
+export interface CreateIncomeSourceInput {
+  member_id: string;
+  name: string;
+  type: IncomeSourceType;
+  gross_amount: number;
+  frequency: CashflowFrequency;
+  is_active?: boolean;
+}
+
+export interface UpdateIncomeSourceInput {
+  name?: string;
+  type?: IncomeSourceType;
+  gross_amount?: number;
+  frequency?: CashflowFrequency;
+  is_active?: boolean;
+}
 
 export interface CreateCashflowItemInput {
   member_id?: string | null;
@@ -613,6 +662,8 @@ export interface CreateCashflowItemInput {
   include_in_projection?: boolean;
   start_date: string;
   end_date?: string | null;
+  income_source_id?: string | null;
+  destination_account_id?: string | null;
 }
 
 export interface UpdateCashflowItemInput {
@@ -626,16 +677,18 @@ export interface UpdateCashflowItemInput {
   include_in_projection?: boolean;
   start_date?: string;
   end_date?: string | null;
+  income_source_id?: string | null;
+  destination_account_id?: string | null;
 }
 
 export interface CreatePlanningScenarioInput {
   name: string;
   is_base?: boolean;
-  assumptions?: Record<string, unknown>;
+  assumptions?: ScenarioAssumptions;
 }
 
 export interface UpdatePlanningScenarioInput {
   name?: string;
   is_base?: boolean;
-  assumptions?: Record<string, unknown>;
+  assumptions?: ScenarioAssumptions;
 }

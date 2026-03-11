@@ -17,6 +17,7 @@ const UPDATABLE_FIELDS = new Set([
   'currency',
   'meta',
   'is_active',
+  'include_in_fi_portfolio',
 ]);
 
 // ── List accounts (enriched with latest balance + source status) ──
@@ -378,6 +379,7 @@ accountsRoute.post('/:householdId', async (c) => {
       currency: body.currency || 'USD',
       meta: body.meta || {},
       is_liability: LIABILITY_TYPES.includes(body.account_type),
+      include_in_fi_portfolio: INVESTMENT_ACCOUNT_TYPES.includes(body.account_type),
     })
     .select()
     .single();

@@ -154,6 +154,7 @@ export async function cleanupTestHousehold(householdId: string) {
   // Delete in reverse dependency order
   await db.from('planning_scenario').delete().eq('household_id', householdId);
   await db.from('cashflow_item').delete().eq('household_id', householdId);
+  await db.from('income_source').delete().eq('household_id', householdId);
   await db.from('lot_disposition').delete().eq('household_id', householdId);
   await db.from('tax_lot').delete().eq('household_id', householdId);
   await db.from('net_worth_snapshot').delete().eq('household_id', householdId);
