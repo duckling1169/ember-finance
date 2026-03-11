@@ -122,8 +122,8 @@ export default function DashboardPage() {
   const { data: apiNwHistory } = useNetWorthHistory(from, to);
   const { data: apiInvHistory } = useInvestmentHistory(from, to);
 
-  // Redirect to onboarding if no household
-  const needsOnboarding = !devBypass && !hhLoading && !household;
+  // Redirect to onboarding if no household (but not on fetch errors)
+  const needsOnboarding = !devBypass && !hhLoading && !hhError && !household;
   useEffect(() => {
     if (needsOnboarding) router.replace('/onboarding');
   }, [needsOnboarding, router]);

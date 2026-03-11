@@ -1,5 +1,5 @@
 import { Hono } from 'hono';
-import { supabase } from '../lib/supabase.js';
+import type { SupabaseClient } from '@supabase/supabase-js';
 import { processIngest } from '../services/ingest.js';
 import { ManualAdapter } from '../adapters/manual.js';
 import { CsvAdapter, detectCsvFormat } from '../adapters/csv.js';
@@ -34,8 +34,13 @@ export const ingestRoute = new Hono<AuthEnv>();
 const MAX_CSV_SIZE = 10 * 1024 * 1024; // 10 MB
 
 // Helper: get or create a source for a given provider, scoped to account
-async function getOrCreateSource(householdId: string, accountId: string, provider: string) {
-  const { data: existing, error: lookupErr } = await supabase
+async function getOrCreateSource(
+  db: SupabaseClient,
+  householdId: string,
+  accountId: string,
+  provider: string,
+) {
+  const { data: existing, error: lookupErr } = await db
     .from('account_source')
     .select('*')
     .eq('account_id', accountId)
@@ -48,7 +53,7 @@ async function getOrCreateSource(householdId: string, accountId: string, provide
   if (lookupErr) throw new Error(`Source lookup failed: ${lookupErr.message}`);
   if (existing) return existing;
 
-  const { data: newSource, error: createErr } = await supabase
+  const { data: newSource, error: createErr } = await db
     .from('account_source')
     .insert({ account_id: accountId, household_id: householdId, provider })
     .select()
@@ -63,8 +68,9 @@ ingestRoute.post('/manual/:householdId/:accountId', async (c) => {
   const { householdId, accountId } = c.req.param();
   const body = await c.req.json();
 
-  // Verify account exists (service-role — ingest is a privileged operation)
-  const { data: account, error: accError } = await supabase
+  // Verify account exists (RLS-enforced — confirms caller owns this account)
+  const db = c.get('userClient');
+  const { data: account, error: accError } = await db
     .from('account')
     .select('*')
     .eq('id', accountId)
@@ -74,9 +80,8 @@ ingestRoute.post('/manual/:householdId/:accountId', async (c) => {
   if (accError || !account) return c.json({ error: 'Account not found' }, 404);
 
   try {
-    const source = await getOrCreateSource(householdId, accountId, 'manual');
-    const payload = normalizeManualPayload(body);
-    const adapter = new ManualAdapter(payload);
+    const source = await getOrCreateSource(db, householdId, accountId, 'manual');
+    const adapter = new ManualAdapter(body);
     const result = await adapter.sync(account as Account, source as AccountSource);
 
     const ingestResult = await processIngest(
@@ -114,8 +119,9 @@ ingestRoute.post('/csv/:householdId/:accountId', async (c) => {
     );
   }
 
-  // Verify account exists
-  const { data: account, error: accError } = await supabase
+  // Verify account exists (RLS-enforced — confirms caller owns this account)
+  const db = c.get('userClient');
+  const { data: account, error: accError } = await db
     .from('account')
     .select('*')
     .eq('id', accountId)
@@ -125,7 +131,7 @@ ingestRoute.post('/csv/:householdId/:accountId', async (c) => {
   if (accError || !account) return c.json({ error: 'Account not found' }, 404);
 
   try {
-    const source = await getOrCreateSource(householdId, accountId, 'csv');
+    const source = await getOrCreateSource(db, householdId, accountId, 'csv');
     const buffer = Buffer.from(await file.arrayBuffer());
 
     // Auto-detect format if not provided

@@ -1,13 +1,15 @@
--- Ember schema — consolidated
--- All tables, indexes, RLS policies, views, and functions
+-- Ember Finance — schema
+-- Tables, indexes, RLS policies
 
--- ── Layer 1: Identity ──
+-- ══════════════════════════════════════════════════════════════
+-- Layer 1: Identity
+-- ══════════════════════════════════════════════════════════════
 
 create table household (
   id                  uuid primary key default gen_random_uuid(),
   name                text not null,
-  tax_filing_status   text,  -- single | married_jointly | married_separately | head_of_household
-  state               text,  -- US state abbreviation
+  tax_filing_status   text,
+  state               text,
   currency            text not null default 'USD',
   created_at          timestamptz default now(),
 
@@ -24,12 +26,12 @@ create table member (
   household_id          uuid not null references household(id),
   auth_user_id          uuid unique references auth.users(id),
   display_name          text not null,
-  role                  text not null default 'owner',  -- owner | viewer
+  role                  text not null default 'owner',
   birthday              date,
   target_retirement_age int,
   annual_income         numeric(14,2),
-  employment_type       text,  -- w2 | 1099 | mixed
-  risk_tolerance        text,  -- conservative | moderate | aggressive
+  employment_type       text,
+  risk_tolerance        text,
   created_at            timestamptz default now(),
 
   constraint chk_member_birthday
@@ -44,11 +46,31 @@ create table member (
     check (risk_tolerance is null or risk_tolerance in ('conservative', 'moderate', 'aggressive'))
 );
 
--- Auth middleware: (household_id, auth_user_id) on every authenticated request
--- auth_user_id has a unique constraint (implicit index) but the compound lookup needs this
 create index idx_member_household_auth on member(household_id, auth_user_id);
 
--- ── Layer 2: Accounts & Sources ──
+-- ══════════════════════════════════════════════════════════════
+-- Layer 1b: Invites
+-- ══════════════════════════════════════════════════════════════
+
+create table household_invite (
+  id            uuid primary key default gen_random_uuid(),
+  household_id  uuid not null references household(id),
+  email         text not null,
+  invited_by    uuid not null references member(id),
+  role          text not null default 'owner',
+  expires_at    timestamptz not null default (now() + interval '24 hours'),
+  accepted_at   timestamptz,
+  created_at    timestamptz default now()
+);
+
+create index idx_invite_household on household_invite(household_id);
+create index idx_invite_email on household_invite(email);
+create index idx_invite_pending on household_invite(household_id, email)
+  where accepted_at is null;
+
+-- ══════════════════════════════════════════════════════════════
+-- Layer 2: Accounts & Sources
+-- ══════════════════════════════════════════════════════════════
 
 create table account (
   id            uuid primary key default gen_random_uuid(),
@@ -56,7 +78,7 @@ create table account (
   member_id     uuid references member(id),
   name          text not null,
   institution   text,
-  account_type  text not null,  -- checking | savings | credit | brokerage | retirement | hsa | loan | mortgage | property | vehicle | other
+  account_type  text not null,
   currency      text not null default 'USD',
   meta          jsonb default '{}',
   is_active     boolean default true,
@@ -70,9 +92,9 @@ create table account_source (
   id                  uuid primary key default gen_random_uuid(),
   account_id          uuid not null references account(id),
   household_id        uuid not null references household(id),
-  provider            text not null,            -- teller | snaptrade | csv | pdf | manual
+  provider            text not null,
   provider_account_id text,
-  provider_meta       bytea,                    -- encrypted with libsodium
+  provider_meta       bytea,
   is_active           boolean default true,
   last_synced         timestamptz,
   created_at          timestamptz default now(),
@@ -82,18 +104,20 @@ create table account_source (
 create index idx_account_source_account on account_source(account_id);
 create index idx_account_source_provider on account_source(account_id, household_id, provider);
 
--- ── Layer 3: Raw Ingestion (Immutable Audit Trail) ──
+-- ══════════════════════════════════════════════════════════════
+-- Layer 3: Raw Ingestion (immutable audit trail)
+-- ══════════════════════════════════════════════════════════════
 
 create table raw_ingest (
   id            uuid primary key default gen_random_uuid(),
   household_id  uuid not null references household(id),
   account_id    uuid references account(id),
   source_id     uuid references account_source(id),
-  source_type   text not null,  -- teller_sync | snaptrade_sync | csv_upload | pdf_parse | manual_entry
+  source_type   text not null,
   source_ref    text,
   payload       jsonb not null,
   record_count  int,
-  status        text not null default 'pending',  -- pending | processed | failed | skipped
+  status        text not null default 'pending',
   error         text,
   triggered_by  uuid references member(id),
   processed_at  timestamptz,
@@ -105,22 +129,26 @@ create index idx_raw_ingest_account on raw_ingest(account_id);
 create index idx_raw_ingest_triggered_by on raw_ingest(triggered_by);
 create index idx_raw_ingest_account_created on raw_ingest(household_id, account_id, created_at desc);
 
--- ── Layer 3b: Account Events (Non-Ingestion Lifecycle Events) ──
+-- ══════════════════════════════════════════════════════════════
+-- Layer 3b: Account Events (non-ingestion lifecycle events)
+-- ══════════════════════════════════════════════════════════════
 
 create table account_event (
   id            uuid primary key default gen_random_uuid(),
   household_id  uuid not null references household(id),
   account_id    uuid not null references account(id),
-  event_type    text not null,  -- account_created | account_updated | account_deactivated | link_connected | link_disconnected | source_added | source_removed
+  event_type    text not null,
   triggered_by  uuid references member(id),
-  detail        jsonb default '{}',  -- flexible payload: { provider, fields_changed, old_value, new_value, etc. }
+  detail        jsonb default '{}',
   created_at    timestamptz default now()
 );
 
 create index idx_account_event_account on account_event(account_id, created_at desc);
 create index idx_account_event_household on account_event(household_id, created_at desc);
 
--- ── Layer 4a: Cash Transactions ──
+-- ══════════════════════════════════════════════════════════════
+-- Layer 4a: Cash Transactions
+-- ══════════════════════════════════════════════════════════════
 
 create table transaction (
   id              uuid primary key default gen_random_uuid(),
@@ -135,7 +163,7 @@ create table transaction (
   provider_txn_id text,
   fingerprint     text,
   is_hidden       boolean not null default false,
-  hidden_reason   text,  -- auto:cross_source_duplicate | auto:near_duplicate | manual
+  hidden_reason   text,
   created_at      timestamptz default now(),
   unique(account_id, provider_txn_id),
   unique(account_id, fingerprint)
@@ -146,7 +174,9 @@ create index idx_txn_account_date on transaction(account_id, date desc);
 create index idx_txn_not_hidden on transaction(account_id, date desc) where is_hidden = false;
 create index idx_txn_dedup_lookup on transaction(account_id, date, amount);
 
--- ── Layer 4b: Investment Activity ──
+-- ══════════════════════════════════════════════════════════════
+-- Layer 4b: Investment Activity
+-- ══════════════════════════════════════════════════════════════
 
 create table investment_activity (
   id              uuid primary key default gen_random_uuid(),
@@ -154,7 +184,7 @@ create table investment_activity (
   account_id      uuid not null references account(id),
   raw_ingest_id   uuid references raw_ingest(id),
   date            date not null,
-  activity_type   text not null,  -- buy | sell | dividend | reinvestment | split | transfer_in | transfer_out | fee | interest | return_of_capital
+  activity_type   text not null,
   symbol          text,
   description     text,
   quantity        numeric(16,6),
@@ -178,7 +208,9 @@ create index idx_inv_activity_type on investment_activity(activity_type);
 create index idx_inv_activity_not_hidden on investment_activity(account_id, date desc) where is_hidden = false;
 create index idx_inv_activity_dedup_lookup on investment_activity(account_id, date, amount);
 
--- ── Layer 4c: Holdings (point-in-time snapshots) ──
+-- ══════════════════════════════════════════════════════════════
+-- Layer 4c: Holdings (point-in-time snapshots)
+-- ══════════════════════════════════════════════════════════════
 
 create table holding (
   id              uuid primary key default gen_random_uuid(),
@@ -193,7 +225,7 @@ create table holding (
   market_value    numeric(14,2) not null,
   cost_basis      numeric(14,2),
   currency        text default 'USD',
-  asset_class     text,  -- equity | fixed_income | cash | crypto | real_estate | commodity | other
+  asset_class     text,
   created_at      timestamptz default now(),
   unique(account_id, as_of, symbol)
 );
@@ -201,7 +233,9 @@ create table holding (
 create index idx_holding_household_date on holding(household_id, as_of desc);
 create index idx_holding_symbol on holding(symbol, as_of desc);
 
--- ── Layer 4d: Balance Snapshots ──
+-- ══════════════════════════════════════════════════════════════
+-- Layer 4d: Balance Snapshots
+-- ══════════════════════════════════════════════════════════════
 
 create table balance_snapshot (
   id              uuid primary key default gen_random_uuid(),
@@ -211,7 +245,7 @@ create table balance_snapshot (
   date            date not null,
   balance         numeric(14,2) not null,
   available       numeric(14,2),
-  source          text not null,  -- provider_sync | csv_derived | manual
+  source          text not null,
   created_at      timestamptz default now(),
   unique(account_id, date, source)
 );
@@ -219,7 +253,93 @@ create table balance_snapshot (
 create index idx_balance_household_date on balance_snapshot(household_id, date desc);
 create index idx_balance_account_date on balance_snapshot(account_id, date desc);
 
--- ── Layer 5: Derived / Materialized ──
+-- ══════════════════════════════════════════════════════════════
+-- Layer 4e: Security Prices (global, no RLS)
+-- ══════════════════════════════════════════════════════════════
+
+create table security_price (
+  symbol          text primary key,
+  name            text,
+  price           numeric(14,4) not null,
+  prev_close      numeric(14,4),
+  day_change_pct  numeric(8,4),
+  currency        text not null default 'USD',
+  source          text not null,
+  updated_at      timestamptz not null default now(),
+  created_at      timestamptz not null default now()
+);
+
+comment on table security_price is 'Global price cache. No RLS — public market data.';
+
+-- ══════════════════════════════════════════════════════════════
+-- Layer 4f: Tax Lots & Dispositions
+-- ══════════════════════════════════════════════════════════════
+
+create table tax_lot (
+  id                    uuid primary key default gen_random_uuid(),
+  household_id          uuid not null references household(id),
+  account_id            uuid not null references account(id),
+  symbol                text not null,
+  acquired_date         date not null,
+  quantity              numeric(16,6) not null,
+  original_quantity     numeric(16,6) not null,
+  cost_basis_per_share  numeric(14,4) not null,
+  cost_basis_total      numeric(14,2) not null,
+  source                text not null,
+  provider_lot_id       text,
+  origin_activity_id    uuid references investment_activity(id),
+  is_closed             boolean not null default false,
+  closed_date           date,
+  realized_gain_loss    numeric(14,2),
+  wash_sale_adjustment  numeric(14,2) default 0,
+  created_at            timestamptz not null default now(),
+  updated_at            timestamptz not null default now(),
+
+  constraint chk_tax_lot_source
+    check (source in ('provider_lot', 'computed_fifo', 'manual')),
+  constraint chk_tax_lot_quantity_non_negative
+    check (quantity >= 0),
+  constraint chk_tax_lot_original_quantity_positive
+    check (original_quantity > 0),
+  constraint chk_tax_lot_closed_consistency
+    check (
+      (is_closed = false and closed_date is null)
+      or (is_closed = true and closed_date is not null)
+    )
+);
+
+create index idx_tax_lot_account_symbol on tax_lot(account_id, symbol);
+create index idx_tax_lot_household on tax_lot(household_id);
+create index idx_tax_lot_open on tax_lot(account_id, symbol, acquired_date)
+  where is_closed = false;
+create index idx_tax_lot_provider_lot on tax_lot(account_id, provider_lot_id)
+  where provider_lot_id is not null;
+create index idx_tax_lot_symbol on tax_lot(symbol);
+
+create table lot_disposition (
+  id                uuid primary key default gen_random_uuid(),
+  household_id      uuid not null references household(id),
+  tax_lot_id        uuid not null references tax_lot(id),
+  sell_activity_id  uuid not null references investment_activity(id),
+  quantity          numeric(16,6) not null,
+  proceeds          numeric(14,2) not null,
+  cost_basis        numeric(14,2) not null,
+  gain_loss         numeric(14,2) not null,
+  is_short_term     boolean not null,
+  created_at        timestamptz not null default now(),
+
+  constraint chk_lot_disposition_quantity_positive
+    check (quantity > 0),
+  unique(tax_lot_id, sell_activity_id)
+);
+
+create index idx_lot_disp_lot on lot_disposition(tax_lot_id);
+create index idx_lot_disp_sell on lot_disposition(sell_activity_id);
+create index idx_lot_disp_household on lot_disposition(household_id);
+
+-- ══════════════════════════════════════════════════════════════
+-- Layer 5: Derived / Materialized
+-- ══════════════════════════════════════════════════════════════
 
 create table net_worth_snapshot (
   id                uuid primary key default gen_random_uuid(),
@@ -235,122 +355,77 @@ create table net_worth_snapshot (
 
 create index idx_nw_household_date on net_worth_snapshot(household_id, date desc);
 
--- ── RLS ──
+-- ══════════════════════════════════════════════════════════════
+-- RLS: household isolation via security definer helper
+-- ══════════════════════════════════════════════════════════════
+
+-- Resolves current user's household_id, bypassing RLS to avoid
+-- infinite recursion (every policy references member).
+create or replace function get_my_household_id()
+returns uuid
+language sql
+stable
+security definer
+set search_path = ''
+as $$
+  select household_id from public.member where auth_user_id = auth.uid() limit 1;
+$$;
 
 alter table household enable row level security;
-alter table member enable row level security;
-alter table account enable row level security;
-alter table account_source enable row level security;
-alter table raw_ingest enable row level security;
-alter table account_event enable row level security;
-alter table transaction enable row level security;
-alter table investment_activity enable row level security;
-alter table holding enable row level security;
-alter table balance_snapshot enable row level security;
-alter table net_worth_snapshot enable row level security;
-
 create policy "household_isolation" on household
-  for all using (id in (select household_id from member where auth_user_id = auth.uid()));
+  for all using (id = get_my_household_id());
 
+alter table member enable row level security;
 create policy "household_isolation" on member
-  for all using (household_id in (select household_id from member where auth_user_id = auth.uid()));
+  for all using (household_id = get_my_household_id());
 
+alter table household_invite enable row level security;
+create policy "household_isolation" on household_invite
+  for all using (
+    household_id = get_my_household_id()
+    or email = (auth.jwt() ->> 'email')
+  );
+
+alter table account enable row level security;
 create policy "household_isolation" on account
-  for all using (household_id in (select household_id from member where auth_user_id = auth.uid()));
+  for all using (household_id = get_my_household_id());
 
+alter table account_source enable row level security;
 create policy "household_isolation" on account_source
-  for all using (household_id in (select household_id from member where auth_user_id = auth.uid()));
+  for all using (household_id = get_my_household_id());
 
+alter table raw_ingest enable row level security;
 create policy "household_isolation" on raw_ingest
-  for all using (household_id in (select household_id from member where auth_user_id = auth.uid()));
+  for all using (household_id = get_my_household_id());
 
+alter table account_event enable row level security;
 create policy "household_isolation" on account_event
-  for all using (household_id in (select household_id from member where auth_user_id = auth.uid()));
+  for all using (household_id = get_my_household_id());
 
+alter table transaction enable row level security;
 create policy "household_isolation" on transaction
-  for all using (household_id in (select household_id from member where auth_user_id = auth.uid()));
+  for all using (household_id = get_my_household_id());
 
+alter table investment_activity enable row level security;
 create policy "household_isolation" on investment_activity
-  for all using (household_id in (select household_id from member where auth_user_id = auth.uid()));
+  for all using (household_id = get_my_household_id());
 
+alter table holding enable row level security;
 create policy "household_isolation" on holding
-  for all using (household_id in (select household_id from member where auth_user_id = auth.uid()));
+  for all using (household_id = get_my_household_id());
 
+alter table balance_snapshot enable row level security;
 create policy "household_isolation" on balance_snapshot
-  for all using (household_id in (select household_id from member where auth_user_id = auth.uid()));
+  for all using (household_id = get_my_household_id());
 
+alter table tax_lot enable row level security;
+create policy "household_isolation" on tax_lot
+  for all using (household_id = get_my_household_id());
+
+alter table lot_disposition enable row level security;
+create policy "household_isolation" on lot_disposition
+  for all using (household_id = get_my_household_id());
+
+alter table net_worth_snapshot enable row level security;
 create policy "household_isolation" on net_worth_snapshot
-  for all using (household_id in (select household_id from member where auth_user_id = auth.uid()));
-
--- ── Views ──
-
--- Unified timeline: merges raw_ingest + account_event into a single sortable stream
-create or replace view account_timeline as
-  select
-    id,
-    household_id,
-    account_id,
-    'ingest' as kind,
-    source_type as event_type,
-    jsonb_build_object(
-      'source_ref', source_ref,
-      'record_count', record_count,
-      'status', status,
-      'error', error
-    ) as detail,
-    triggered_by,
-    created_at
-  from raw_ingest
-union all
-  select
-    id,
-    household_id,
-    account_id,
-    'event' as kind,
-    event_type,
-    detail,
-    triggered_by,
-    created_at
-  from account_event;
-
--- Duplicate candidates: visible transactions sharing (account, date, amount)
-create or replace view duplicate_candidates_txn as
-  select t.*
-  from transaction t
-  inner join (
-    select account_id, date, amount
-    from transaction
-    where is_hidden = false
-    group by account_id, date, amount
-    having count(*) > 1
-  ) dups on t.account_id = dups.account_id
-       and t.date = dups.date
-       and t.amount = dups.amount
-  where t.is_hidden = false;
-
--- ── Functions ──
-
--- Check record ownership in a single query (used by duplicate hide/unhide middleware)
-create or replace function check_record_ownership(
-  p_table text,
-  p_record_id uuid,
-  p_auth_user_id uuid
-)
-returns table(household_id uuid, member_id uuid)
-language plpgsql security definer as $$
-begin
-  if p_table = 'transaction' then
-    return query
-      select t.household_id, m.id as member_id
-      from transaction t
-      join member m on m.household_id = t.household_id and m.auth_user_id = p_auth_user_id
-      where t.id = p_record_id;
-  elsif p_table = 'investment_activity' then
-    return query
-      select ia.household_id, m.id as member_id
-      from investment_activity ia
-      join member m on m.household_id = ia.household_id and m.auth_user_id = p_auth_user_id
-      where ia.id = p_record_id;
-  end if;
-end;
-$$;
+  for all using (household_id = get_my_household_id());

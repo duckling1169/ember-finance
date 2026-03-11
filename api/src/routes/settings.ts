@@ -19,7 +19,15 @@ settingsRoute.get('/household', async (c) => {
 
   const { data, error } = await db.from('household').select('*').eq('id', householdId).single();
 
-  if (error) return c.json({ error: error.message }, 500);
+  if (error) {
+    console.error('GET /settings/household error:', {
+      householdId,
+      code: error.code,
+      message: error.message,
+      details: error.details,
+    });
+    return c.json({ error: error.message }, error.code === 'PGRST116' ? 404 : 500);
+  }
   return c.json(data);
 });
 

@@ -138,7 +138,11 @@ export default function LoginPage() {
                   });
 
                   if (signInErr) {
-                    // Sign up (with autoconfirm or skip confirmation)
+                    // Stale email — generate a fresh one to avoid conflicts
+                    const id = Math.random().toString(36).slice(2, 8);
+                    devEmail = `ember.dev.${id}@mailinator.com`;
+                    localStorage.setItem(storageKey, devEmail);
+
                     const { error: signUpErr } = await supabase.auth.signUp({
                       email: devEmail,
                       password: devPassword,
@@ -149,7 +153,7 @@ export default function LoginPage() {
                       setLoading(false);
                       return;
                     }
-                    // Try sign in again — works if email confirmation is disabled
+                    // Sign in with the fresh account
                     ({ error: signInErr } = await supabase.auth.signInWithPassword({
                       email: devEmail,
                       password: devPassword,
