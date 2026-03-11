@@ -11,6 +11,12 @@ import {
   getProfile,
   getMembers,
   getInvites,
+  getIncomeSources,
+  getCashflowItems,
+  getScenarios,
+  getCashflowSummary,
+  getProjections,
+  getMetrics,
 } from './api';
 import type { Household } from '@shared/types';
 
@@ -177,4 +183,67 @@ export function useInvites() {
 
 export function mutateInvites() {
   return mutate('invites');
+}
+
+// ── Planning: Income Sources ──
+
+export function useIncomeSources(memberId?: string) {
+  return useSWR(['income-sources', memberId ?? 'all'], () => getIncomeSources(memberId), {
+    revalidateOnFocus: false,
+  });
+}
+
+export function mutateIncomeSources() {
+  return mutate((key: unknown) => Array.isArray(key) && key[0] === 'income-sources');
+}
+
+// ── Planning: Cashflow Items ──
+
+export function useCashflowItems(memberId?: string) {
+  return useSWR(['cashflow-items', memberId ?? 'all'], () => getCashflowItems(memberId), {
+    revalidateOnFocus: false,
+  });
+}
+
+export function mutateCashflowItems() {
+  return mutate((key: unknown) => Array.isArray(key) && key[0] === 'cashflow-items');
+}
+
+// ── Planning: Scenarios ──
+
+export function useScenarios() {
+  return useSWR('scenarios', () => getScenarios(), { revalidateOnFocus: false });
+}
+
+export function mutateScenarios() {
+  return mutate('scenarios');
+}
+
+// ── Planning: Computed (read-only) ──
+
+export function useCashflowSummary(scenarioId?: string) {
+  return useSWR(['cashflow-summary', scenarioId ?? 'base'], () => getCashflowSummary(scenarioId), {
+    revalidateOnFocus: false,
+  });
+}
+
+export function useProjections(scenarioId?: string) {
+  return useSWR(['projections', scenarioId ?? 'base'], () => getProjections(scenarioId), {
+    revalidateOnFocus: false,
+  });
+}
+
+export function useMetrics(scenarioId?: string) {
+  return useSWR(['metrics', scenarioId ?? 'base'], () => getMetrics(scenarioId), {
+    revalidateOnFocus: false,
+  });
+}
+
+/** Invalidate all computed planning endpoints (after CRUD on income sources or cashflow items) */
+export function mutatePlanningComputed() {
+  return Promise.all([
+    mutate((key: unknown) => Array.isArray(key) && key[0] === 'cashflow-summary'),
+    mutate((key: unknown) => Array.isArray(key) && key[0] === 'projections'),
+    mutate((key: unknown) => Array.isArray(key) && key[0] === 'metrics'),
+  ]);
 }

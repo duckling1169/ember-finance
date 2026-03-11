@@ -8,6 +8,8 @@ import {
   IconBuildingBank,
   IconWallet,
   IconArrowsExchange,
+  IconArrowsSplit,
+  IconTargetArrow,
   IconSettings,
   IconMenu2,
   IconPin,
@@ -25,6 +27,8 @@ const navItems = [
   { href: '/accounts', label: 'Accounts', icon: IconBuildingBank },
   { href: '/holdings', label: 'Holdings', icon: IconWallet },
   { href: '/activity', label: 'Activity', icon: IconArrowsExchange },
+  { href: '/flows', label: 'Flows', icon: IconArrowsSplit },
+  { href: '/planning', label: 'Planning', icon: IconTargetArrow },
 ];
 
 function SidebarNav({

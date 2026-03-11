@@ -692,3 +692,138 @@ export interface UpdatePlanningScenarioInput {
   is_base?: boolean;
   assumptions?: ScenarioAssumptions;
 }
+
+// ── Engine Output Types (mirrored from api/src/engine/types.ts for frontend use) ──
+
+export interface TaxBreakdown {
+  federal: number;
+  state: number;
+  social_security: number;
+  medicare: number;
+  fica_total: number;
+  total: number;
+  effective_rate: number;
+}
+
+export interface IncomeSourceSummary {
+  income_source_id: string;
+  name: string;
+  gross_monthly: number;
+  pre_tax_deductions_monthly: number;
+  taxable_from_source: number;
+}
+
+export interface ContributionSummary {
+  cashflow_item_id: string;
+  name: string;
+  monthly: number;
+  destination_account_id: string | null;
+}
+
+export interface MemberWaterfall {
+  member_id: string;
+  display_name: string;
+  total_gross_monthly: number;
+  total_gross_annual: number;
+  income_sources: IncomeSourceSummary[];
+  total_pre_tax_deductions_monthly: number;
+  taxable_income_annual: number;
+  tax_breakdown: TaxBreakdown;
+  tax_monthly: number;
+  net_income_monthly: number;
+  net_income_annual: number;
+  post_tax_contributions: ContributionSummary[];
+  total_post_tax_contributions_monthly: number;
+  disposable_income_monthly: number;
+  total_expenses_monthly: number;
+  total_expenses_annual: number;
+  residual_monthly: number;
+  residual_annual: number;
+}
+
+export interface HouseholdWaterfall {
+  members: MemberWaterfall[];
+  total_gross_monthly: number;
+  total_gross_annual: number;
+  total_pre_tax_deductions_monthly: number;
+  total_tax_monthly: number;
+  total_net_income_monthly: number;
+  total_post_tax_contributions_monthly: number;
+  total_disposable_income_monthly: number;
+  total_expenses_monthly: number;
+  total_expenses_annual: number;
+  total_residual_monthly: number;
+  total_residual_annual: number;
+}
+
+export interface FIMetricsInput {
+  fi_portfolio_value: number;
+  yearly_contributions: number;
+  yearly_expenses: number;
+  real_return_rate: number;
+  withdrawal_rate: number;
+  current_age: number;
+  desired_retirement_age: number;
+  retirement_annual_spend: number;
+}
+
+export interface FIMetrics {
+  fire_number: number;
+  security_fi: number;
+  coast_fi: number;
+  boiling_point: number;
+  progress_pct: number;
+  years_to_fire: number | null;
+  projected_retirement_age: number | null;
+  on_track: 'ahead' | 'on_track' | 'behind' | 'unreachable';
+}
+
+export interface SavingsRates {
+  investment_rate: number;
+  savings_rate: number;
+  total_savings_rate: number;
+}
+
+export interface ProjectionYear {
+  year: number;
+  age: number | null;
+  starting_portfolio: number;
+  contributions: number;
+  growth: number;
+  ending_portfolio: number;
+  account_detail?: { account_id: string; name: string; contribution: number }[];
+}
+
+export interface ProjectionResult {
+  years: ProjectionYear[];
+  final_portfolio: number;
+  total_contributions: number;
+  total_growth: number;
+}
+
+// ── Planning API Response Types ──
+
+export interface ResolvedScenario {
+  id: string;
+  name: string;
+  assumptions: Required<ScenarioAssumptions>;
+}
+
+export interface CashflowSummaryResponse {
+  scenario: ResolvedScenario;
+  waterfall: HouseholdWaterfall;
+}
+
+export interface MetricsResponse {
+  scenario: ResolvedScenario;
+  fi_portfolio_value: number;
+  inputs: FIMetricsInput;
+  metrics: FIMetrics;
+  savings_rates: SavingsRates;
+}
+
+export interface ProjectionResponse {
+  scenario: ResolvedScenario;
+  fi_portfolio_value: number;
+  projection: ProjectionResult;
+}
