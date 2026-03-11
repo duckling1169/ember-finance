@@ -20,6 +20,18 @@ import type {
   ManualIngestInput,
   Transaction,
   InvestmentActivity,
+  IncomeSource,
+  CashflowItem,
+  PlanningScenario,
+  CreateIncomeSourceInput,
+  UpdateIncomeSourceInput,
+  CreateCashflowItemInput,
+  UpdateCashflowItemInput,
+  CreatePlanningScenarioInput,
+  UpdatePlanningScenarioInput,
+  CashflowSummaryResponse,
+  MetricsResponse,
+  ProjectionResponse,
 } from '@shared/types';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
@@ -290,4 +302,91 @@ export function hideActivity(id: string, reason?: string) {
 
 export function unhideActivity(id: string) {
   return apiFetch(`/api/duplicates/unhide/activity/${id}`, { method: 'POST' });
+}
+
+// ── Planning: Income Sources ──
+
+export function getIncomeSources(memberId?: string) {
+  const qs = memberId ? `?member_id=${memberId}` : '';
+  return apiFetch<IncomeSource[]>(`/api/planning/income-sources${qs}`);
+}
+
+export function createIncomeSource(data: CreateIncomeSourceInput) {
+  return apiFetch<IncomeSource>('/api/planning/income-sources', {
+    method: 'POST',
+    body: JSON.stringify(data),
+  });
+}
+
+export function updateIncomeSource(sourceId: string, data: UpdateIncomeSourceInput) {
+  return apiFetch<IncomeSource>(`/api/planning/income-sources/${sourceId}`, {
+    method: 'PATCH',
+    body: JSON.stringify(data),
+  });
+}
+
+export function deleteIncomeSource(sourceId: string) {
+  return apiFetch(`/api/planning/income-sources/${sourceId}`, { method: 'DELETE' });
+}
+
+// ── Planning: Cashflow Items ──
+
+export function getCashflowItems(memberId?: string) {
+  const qs = memberId ? `?member_id=${memberId}` : '';
+  return apiFetch<CashflowItem[]>(`/api/planning/items${qs}`);
+}
+
+export function createCashflowItem(data: CreateCashflowItemInput) {
+  return apiFetch<CashflowItem>('/api/planning/items', {
+    method: 'POST',
+    body: JSON.stringify(data),
+  });
+}
+
+export function updateCashflowItem(itemId: string, data: UpdateCashflowItemInput) {
+  return apiFetch<CashflowItem>(`/api/planning/items/${itemId}`, {
+    method: 'PATCH',
+    body: JSON.stringify(data),
+  });
+}
+
+export function deleteCashflowItem(itemId: string) {
+  return apiFetch(`/api/planning/items/${itemId}`, { method: 'DELETE' });
+}
+
+// ── Planning: Scenarios ──
+
+export function getScenarios() {
+  return apiFetch<PlanningScenario[]>('/api/planning/scenarios');
+}
+
+export function createScenario(data: CreatePlanningScenarioInput) {
+  return apiFetch<PlanningScenario>('/api/planning/scenarios', {
+    method: 'POST',
+    body: JSON.stringify(data),
+  });
+}
+
+export function updateScenario(scenarioId: string, data: UpdatePlanningScenarioInput) {
+  return apiFetch<PlanningScenario>(`/api/planning/scenarios/${scenarioId}`, {
+    method: 'PATCH',
+    body: JSON.stringify(data),
+  });
+}
+
+// ── Planning: Computed Endpoints ──
+
+export function getCashflowSummary(scenarioId?: string) {
+  const qs = scenarioId ? `?scenario_id=${scenarioId}` : '';
+  return apiFetch<CashflowSummaryResponse>(`/api/planning/cashflow-summary${qs}`);
+}
+
+export function getProjections(scenarioId?: string) {
+  const qs = scenarioId ? `?scenario_id=${scenarioId}` : '';
+  return apiFetch<ProjectionResponse>(`/api/planning/projections${qs}`);
+}
+
+export function getMetrics(scenarioId?: string) {
+  const qs = scenarioId ? `?scenario_id=${scenarioId}` : '';
+  return apiFetch<MetricsResponse>(`/api/planning/metrics${qs}`);
 }

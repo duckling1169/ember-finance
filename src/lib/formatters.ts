@@ -18,6 +18,22 @@ export function fmtDateTime(dateStr: string) {
   });
 }
 
+export function fmtPct(n: number, decimals = 1): string {
+  return `${(n * 100).toFixed(decimals)}%`;
+}
+
+export function fmtYears(n: number | null): string {
+  if (n == null) return '--';
+  if (n < 1) return '< 1 year';
+  return `${n.toFixed(1)} years`;
+}
+
+export function fmtCompact(n: number): string {
+  if (Math.abs(n) >= 1_000_000) return `$${(n / 1_000_000).toFixed(1)}M`;
+  if (Math.abs(n) >= 1_000) return `$${(n / 1_000).toFixed(0)}k`;
+  return fmt(n);
+}
+
 export function timeAgo(dateStr: string) {
   const now = new Date();
   const then = new Date(dateStr);
