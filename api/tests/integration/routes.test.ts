@@ -1,7 +1,6 @@
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import { Hono } from 'hono';
 import { accountsRoute } from '../../src/routes/accounts.js';
-import { sourcesRoute } from '../../src/routes/sources.js';
 import { ingestRoute } from '../../src/routes/ingest.js';
 import {
   createTestHousehold,
@@ -16,11 +15,9 @@ const app = new Hono<AuthEnv>();
 app.use('/api/*', stubAuth());
 app.use('/api/accounts/:householdId', stubHouseholdMember());
 app.use('/api/accounts/:householdId/*', stubHouseholdMember());
-app.use('/api/sources/:householdId/*', stubHouseholdMember());
 app.use('/api/ingest/manual/:householdId/*', stubHouseholdMember());
 app.use('/api/ingest/sync/:householdId/*', stubHouseholdMember());
 app.route('/api/accounts', accountsRoute);
-app.route('/api/sources', sourcesRoute);
 app.route('/api/ingest', ingestRoute);
 
 function req(method: string, path: string, body?: unknown) {
@@ -113,30 +110,6 @@ describe('API routes', () => {
     });
   });
 
-  describe('POST /api/sources/:householdId/:accountId', () => {
-    it('creates a manual source', async () => {
-      const res = await req('POST', `/api/sources/${householdId}/${accountId}`, {
-        provider: 'manual',
-      });
-
-      expect(res.status).toBe(201);
-      const data = await res.json();
-      expect(data.provider).toBe('manual');
-      expect(data.account_id).toBe(accountId);
-    });
-  });
-
-  describe('GET /api/sources/:householdId/:accountId', () => {
-    it('lists sources for the account', async () => {
-      const res = await req('GET', `/api/sources/${householdId}/${accountId}`);
-
-      expect(res.status).toBe(200);
-      const data = await res.json();
-      expect(data.length).toBeGreaterThanOrEqual(1);
-      expect(data[0].provider).toBe('manual');
-    });
-  });
-
   describe('POST /api/ingest/manual/:householdId/:accountId', () => {
     it('ingests manual transactions via API', async () => {
       const res = await req('POST', `/api/ingest/manual/${householdId}/${accountId}`, {
@@ -183,15 +156,16 @@ describe('API routes', () => {
 
       expect(res.status).toBe(201);
 
-      // Verify source was auto-created
-      const srcRes = await req('GET', `/api/sources/${householdId}/${newAccountId}`);
-      const sources = await srcRes.json();
-      expect(sources.length).toBe(1);
-      expect(sources[0].provider).toBe('manual');
+      // Verify source was auto-created via account detail endpoint
+      const detailRes = await req('GET', `/api/accounts/${householdId}/${newAccountId}`);
+      expect(detailRes.status).toBe(200);
+      const detail = await detailRes.json();
+      expect(detail.sources.length).toBeGreaterThanOrEqual(1);
+      expect(detail.sources[0].provider).toBe('manual');
     });
   });
 
-  describe('POST /api/ingest/manual (ManualIngestInput from UI)', () => {
+  describe('POST /api/ingest/manual (legacy UI payload compatibility)', () => {
     let manualAccountId: string;
 
     it('creates a fresh account for UI-style manual entry tests', async () => {

@@ -21,7 +21,6 @@ import type { EnrichedAccount } from '@shared/types';
 import { cn } from '@/lib/utils';
 import { Card, CardContent } from '@/components/ui/card';
 import { AreaChart, DonutChart, CHART_COLORS } from '@/components/charts';
-import { IconClock, IconCalendarDollar, IconChartDonut, IconReceipt } from '@tabler/icons-react';
 import { fmt } from '@/lib/formatters';
 import { TAX_BUCKET_LABELS } from '@/lib/constants';
 import { ChangeIndicator } from '@/components/common/financial-cells';
@@ -143,6 +142,20 @@ export default function DashboardPage() {
         : (apiInvHistory ?? []),
     [range, customStart, customEnd, apiInvHistory],
   );
+  // Holdings by value (for donut)
+  const holdingsByValue = useMemo(() => {
+    if (devBypass) return [...mockHoldings].sort((a, b) => b.value - a.value);
+    if (!apiHoldings) return [];
+    return apiHoldings.summary
+      .map((s) => ({
+        id: s.symbol,
+        symbol: s.symbol,
+        name: s.name || s.symbol,
+        value: s.total_market_value ?? 0,
+      }))
+      .filter((h) => h.value > 0)
+      .sort((a, b) => b.value - a.value);
+  }, [apiHoldings]);
 
   const fetchError = !devBypass && (hhError || acctsError);
 
@@ -192,20 +205,6 @@ export default function DashboardPage() {
     .map(([name, value]) => ({ name, value }));
   const taxBucketTotal = taxBuckets.reduce((s, b) => s + b.value, 0);
 
-  // Holdings by value (for donut)
-  const holdingsByValue = useMemo(() => {
-    if (devBypass) return [...mockHoldings].sort((a, b) => b.value - a.value);
-    if (!apiHoldings) return [];
-    return apiHoldings.summary
-      .map((s) => ({
-        id: s.symbol,
-        symbol: s.symbol,
-        name: s.name || s.symbol,
-        value: s.total_market_value ?? 0,
-      }))
-      .filter((h) => h.value > 0)
-      .sort((a, b) => b.value - a.value);
-  }, [apiHoldings]);
   const holdingsTotal = holdingsByValue.reduce((s, h) => s + h.value, 0);
 
   return (
@@ -411,33 +410,6 @@ export default function DashboardPage() {
         </Card>
       </div>
 
-      {/* Row 3: Placeholder cards for future charts */}
-      <div className="grid gap-3 md:grid-cols-2">
-        <PlaceholderCard
-          icon={IconCalendarDollar}
-          title="Salary Deferral"
-          description="Contribution allocation across accounts"
-        />
-        <PlaceholderCard
-          icon={IconChartDonut}
-          title="Tax Buckets by Inflow"
-          description="Yearly contributions by tax treatment"
-        />
-      </div>
-
-      <div className="grid gap-3 md:grid-cols-2">
-        <PlaceholderCard
-          icon={IconClock}
-          title="Tax Buckets Over Time"
-          description="Projected growth by tax treatment and age"
-        />
-        <PlaceholderCard
-          icon={IconReceipt}
-          title="Spending by Category"
-          description="Transaction breakdown across accounts"
-        />
-      </div>
-
       {/* Quick links */}
       <div className="flex gap-3 text-sm">
         <Link
@@ -510,29 +482,5 @@ function RangeFilter({
         </div>
       )}
     </div>
-  );
-}
-
-// ── Placeholder card for future charts ──
-
-function PlaceholderCard({
-  icon: Icon,
-  title,
-  description,
-}: {
-  icon: typeof IconClock;
-  title: string;
-  description: string;
-}) {
-  return (
-    <Card className="p-2 gap-0">
-      <CardContent>
-        <div className="flex flex-col items-center gap-2 py-8 text-center">
-          <Icon size={28} className="text-muted-foreground/40" stroke={1.5} />
-          <p className="text-sm font-medium text-muted-foreground">{title}</p>
-          <p className="text-xs text-muted-foreground/60">{description}</p>
-        </div>
-      </CardContent>
-    </Card>
   );
 }
