@@ -49,6 +49,30 @@ export function stubHouseholdMember() {
   };
 }
 
+/**
+ * Stub requireMember middleware for tests on routes without :householdId.
+ * Resolves the first member in the DB and sets householdId + memberId.
+ */
+export function stubMember() {
+  return async (c: Context, next: Next) => {
+    const db = getTestClient();
+    const { data: member } = await db
+      .from('member')
+      .select('id, household_id, role')
+      .limit(1)
+      .single();
+
+    if (!member) {
+      return c.json({ error: 'No member found' }, 404);
+    }
+
+    c.set('householdId', member.household_id);
+    c.set('memberId', member.id);
+    c.set('memberRole', member.role);
+    await next();
+  };
+}
+
 // Create a test household + member, return IDs for use in tests
 export async function createTestHousehold() {
   const db = getTestClient();
@@ -128,6 +152,8 @@ export async function cleanupTestHousehold(householdId: string) {
   const db = getTestClient();
 
   // Delete in reverse dependency order
+  await db.from('planning_scenario').delete().eq('household_id', householdId);
+  await db.from('cashflow_item').delete().eq('household_id', householdId);
   await db.from('lot_disposition').delete().eq('household_id', householdId);
   await db.from('tax_lot').delete().eq('household_id', householdId);
   await db.from('net_worth_snapshot').delete().eq('household_id', householdId);

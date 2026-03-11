@@ -172,5 +172,27 @@ function validateOptionalMemberFields(body: Record<string, unknown>): Validation
     }
   }
 
+  if (body.stateOfResidence != null) {
+    if (!US_STATES.includes(body.stateOfResidence as never)) {
+      errors.push({ field: 'stateOfResidence', message: 'Must be a valid US state abbreviation' });
+    }
+  }
+
+  if (body.taxMode != null) {
+    if (!['auto', 'manual'].includes(body.taxMode as string)) {
+      errors.push({ field: 'taxMode', message: 'Must be one of: auto, manual' });
+    }
+  }
+
+  if (body.effectiveTaxRateOverride != null) {
+    const rate = body.effectiveTaxRateOverride as number;
+    if (typeof rate !== 'number' || rate < 0 || rate > 100) {
+      errors.push({
+        field: 'effectiveTaxRateOverride',
+        message: 'Must be a number between 0 and 100',
+      });
+    }
+  }
+
   return errors;
 }
