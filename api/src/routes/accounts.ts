@@ -1,5 +1,10 @@
 import { Hono } from 'hono';
-import { ACCOUNT_TYPES, LIABILITY_TYPES, type AccountType } from '../types/index.js';
+import {
+  ACCOUNT_TYPES,
+  INVESTMENT_ACCOUNT_TYPES,
+  LIABILITY_TYPES,
+  type AccountType,
+} from '../types/index.js';
 import type { AuthEnv } from '../middleware/auth.js';
 
 export const accountsRoute = new Hono<AuthEnv>();
@@ -88,6 +93,105 @@ accountsRoute.get('/:householdId', async (c) => {
   });
 
   return c.json(enriched);
+});
+
+// ── Household net worth history (aggregate balance snapshots across all accounts) ──
+// Supports ?from=YYYY-MM-DD&to=YYYY-MM-DD for date range filtering.
+
+accountsRoute.get('/:householdId/history/net-worth', async (c) => {
+  const householdId = c.req.param('householdId');
+  const db = c.get('userClient');
+  const from = c.req.query('from');
+  const to = c.req.query('to');
+
+  // Fetch active accounts and their balance snapshots in parallel
+  const [accountsRes, snapshotsQuery] = await Promise.all([
+    db
+      .from('account')
+      .select('id, is_liability')
+      .eq('household_id', householdId)
+      .eq('is_active', true),
+    (() => {
+      let q = db
+        .from('balance_snapshot')
+        .select('account_id, date, balance')
+        .eq('household_id', householdId)
+        .order('date', { ascending: true });
+      if (from) q = q.gte('date', from);
+      if (to) q = q.lte('date', to);
+      return q;
+    })(),
+  ]);
+
+  if (accountsRes.error) return c.json({ error: accountsRes.error.message }, 500);
+  if (snapshotsQuery.error) return c.json({ error: snapshotsQuery.error.message }, 500);
+
+  const activeIds = new Set((accountsRes.data || []).map((a) => a.id as string));
+  const liabilityIds = new Set(
+    (accountsRes.data || []).filter((a) => a.is_liability).map((a) => a.id as string),
+  );
+
+  // Aggregate by date: sum balances, subtract liabilities
+  const byDate = new Map<string, number>();
+  for (const s of snapshotsQuery.data || []) {
+    if (!activeIds.has(s.account_id)) continue;
+    const sign = liabilityIds.has(s.account_id) ? -1 : 1;
+    byDate.set(s.date, (byDate.get(s.date) || 0) + sign * Number(s.balance));
+  }
+
+  const result = [...byDate.entries()]
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([date, value]) => ({ date, value: Math.round(value * 100) / 100 }));
+
+  return c.json(result);
+});
+
+// ── Household investment history (aggregate balance snapshots for investment accounts) ──
+// Supports ?from=YYYY-MM-DD&to=YYYY-MM-DD for date range filtering.
+
+accountsRoute.get('/:householdId/history/investments', async (c) => {
+  const householdId = c.req.param('householdId');
+  const db = c.get('userClient');
+  const from = c.req.query('from');
+  const to = c.req.query('to');
+
+  // Fetch investment accounts and their balance snapshots in parallel
+  const [accountsRes, snapshotsQuery] = await Promise.all([
+    db
+      .from('account')
+      .select('id')
+      .eq('household_id', householdId)
+      .eq('is_active', true)
+      .in('account_type', INVESTMENT_ACCOUNT_TYPES),
+    (() => {
+      let q = db
+        .from('balance_snapshot')
+        .select('account_id, date, balance')
+        .eq('household_id', householdId)
+        .order('date', { ascending: true });
+      if (from) q = q.gte('date', from);
+      if (to) q = q.lte('date', to);
+      return q;
+    })(),
+  ]);
+
+  if (accountsRes.error) return c.json({ error: accountsRes.error.message }, 500);
+  if (snapshotsQuery.error) return c.json({ error: snapshotsQuery.error.message }, 500);
+
+  const investmentIds = new Set((accountsRes.data || []).map((a) => a.id as string));
+
+  // Aggregate by date: sum balances for investment accounts only
+  const byDate = new Map<string, number>();
+  for (const s of snapshotsQuery.data || []) {
+    if (!investmentIds.has(s.account_id)) continue;
+    byDate.set(s.date, (byDate.get(s.date) || 0) + Number(s.balance));
+  }
+
+  const result = [...byDate.entries()]
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([date, value]) => ({ date, value: Math.round(value * 100) / 100 }));
+
+  return c.json(result);
 });
 
 // ── Account detail (full picture: account + balance + holdings + lots + recent history) ──
