@@ -11,6 +11,7 @@ import { activityRoute } from './routes/activity.js';
 import { duplicatesRoute } from './routes/duplicates.js';
 import { onboardingRoute } from './routes/onboarding.js';
 import { settingsRoute } from './routes/settings.js';
+import { planningRoute } from './routes/planning.js';
 import {
   requireAuth,
   requireMember,
@@ -43,6 +44,9 @@ app.use('/api/duplicates/transactions/:householdId/*', requireHouseholdMember);
 app.use('/api/duplicates/activity/:householdId/*', requireHouseholdMember);
 app.use('/api/duplicates/review/:householdId/*', requireHouseholdMember);
 
+// Planning: resolve member/household from auth (no :householdId in path)
+app.use('/api/planning/*', requireMember);
+
 // Record ownership for duplicate hide/unhide (no householdId in path)
 app.use('/api/duplicates/hide/transaction/:id', requireRecordOwnership('transaction'));
 app.use('/api/duplicates/unhide/transaction/:id', requireRecordOwnership('transaction'));
@@ -58,6 +62,7 @@ app.route('/api/activity', activityRoute);
 app.route('/api/holdings', holdingsRoute);
 app.route('/api/ingest', ingestRoute);
 app.route('/api/duplicates', duplicatesRoute);
+app.route('/api/planning', planningRoute);
 
 serve({ fetch: app.fetch, port: env.port }, (info) => {
   console.warn(`Ember API running on http://localhost:${info.port}`);

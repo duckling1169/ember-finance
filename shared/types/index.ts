@@ -143,6 +143,9 @@ export interface Member {
   annual_income: number | null;
   employment_type: EmploymentType | null;
   risk_tolerance: RiskTolerance | null;
+  state_of_residence: string | null;
+  tax_mode: TaxMode;
+  effective_tax_rate_override: number | null;
   created_at: string;
 }
 
@@ -464,6 +467,9 @@ export interface UpdateProfileInput {
   annualIncome?: number | null;
   employmentType?: EmploymentType | null;
   riskTolerance?: RiskTolerance | null;
+  stateOfResidence?: string | null;
+  taxMode?: TaxMode;
+  effectiveTaxRateOverride?: number | null;
 }
 
 export interface CreateAccountInput {
@@ -543,4 +549,93 @@ export interface IngestResult {
 export interface ProviderAdapter {
   sync(account: Account, source: AccountSource): Promise<IngestResult>;
   parse?(file: Buffer, format: string): Promise<IngestResult>;
+}
+
+// ── Planning Types ──
+
+export type TaxMode = 'auto' | 'manual';
+
+export type CashflowDirection = 'inflow' | 'outflow';
+
+export const CASHFLOW_BUCKETS = [
+  'salary',
+  'employer_match',
+  'pre_tax_deduction',
+  'retirement_deferral',
+  'post_tax_contribution',
+  'expense',
+  'other',
+] as const;
+export type CashflowBucket = (typeof CASHFLOW_BUCKETS)[number];
+
+export const CASHFLOW_FREQUENCIES = ['monthly', 'biweekly', 'annual', 'one_time'] as const;
+export type CashflowFrequency = (typeof CASHFLOW_FREQUENCIES)[number];
+
+export interface CashflowItem {
+  id: string;
+  household_id: string;
+  member_id: string | null;
+  name: string;
+  direction: CashflowDirection;
+  bucket: CashflowBucket;
+  tax_treatment: string;
+  amount: number;
+  frequency: CashflowFrequency;
+  is_recurring: boolean;
+  include_in_projection: boolean;
+  start_date: string;
+  end_date: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface PlanningScenario {
+  id: string;
+  household_id: string;
+  name: string;
+  is_base: boolean;
+  assumptions: Record<string, unknown>;
+  created_at: string;
+  updated_at: string;
+}
+
+// ── Planning API Input Types ──
+
+export interface CreateCashflowItemInput {
+  member_id?: string | null;
+  name: string;
+  direction: CashflowDirection;
+  bucket: CashflowBucket;
+  tax_treatment?: string;
+  amount: number;
+  frequency: CashflowFrequency;
+  is_recurring?: boolean;
+  include_in_projection?: boolean;
+  start_date: string;
+  end_date?: string | null;
+}
+
+export interface UpdateCashflowItemInput {
+  name?: string;
+  direction?: CashflowDirection;
+  bucket?: CashflowBucket;
+  tax_treatment?: string;
+  amount?: number;
+  frequency?: CashflowFrequency;
+  is_recurring?: boolean;
+  include_in_projection?: boolean;
+  start_date?: string;
+  end_date?: string | null;
+}
+
+export interface CreatePlanningScenarioInput {
+  name: string;
+  is_base?: boolean;
+  assumptions?: Record<string, unknown>;
+}
+
+export interface UpdatePlanningScenarioInput {
+  name?: string;
+  is_base?: boolean;
+  assumptions?: Record<string, unknown>;
 }

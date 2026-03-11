@@ -106,6 +106,11 @@ settingsRoute.patch('/profile', async (c) => {
   if (body.annualIncome !== undefined) update.annual_income = body.annualIncome || null;
   if (body.employmentType !== undefined) update.employment_type = body.employmentType || null;
   if (body.riskTolerance !== undefined) update.risk_tolerance = body.riskTolerance || null;
+  if (body.stateOfResidence !== undefined)
+    update.state_of_residence = body.stateOfResidence || null;
+  if (body.taxMode !== undefined) update.tax_mode = body.taxMode;
+  if (body.effectiveTaxRateOverride !== undefined)
+    update.effective_tax_rate_override = body.effectiveTaxRateOverride ?? null;
 
   if (Object.keys(update).length === 0) {
     return c.json({ error: 'No fields to update' }, 400);
