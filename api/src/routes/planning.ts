@@ -15,6 +15,19 @@ import {
   type UpdatePlanningScenarioInput,
 } from '../types/index.js';
 import type { AuthEnv } from '../middleware/auth.js';
+import { computeHouseholdWaterfall } from '../engine/household.js';
+import { computeFIMetrics } from '../engine/metrics.js';
+import { computeProjection } from '../engine/projections.js';
+import { computeSavingsRates } from '../engine/savings.js';
+import {
+  fetchPlanningData,
+  resolveAssumptions,
+  assembleWaterfallInput,
+  assembleFIMetricsInput,
+  assembleProjectionInput,
+  assembleSavingsRateInput,
+  computeCurrentAge,
+} from '../services/planning-engine.js';
 
 export const planningRoute = new Hono<AuthEnv>();
 
@@ -360,4 +373,94 @@ planningRoute.patch('/scenarios/:scenarioId', async (c) => {
   }
 
   return c.json(data);
+});
+
+// ── Computation Endpoints ──
+
+planningRoute.get('/cashflow-summary', async (c) => {
+  const householdId = c.get('householdId');
+  const db = c.get('userClient');
+  const scenarioId = c.req.query('scenario_id');
+
+  try {
+    const data = await fetchPlanningData(db, householdId, scenarioId);
+    const waterfallInput = assembleWaterfallInput(data);
+    const waterfall = computeHouseholdWaterfall(waterfallInput);
+    const assumptions = resolveAssumptions(data.scenario);
+
+    return c.json({
+      scenario: { id: data.scenario.id, name: data.scenario.name, assumptions },
+      waterfall,
+    });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : 'Unknown error';
+    return c.json({ error: message }, 500);
+  }
+});
+
+planningRoute.get('/projections', async (c) => {
+  const householdId = c.get('householdId');
+  const db = c.get('userClient');
+  const scenarioId = c.req.query('scenario_id');
+
+  try {
+    const data = await fetchPlanningData(db, householdId, scenarioId);
+    const waterfallInput = assembleWaterfallInput(data);
+    const waterfall = computeHouseholdWaterfall(waterfallInput);
+    const assumptions = resolveAssumptions(data.scenario);
+    const projectionInput = assembleProjectionInput(waterfall, data, assumptions);
+
+    const primaryMember = data.members[0];
+    const currentAge = primaryMember ? computeCurrentAge(primaryMember.birthday) : undefined;
+
+    const projection = computeProjection(
+      projectionInput,
+      currentAge != null ? Math.floor(currentAge) : undefined,
+    );
+
+    return c.json({
+      scenario: { id: data.scenario.id, name: data.scenario.name, assumptions },
+      fi_portfolio_value: data.fi_portfolio_value,
+      projection,
+    });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : 'Unknown error';
+    return c.json({ error: message }, 500);
+  }
+});
+
+planningRoute.get('/metrics', async (c) => {
+  const householdId = c.get('householdId');
+  const db = c.get('userClient');
+  const scenarioId = c.req.query('scenario_id');
+
+  try {
+    const data = await fetchPlanningData(db, householdId, scenarioId);
+    const waterfallInput = assembleWaterfallInput(data);
+    const waterfall = computeHouseholdWaterfall(waterfallInput);
+    const assumptions = resolveAssumptions(data.scenario);
+
+    const metricsInput = assembleFIMetricsInput(waterfall, data, assumptions);
+    if (!metricsInput) {
+      return c.json(
+        { error: 'Cannot compute FI metrics: primary member birthday is required' },
+        400,
+      );
+    }
+
+    const metrics = computeFIMetrics(metricsInput);
+    const savingsInput = assembleSavingsRateInput(waterfall, data);
+    const savings_rates = computeSavingsRates(savingsInput);
+
+    return c.json({
+      scenario: { id: data.scenario.id, name: data.scenario.name, assumptions },
+      fi_portfolio_value: data.fi_portfolio_value,
+      inputs: metricsInput,
+      metrics,
+      savings_rates,
+    });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : 'Unknown error';
+    return c.json({ error: message }, 500);
+  }
 });
