@@ -3,8 +3,25 @@ import { supabase } from '../lib/supabase.js';
 import { processIngest } from '../services/ingest.js';
 import { ManualAdapter } from '../adapters/manual.js';
 import { CsvAdapter, detectCsvFormat } from '../adapters/csv.js';
-import type { Account, AccountSource } from '../types/index.js';
+import type { Account, AccountSource, ManualIngestInput } from '../types/index.js';
 import type { AuthEnv } from '../middleware/auth.js';
+
+// Transform simple ManualIngestInput from the UI into normalized adapter payload.
+// If the body already has normalized arrays (transactions, balances, etc.), pass through.
+function normalizeManualPayload(body: Record<string, unknown>) {
+  if (!('entry_type' in body)) return body; // already normalized
+
+  const { entry_type, amount, description } = body as unknown as ManualIngestInput;
+  const today = new Date().toISOString().slice(0, 10);
+
+  if (entry_type === 'current') {
+    return { balances: [{ date: today, balance: amount }] };
+  }
+  // delta
+  return {
+    transactions: [{ date: today, amount, description: (description as string) || 'Manual entry' }],
+  };
+}
 
 export const ingestRoute = new Hono<AuthEnv>();
 
@@ -35,7 +52,7 @@ async function getOrCreateSource(householdId: string, accountId: string, provide
   return newSource;
 }
 
-// Manual entry — submit normalized data directly
+// Manual entry — accepts ManualIngestInput (from UI) or normalized data directly
 ingestRoute.post('/manual/:householdId/:accountId', async (c) => {
   const { householdId, accountId } = c.req.param();
   const body = await c.req.json();
@@ -52,7 +69,8 @@ ingestRoute.post('/manual/:householdId/:accountId', async (c) => {
 
   try {
     const source = await getOrCreateSource(householdId, accountId, 'manual');
-    const adapter = new ManualAdapter(body);
+    const payload = normalizeManualPayload(body);
+    const adapter = new ManualAdapter(payload);
     const result = await adapter.sync(account as Account, source as AccountSource);
 
     const ingestResult = await processIngest(

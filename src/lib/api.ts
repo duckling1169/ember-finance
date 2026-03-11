@@ -137,6 +137,26 @@ export function getHouseholdHoldings(householdId: string) {
   return apiFetch<HouseholdHoldingsResponse>(`/api/holdings/${householdId}`);
 }
 
+export function getNetWorthHistory(householdId: string, from?: string, to?: string) {
+  const params = new URLSearchParams();
+  if (from) params.set('from', from);
+  if (to) params.set('to', to);
+  const qs = params.toString();
+  return apiFetch<{ date: string; value: number }[]>(
+    `/api/accounts/${householdId}/history/net-worth${qs ? `?${qs}` : ''}`,
+  );
+}
+
+export function getInvestmentHistory(householdId: string, from?: string, to?: string) {
+  const params = new URLSearchParams();
+  if (from) params.set('from', from);
+  if (to) params.set('to', to);
+  const qs = params.toString();
+  return apiFetch<{ date: string; value: number }[]>(
+    `/api/accounts/${householdId}/history/investments${qs ? `?${qs}` : ''}`,
+  );
+}
+
 export function createAccount(householdId: string, data: CreateAccountInput) {
   return apiFetch<Account>(`/api/accounts/${householdId}`, {
     method: 'POST',

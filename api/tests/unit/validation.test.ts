@@ -52,9 +52,9 @@ describe('validateOnboarding', () => {
     );
   });
 
-  it('fails when targetRetirementAge missing', () => {
+  it('accepts missing targetRetirementAge (optional, defaults to 65)', () => {
     const errors = validateOnboarding({ ...valid, targetRetirementAge: undefined });
-    expect(errors).toContainEqual(expect.objectContaining({ field: 'targetRetirementAge' }));
+    expect(errors.some((e: { field: string }) => e.field === 'targetRetirementAge')).toBe(false);
   });
 
   it('fails when targetRetirementAge <= current age', () => {
