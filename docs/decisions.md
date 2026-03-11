@@ -133,3 +133,33 @@ Tax lots are per-account, per-symbol records created from buy activity and deple
 ### 021 — UI Design System: shadcn/ui + Tailwind
 
 Component library is shadcn/ui (Radix + Tailwind, copy-paste). Charts via Recharts. Data tables via @tanstack/react-table. Forms via react-hook-form + zod. Dark-mode native, desktop-primary. All inline styles to be replaced with Tailwind classes. Full spec in `docs/ui.md`.
+
+---
+
+### 022 — Product Positioning: FIRE Household Investment Manager
+
+Ember is positioned as a household investment manager and planning platform for FIRE-oriented users, not as a general-purpose budgeting app. Investment holdings, tax lots, and long-horizon planning data are first-class concerns.
+
+---
+
+### 023 — Two Distinct Planning Modes
+
+Product planning is organized into two explicit modes: accumulation and drawdown/spending. Both modes share one data foundation (accounts, holdings, lots, cash/debt context), but require different decision tooling and modeling outputs.
+
+---
+
+### 024 — Modeling Quality Bar
+
+Planning features must be assumption-driven, reproducible, interpretable, and stress-testable. Monte Carlo is required but not sufficient on its own; drawdown tooling must include guardrails and tax-aware withdrawal logic over time.
+
+---
+
+### 025 — Current Charting Implementation Uses Nivo
+
+Frontend chart components are currently implemented with Nivo (`@nivo/line`, `@nivo/pie`) and shared chart theme tokens. Earlier references to alternative chart libraries describe prior direction, not current implementation.
+
+---
+
+### 026 — Terminology: Feature Sets, Not Modes
+
+Supersedes terminology in Decision 023 for product language. Accumulation and drawdown/spending are treated as Ember's two primary planning feature sets, not mutually exclusive app modes. Households may use both continuously as part of one integrated investment-planning workflow.

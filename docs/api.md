@@ -1,279 +1,179 @@
 # Ember — API Reference
 
-Base URL: `http://localhost:3001`
+Base URL (local): `http://localhost:3001`
 
 ## Authentication
 
-All `/api/*` routes require a Supabase JWT in the `Authorization` header:
+- `GET /health` is public
+- All `/api/*` routes require `Authorization: Bearer <supabase_access_token>`
+- Auth middleware resolves user and enforces household membership/record ownership where applicable
 
-```
-Authorization: Bearer <supabase_access_token>
-```
+## Auth and Authorization Middleware
 
-The `requireAuth` middleware extracts the user via `supabase.auth.getUser(token)` and sets `authUser` (id, email) on the request context.
-
-### Household Authorization
-
-Routes with a `:householdId` path parameter additionally verify that the authenticated user is a member of that household via the `requireHouseholdMember` middleware. Returns 403 if the user is not a member.
-
-Routes with only a record `:id` parameter (duplicate hide/unhide) look up the record's `household_id` and verify membership via `requireRecordOwnership`. Returns 404 if the record doesn't exist, 403 if the user isn't a member of its household.
-
----
+- `requireAuth`: all `/api/*`
+- `requireMember`: all `/api/settings/*` (injects `householdId`, `memberId`, `memberRole`)
+- `requireHouseholdMember`: household-scoped routes with `:householdId`
+- `requireRecordOwnership`: duplicate hide/unhide routes with record IDs
 
 ## Health
 
-### GET /health
+### `GET /health`
 
-Returns DB connection status.
-
-```json
-{ "status": "ok", "db": "connected", "timestamp": "2026-03-09T..." }
-```
-
----
+Returns status and DB connectivity signal.
 
 ## Onboarding
 
-### POST /api/onboarding
+### `POST /api/onboarding`
 
-Create a new household and owner member profile. Atomic via Postgres RPC.
+Create household + owner member profile. Uses RPC (`create_household_with_owner`) with fallback insert path.
 
-**Request:**
+### `POST /api/onboarding/accept-invite`
 
-```json
-{
-  "householdName": "Smith Family",
-  "taxFilingStatus": "married_jointly",
-  "state": "CA",
-  "currency": "USD",
-  "displayName": "Adam",
-  "birthday": "1990-05-15",
-  "targetRetirementAge": 55,
-  "annualIncome": 150000,
-  "employmentType": "w2",
-  "riskTolerance": "aggressive"
-}
-```
-
-Required: `householdName`, `displayName`, `birthday`, `targetRetirementAge`.
-
-**Response (201):**
-
-```json
-{
-  "household": { "id": "...", "name": "Smith Family", ... },
-  "member": { "id": "...", "display_name": "Adam", "role": "owner", ... }
-}
-```
-
-**Errors:** 400 (validation), 409 (user already has a household).
-
-### POST /api/onboarding/accept-invite
-
-Partner accepts an invite and creates their member profile.
-
-**Request:**
-
-```json
-{
-  "inviteId": "uuid",
-  "displayName": "Partner",
-  "birthday": "1988-06-15",
-  "targetRetirementAge": 50,
-  "annualIncome": 90000,
-  "employmentType": "1099",
-  "riskTolerance": "moderate"
-}
-```
-
-Required: `inviteId`, `displayName`, `birthday`, `targetRetirementAge`.
-
-**Response (201):**
-
-```json
-{ "member": { ... }, "householdId": "uuid" }
-```
-
-**Errors:** 400 (validation), 403 (email mismatch), 404 (invite not found/accepted), 409 (already has household), 410 (expired).
-
----
+Accept invite and create member profile in target household.
 
 ## Settings
 
-All settings routes require auth. Owner-only routes noted.
+All settings routes require authenticated member context.
 
-### GET /api/settings/household
+### Household
 
-Returns the authenticated user's household.
+- `GET /api/settings/household`
+- `PATCH /api/settings/household` (owner only)
 
-### PATCH /api/settings/household _(owner only)_
+### Profile
 
-**Request:** `{ "name?", "taxFilingStatus?", "state?", "currency?" }`
+- `GET /api/settings/profile`
+- `PATCH /api/settings/profile`
 
-Send `null` for `taxFilingStatus` or `state` to clear them.
+### Members
 
-### GET /api/settings/profile
+- `GET /api/settings/members`
+- `DELETE /api/settings/members/:memberId` (owner only)
 
-Returns the authenticated user's member profile.
+### Invites
 
-### PATCH /api/settings/profile
-
-**Request:** `{ "displayName?", "birthday?", "targetRetirementAge?", "annualIncome?", "employmentType?", "riskTolerance?" }`
-
-Send `null` for optional fields to clear them. Retirement age is cross-validated against birthday.
-
-### GET /api/settings/members
-
-List all members in the household (id, household_id, display_name, role, created_at).
-
-### DELETE /api/settings/members/:memberId _(owner only)_
-
-Remove a member. Cannot remove yourself or the last owner (enforced by DB trigger).
-
-### GET /api/settings/invites _(owner only)_
-
-List pending (non-expired, non-accepted) invites.
-
-### POST /api/settings/invites _(owner only)_
-
-**Request:** `{ "email": "partner@example.com" }`
-
-Role is always `owner`. Checks if email already has a household via `check_email_has_household` RPC. Sends a Supabase Auth magic link to the email.
-
-**Response (201):**
-
-```json
-{ "id": "...", "email": "...", "role": "owner", "emailSent": true, ... }
-```
-
-If the email fails to send, `emailSent: false` with `emailError`.
-
-**Errors:** 400 (invalid email), 403 (not owner), 409 (email already has household, or pending invite exists).
-
-### DELETE /api/settings/invites/:inviteId _(owner only)_
-
-Cancel a pending invite.
-
----
+- `GET /api/settings/invites` (owner only)
+- `POST /api/settings/invites` (owner only)
+- `DELETE /api/settings/invites/:inviteId` (owner only)
 
 ## Accounts
 
-### GET /api/accounts/:householdId
+### `GET /api/accounts/:householdId`
 
-List active accounts, ordered by created_at.
+List active accounts enriched with latest balance (`latest_account_balances`) and source link/sync metadata.
 
-### POST /api/accounts/:householdId
+### `GET /api/accounts/:householdId/:accountId`
 
-**Request:**
+Account detail response including:
 
-```json
-{
-  "name": "Chase Checking",
-  "institution": "Chase",
-  "account_type": "checking",
-  "member_id": "uuid (optional)",
-  "currency": "USD",
-  "meta": {}
-}
-```
+- account
+- latest balance
+- balance history (default last 1 year)
+- current holdings
+- open tax lots
+- sources
+- account timeline history
 
-`is_liability` is auto-set for credit, loan, mortgage.
+### `GET /api/accounts/:householdId/:accountId/holdings`
 
-**Errors:** 400 (invalid account_type).
+Current holdings for one account (from `current_positions`).
 
-### PATCH /api/accounts/:householdId/:accountId
+### `GET /api/accounts/:householdId/:accountId/lots`
 
-Update account fields. Cannot change `household_id`.
+Open lots for one account (from `open_tax_lots`).
 
----
+### `GET /api/accounts/:householdId/:accountId/balances`
 
-## Sources
+Balance snapshots for one account. Optional query params:
 
-### GET /api/sources/:householdId/:accountId
+- `from=YYYY-MM-DD`
+- `to=YYYY-MM-DD`
 
-List sources for an account (excludes encrypted `provider_meta`).
+### `GET /api/accounts/:householdId/:accountId/history`
 
-### POST /api/sources/:householdId/:accountId
+Timeline events for one account. Optional query params:
 
-**Request:** `{ "provider": "manual", "provider_account_id?": "..." }`
+- `limit` (default `50`)
+- `offset` (default `0`)
+- `from=YYYY-MM-DD`
+- `to=YYYY-MM-DD`
 
----
+### `POST /api/accounts/:householdId`
+
+Create account.
+
+### `PATCH /api/accounts/:householdId/:accountId`
+
+Update account fields (allowlist enforced).
+
+### `DELETE /api/accounts/:householdId/:accountId`
+
+Soft-delete account (`is_active = false`) and record `account_event`.
+
+## Holdings
+
+### `GET /api/holdings/:householdId`
+
+Returns cross-account holdings payload:
+
+- `positions` (`current_positions`)
+- `summary` (`household_positions_summary`)
+- `lots` (`open_tax_lots`)
 
 ## Ingest
 
-### POST /api/ingest/manual/:householdId/:accountId
+### `POST /api/ingest/manual/:householdId/:accountId`
 
-Submit normalized data. Auto-creates a manual source if none exists.
+Manual ingest expects normalized payload sections:
 
-**Request:**
+- `transactions[]`
+- `investmentActivity[]`
+- `balances[]`
+- `holdings[]`
 
-```json
-{
-  "transactions": [{ "date": "2025-06-01", "amount": -25.0, "description": "Grocery" }],
-  "investmentActivity": [],
-  "balances": [{ "date": "2025-06-01", "balance": 1000.0 }],
-  "holdings": []
-}
-```
+Writes `raw_ingest`, upserts canonical tables, runs dedup, updates `account_source.last_synced`.
 
-**Response (201):**
+### `POST /api/ingest/csv/:householdId/:accountId`
 
-```json
-{
-  "rawIngestId": "uuid",
-  "recordCount": 2,
-  "dedup": {
-    "transactionsAutoHidden": 0,
-    "transactionsPotentialDupes": 0,
-    "activityAutoHidden": 0,
-    "activityPotentialDupes": 0
-  }
-}
-```
+Multipart upload:
 
-### POST /api/ingest/sync/:householdId/:sourceId
+- `file` (required)
+- `format` (optional, auto-detected if omitted)
 
-Provider sync — not yet implemented (returns 501).
+Notes:
 
----
+- max file size `10MB`
+- account-scoped source is created if needed
+- parsed records flow through same ingest pipeline
+
+### `POST /api/ingest/sync/:householdId/:sourceId`
+
+Provider sync placeholder (currently returns `501`).
 
 ## Duplicates
 
-### GET /api/duplicates/transactions/:householdId/:accountId
+### Listing
 
-List hidden transactions (is_hidden = true).
+- `GET /api/duplicates/transactions/:householdId/:accountId`
+- `GET /api/duplicates/activity/:householdId/:accountId`
+- `GET /api/duplicates/review/:householdId/:accountId`
 
-### GET /api/duplicates/activity/:householdId/:accountId
+### Mutations
 
-List hidden investment activity.
+- `POST /api/duplicates/hide/transaction/:id`
+- `POST /api/duplicates/unhide/transaction/:id`
+- `POST /api/duplicates/hide/activity/:id`
+- `POST /api/duplicates/unhide/activity/:id`
 
-### GET /api/duplicates/review/:householdId/:accountId
+`hide` endpoints accept optional body `{ "reason": "manual" }`.
 
-Potential duplicates flagged for manual review (visible records grouped by date+amount with >1 match).
+## Validation Highlights
 
-### POST /api/duplicates/hide/transaction/:id
-
-**Request:** `{ "reason?": "manual" }`
-
-### POST /api/duplicates/unhide/transaction/:id
-
-### POST /api/duplicates/hide/activity/:id
-
-**Request:** `{ "reason?": "manual" }`
-
-### POST /api/duplicates/unhide/activity/:id
-
----
-
-## Validation Rules
-
-| Field               | Rule                                                                 |
-| ------------------- | -------------------------------------------------------------------- |
-| birthday            | Must be a valid past date                                            |
-| targetRetirementAge | Must be > current age (cross-validated with birthday)                |
-| taxFilingStatus     | single \| married_jointly \| married_separately \| head_of_household |
-| employmentType      | w2 \| 1099 \| mixed                                                  |
-| riskTolerance       | conservative \| moderate \| aggressive                               |
-| state               | Valid US state abbreviation (2 chars)                                |
-| annualIncome        | Positive number if provided                                          |
-| account_type        | Must be in ACCOUNT_TYPES enum                                        |
+- `birthday`: valid past date
+- `targetRetirementAge`: positive and cross-validated with birthday
+- `taxFilingStatus`: enum-constrained
+- `employmentType`: enum-constrained
+- `riskTolerance`: enum-constrained
+- `state`: 2-char US state code
+- `annualIncome`: positive if set
+- `account_type`: must be in shared enum
