@@ -21,6 +21,7 @@ export const mockAccounts = [
     meta: { tax_bucket: 'traditional', notes: 'Employer match 4%' },
     is_active: true,
     is_liability: false,
+    include_in_fi_portfolio: true,
     created_at: '2026-01-10T13:45:00Z',
   },
   {
@@ -33,6 +34,7 @@ export const mockAccounts = [
     meta: { tax_bucket: 'taxable', notes: '' },
     is_active: true,
     is_liability: false,
+    include_in_fi_portfolio: false,
     created_at: '2026-02-01T08:50:00Z',
   },
   {
@@ -45,6 +47,7 @@ export const mockAccounts = [
     meta: { tax_bucket: 'taxable', notes: '' },
     is_active: true,
     is_liability: false,
+    include_in_fi_portfolio: true,
     created_at: '2025-12-20T10:00:00Z',
   },
   {
@@ -57,6 +60,7 @@ export const mockAccounts = [
     meta: { tax_bucket: 'roth', notes: '' },
     is_active: true,
     is_liability: false,
+    include_in_fi_portfolio: true,
     created_at: '2026-01-20T10:00:00Z',
   },
   {
@@ -69,6 +73,7 @@ export const mockAccounts = [
     meta: { tax_bucket: 'none', notes: 'Annual fee due July' },
     is_active: true,
     is_liability: true,
+    include_in_fi_portfolio: false,
     created_at: '2026-01-15T12:00:00Z',
   },
   {
@@ -81,6 +86,7 @@ export const mockAccounts = [
     meta: { tax_bucket: 'taxable', notes: 'Emergency fund' },
     is_active: true,
     is_liability: false,
+    include_in_fi_portfolio: false,
     created_at: '2025-12-01T09:00:00Z',
   },
 ];

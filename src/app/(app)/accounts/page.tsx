@@ -103,6 +103,9 @@ function AccountsContent() {
         },
         is_active: true,
         is_liability: ['credit', 'loan', 'mortgage'].includes(form.get('account_type') as string),
+        include_in_fi_portfolio: ['brokerage', 'retirement', 'hsa'].includes(
+          form.get('account_type') as string,
+        ),
         created_at: new Date().toISOString(),
         balance: 0,
         balance_date: null,
