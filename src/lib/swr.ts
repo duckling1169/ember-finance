@@ -4,6 +4,8 @@ import {
   getAccounts,
   getAccountDetail,
   getHouseholdHoldings,
+  getNetWorthHistory,
+  getInvestmentHistory,
   getProfile,
   getMembers,
   getInvites,
@@ -61,6 +63,28 @@ export function useAccountDetail(accountId: string | undefined) {
 export function mutateAccountDetail(accountId: string) {
   return mutate(
     (key: unknown) => Array.isArray(key) && key[0] === 'account-detail' && key[2] === accountId,
+  );
+}
+
+// ── Household history (net worth / investments over time) ──
+
+export function useNetWorthHistory(from?: string, to?: string) {
+  const householdId = useHouseholdId();
+
+  return useSWR(
+    householdId ? ['net-worth-history', householdId, from, to] : null,
+    ([, id, f, t]) => getNetWorthHistory(id, f || undefined, t || undefined),
+    { revalidateOnFocus: false },
+  );
+}
+
+export function useInvestmentHistory(from?: string, to?: string) {
+  const householdId = useHouseholdId();
+
+  return useSWR(
+    householdId ? ['investment-history', householdId, from, to] : null,
+    ([, id, f, t]) => getInvestmentHistory(id, f || undefined, t || undefined),
+    { revalidateOnFocus: false },
   );
 }
 
