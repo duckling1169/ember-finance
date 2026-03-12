@@ -5,9 +5,11 @@ import { Card, CardHeader, CardTitle, CardAction, CardContent } from '@/componen
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select } from '@/components/ui/select';
+import { Alert } from '@/components/ui/alert';
 import { InfoTip } from '@/components/ui/info-tip';
 import { IconChevronDown, IconChevronUp } from '@tabler/icons-react';
 import { updateScenario } from '@/lib/api';
+import { useFlash } from '@/lib/use-flash';
 import { mutateScenarios, mutatePlanningComputed } from '@/lib/swr';
 
 import type { ResolvedScenario, ScenarioAssumptions, ContributionGrowthMode } from '@shared/types';
@@ -34,6 +36,7 @@ interface AssumptionsPanelProps {
 export function AssumptionsPanel({ scenario }: AssumptionsPanelProps) {
   const [open, setOpen] = useState(false);
   const [saving, setSaving] = useState(false);
+  const { flash, show: showFlash } = useFlash();
 
   const a = scenario.assumptions;
   const [grossReturn, setGrossReturn] = useState('');
@@ -68,8 +71,9 @@ export function AssumptionsPanel({ scenario }: AssumptionsPanelProps) {
       };
       await updateScenario(scenario.id, { assumptions });
       await Promise.all([mutateScenarios(), mutatePlanningComputed()]);
-    } catch {
-      /* toast */
+      showFlash('success', 'Assumptions saved');
+    } catch (err) {
+      showFlash('error', err instanceof Error ? err.message : 'Failed to save assumptions');
     } finally {
       setSaving(false);
     }
@@ -105,6 +109,15 @@ export function AssumptionsPanel({ scenario }: AssumptionsPanelProps) {
 
       {open && (
         <CardContent id={panelId}>
+          {flash && (
+            <Alert
+              variant={flash.type === 'error' ? 'error' : 'success'}
+              size="sm"
+              className="mb-3"
+            >
+              {flash.message}
+            </Alert>
+          )}
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
             <Field
               label="Gross Return (%)"
