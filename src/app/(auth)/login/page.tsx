@@ -89,12 +89,7 @@ export default function LoginPage() {
               </p>
             )}
 
-            <Button
-              type="submit"
-              variant="outline"
-              disabled={loading}
-              className="w-full hover:bg-primary hover:text-primary-foreground hover:border-primary"
-            >
+            <Button type="submit" variant="primary-outline" disabled={loading} className="w-full">
               {loading ? '...' : isSignUp ? 'Sign Up' : 'Sign In'}
             </Button>
           </form>

@@ -20,6 +20,8 @@ import {
 import type { EnrichedAccount } from '@shared/types';
 import { cn } from '@/lib/utils';
 import { Card, CardContent } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
+import { Alert } from '@/components/ui/alert';
 import { AreaChart, DonutChart, CHART_COLORS } from '@/components/charts';
 import { fmt } from '@/lib/formatters';
 import { TAX_BUCKET_LABELS } from '@/lib/constants';
@@ -168,9 +170,7 @@ export default function DashboardPage() {
     return (
       <div className="space-y-3">
         <h1 className="text-2xl font-semibold">Dashboard</h1>
-        <div className="rounded-md bg-destructive/10 p-4 text-sm text-destructive">
-          Failed to load dashboard data. {msg}
-        </div>
+        <Alert variant="error">Failed to load dashboard data. {msg}</Alert>
       </div>
     );
   }
@@ -224,7 +224,7 @@ export default function DashboardPage() {
       {/* Row 1: Net worth chart (2/3) + stacked donuts (1/3) */}
       <div className="grid gap-3 lg:grid-cols-3">
         {/* Net worth over time */}
-        <Card className="lg:col-span-2 flex flex-col p-2 gap-0">
+        <Card size="flush" className="lg:col-span-2 flex flex-col">
           <CardContent className="flex flex-col flex-1">
             <div>
               <p className="text-sm text-muted-foreground mb-0.5">Net Worth</p>
@@ -238,7 +238,7 @@ export default function DashboardPage() {
         {/* Stacked donuts */}
         <div className="flex flex-col gap-3">
           {/* Accounts by value */}
-          <Card className="flex-1 flex p-2 gap-0">
+          <Card size="flush" className="flex-1 flex">
             <CardContent className="flex flex-col justify-center flex-1">
               <p className="text-sm text-muted-foreground mb-2">Accounts by Value</p>
               {accountsByValue.length > 0 ? (
@@ -273,7 +273,7 @@ export default function DashboardPage() {
           </Card>
 
           {/* Tax buckets by value */}
-          <Card className="flex-1 flex p-2 gap-0">
+          <Card size="flush" className="flex-1 flex">
             <CardContent className="flex flex-col justify-center flex-1">
               <p className="text-sm text-muted-foreground mb-2">Tax Buckets</p>
               {taxBuckets.length > 0 ? (
@@ -312,7 +312,7 @@ export default function DashboardPage() {
         {/* Stacked donuts */}
         <div className="flex flex-col gap-3">
           {/* Holdings by value */}
-          <Card className="flex-1 flex p-2 gap-0 overflow-hidden">
+          <Card size="flush" className="flex-1 flex overflow-hidden">
             <CardContent className="flex flex-col items-center justify-center flex-1 relative overflow-hidden">
               <p className="text-sm text-muted-foreground mb-2 self-start shrink-0">
                 Holdings by Value
@@ -337,7 +337,7 @@ export default function DashboardPage() {
                           />
                           <span className="font-medium text-foreground">{h.symbol}</span>
                           <span className="ml-auto font-mono tabular-nums">
-                            {((h.value / holdingsTotal) * 100).toFixed(1)}%
+                            {((h.value / holdingsTotal) * 100).toFixed(0)}%
                           </span>
                         </span>
                       ))}
@@ -352,7 +352,7 @@ export default function DashboardPage() {
           </Card>
 
           {/* Investments by account */}
-          <Card className="flex-1 flex p-2 gap-0">
+          <Card size="flush" className="flex-1 flex">
             <CardContent className="flex flex-col items-center justify-center flex-1">
               <p className="text-sm text-muted-foreground mb-2 self-start">
                 Investments by Account
@@ -392,7 +392,7 @@ export default function DashboardPage() {
         </div>
 
         {/* Investments over time */}
-        <Card className="lg:col-span-2 flex flex-col p-2 gap-0">
+        <Card size="flush" className="lg:col-span-2 flex flex-col">
           <CardContent className="flex flex-col flex-1">
             <div>
               <p className="text-sm text-muted-foreground mb-0.5">Investments</p>
@@ -466,18 +466,18 @@ function RangeFilter({
       </div>
       {value === 'Custom' && (
         <div className="flex items-center gap-1.5 text-xs">
-          <input
+          <Input
             type="date"
             value={customStart}
             onChange={(e) => onCustomStartChange(e.target.value)}
-            className="rounded border border-border bg-background px-1.5 py-0.5 text-xs text-foreground"
+            className="h-7 w-auto px-1.5 text-xs"
           />
           <span className="text-muted-foreground">–</span>
-          <input
+          <Input
             type="date"
             value={customEnd}
             onChange={(e) => onCustomEndChange(e.target.value)}
-            className="rounded border border-border bg-background px-1.5 py-0.5 text-xs text-foreground"
+            className="h-7 w-auto px-1.5 text-xs"
           />
         </div>
       )}

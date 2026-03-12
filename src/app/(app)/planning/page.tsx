@@ -39,7 +39,7 @@ export default function PlanningPage() {
     <div className="space-y-3">
       {/* Header */}
       <div className="flex items-center justify-between">
-        <h1 className="text-lg font-semibold">Accumulation Planning</h1>
+        <h1 className="text-2xl font-semibold">Accumulation Planning</h1>
         <ScenarioSelector value={scenarioId} onChange={handleScenarioChange} />
       </div>
 
@@ -64,7 +64,7 @@ export default function PlanningPage() {
       {/* FI Portfolio Value */}
       {metricsData && (
         <Card size="sm" className="p-3">
-          <div className="text-[11px] text-muted-foreground">FI Portfolio Value</div>
+          <div className="text-xs text-muted-foreground">FI Portfolio Value</div>
           <div className="font-mono text-xl font-semibold tabular-nums">
             {fmt(metricsData.fi_portfolio_value)}
           </div>

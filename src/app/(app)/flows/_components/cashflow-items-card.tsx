@@ -5,8 +5,10 @@ import { useFlash } from '@/lib/use-flash';
 import { Card, CardHeader, CardTitle, CardAction, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Select } from '@/components/ui/select';
+import { Alert } from '@/components/ui/alert';
 import { IconPlus, IconPencil, IconTrash, IconCheck, IconX } from '@tabler/icons-react';
-import { cn } from '@/lib/utils';
+
 import { fmt } from '@/lib/formatters';
 import {
   useCashflowItems,
@@ -137,16 +139,9 @@ export function CashflowItemsCard({ memberId }: CashflowItemsCardProps) {
       </CardHeader>
       <CardContent className="space-y-3">
         {flash && (
-          <div
-            className={cn(
-              'rounded-md px-3 py-1.5 text-xs',
-              flash.type === 'error'
-                ? 'bg-destructive/10 text-destructive'
-                : 'bg-gain/10 text-gain',
-            )}
-          >
+          <Alert variant={flash.type === 'error' ? 'error' : 'success'} size="sm">
             {flash.message}
-          </div>
+          </Alert>
         )}
 
         {isLoading && <p className="text-sm text-muted-foreground">Loading...</p>}
@@ -226,16 +221,16 @@ function ItemRow({
       <div className="min-w-0 flex-1">
         <div className="flex items-center gap-2">
           <span className="truncate text-sm font-medium">{item.name}</span>
-          <span className="shrink-0 rounded bg-muted px-1.5 py-0.5 text-[10px] text-muted-foreground">
+          <span className="shrink-0 rounded bg-muted px-1.5 py-0.5 text-xs text-muted-foreground">
             {tag}
           </span>
           {taxLabel && (
-            <span className="shrink-0 rounded bg-muted px-1.5 py-0.5 text-[10px] text-muted-foreground">
+            <span className="shrink-0 rounded bg-muted px-1.5 py-0.5 text-xs text-muted-foreground">
               {taxLabel}
             </span>
           )}
           {item.bucket === 'expense' && item.category && (
-            <span className="shrink-0 rounded bg-muted px-1.5 py-0.5 text-[10px] text-muted-foreground">
+            <span className="shrink-0 rounded bg-muted px-1.5 py-0.5 text-xs text-muted-foreground">
               {item.category}
             </span>
           )}
@@ -283,11 +278,6 @@ function InlineNewAccount({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
 
-  const selectCn = cn(
-    'flex h-7 w-full rounded-md border border-input bg-card px-2 text-xs',
-    'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50',
-  );
-
   async function handleCreate() {
     if (!acctName.trim()) return;
     setBusy(true);
@@ -311,7 +301,7 @@ function InlineNewAccount({
     <div className="space-y-1.5 rounded-md border border-dashed border-border bg-muted/20 p-2">
       <div className="flex flex-wrap items-end gap-2">
         <div className="min-w-[100px] flex-1">
-          <label className="text-[10px] text-muted-foreground">Account Name</label>
+          <label className="text-xs text-muted-foreground">Account Name</label>
           <Input
             value={acctName}
             onChange={(e) => setAcctName(e.target.value)}
@@ -320,32 +310,32 @@ function InlineNewAccount({
           />
         </div>
         <div className="w-[110px]">
-          <label className="text-[10px] text-muted-foreground">Type</label>
-          <select
+          <label className="text-xs text-muted-foreground">Type</label>
+          <Select
             value={acctType}
             onChange={(e) => setAcctType(e.target.value as AccountType)}
-            className={selectCn}
+            className="h-7 px-2 text-xs"
           >
             {INLINE_ACCOUNT_TYPES.map((o) => (
               <option key={o.value} value={o.value}>
                 {o.label}
               </option>
             ))}
-          </select>
+          </Select>
         </div>
         <div className="w-[100px]">
-          <label className="text-[10px] text-muted-foreground">Tax Bucket</label>
-          <select
+          <label className="text-xs text-muted-foreground">Tax Bucket</label>
+          <Select
             value={taxBucket}
             onChange={(e) => setTaxBucket(e.target.value as TaxBucket)}
-            className={selectCn}
+            className="h-7 px-2 text-xs"
           >
             {TAX_BUCKET_OPTIONS.map((o) => (
               <option key={o.value} value={o.value}>
                 {o.label}
               </option>
             ))}
-          </select>
+          </Select>
         </div>
         <div className="flex h-7 items-center gap-1">
           <Button
@@ -362,7 +352,7 @@ function InlineNewAccount({
           </Button>
         </div>
       </div>
-      {error && <p className="text-[10px] text-destructive">{error}</p>}
+      {error && <p className="text-xs text-destructive">{error}</p>}
     </div>
   );
 }
@@ -424,17 +414,14 @@ function ItemInlineForm({
     });
   }
 
-  const selectCn = cn(
-    'flex h-7 w-full rounded-md border border-input bg-card px-2 text-xs',
-    'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50',
-  );
+  const compactSelect = 'h-7 px-2 text-xs';
 
   return (
     <form onSubmit={handleSubmit} className="space-y-2 rounded-md bg-muted/30 p-2">
       {/* Row 1: core fields */}
       <div className="flex flex-wrap items-end gap-2">
         <div className="min-w-[120px] flex-1">
-          <label className="text-[10px] text-muted-foreground">Name</label>
+          <label className="text-xs text-muted-foreground">Name</label>
           <Input
             value={name}
             onChange={(e) => setName(e.target.value)}
@@ -443,21 +430,21 @@ function ItemInlineForm({
           />
         </div>
         <div className="w-[150px]">
-          <label className="text-[10px] text-muted-foreground">Type</label>
-          <select
+          <label className="text-xs text-muted-foreground">Type</label>
+          <Select
             value={bucket}
             onChange={(e) => setBucket(e.target.value as CashflowBucket)}
-            className={selectCn}
+            className={compactSelect}
           >
             {BUCKET_OPTIONS.map((o) => (
               <option key={o.value} value={o.value}>
                 {o.label}
               </option>
             ))}
-          </select>
+          </Select>
         </div>
         <div className="w-[100px]">
-          <label className="text-[10px] text-muted-foreground">Amount</label>
+          <label className="text-xs text-muted-foreground">Amount</label>
           <Input
             type="number"
             step="0.01"
@@ -469,18 +456,18 @@ function ItemInlineForm({
           />
         </div>
         <div className="w-[100px]">
-          <label className="text-[10px] text-muted-foreground">Frequency</label>
-          <select
+          <label className="text-xs text-muted-foreground">Frequency</label>
+          <Select
             value={frequency}
             onChange={(e) => setFrequency(e.target.value as CashflowFrequency)}
-            className={selectCn}
+            className={compactSelect}
           >
             {CASHFLOW_FREQUENCIES.map((f) => (
               <option key={f} value={f}>
                 {FREQ_LABELS[f]}
               </option>
             ))}
-          </select>
+          </Select>
         </div>
       </div>
 
@@ -488,11 +475,11 @@ function ItemInlineForm({
       <div className="flex flex-wrap items-end gap-2">
         {showFromIncome && incomeSources && incomeSources.length > 0 && (
           <div className="w-[140px]">
-            <label className="text-[10px] text-muted-foreground">From Income</label>
-            <select
+            <label className="text-xs text-muted-foreground">From Income</label>
+            <Select
               value={incomeSourceId}
               onChange={(e) => setIncomeSourceId(e.target.value)}
-              className={selectCn}
+              className={compactSelect}
             >
               <option value="">Any</option>
               {incomeSources.map((s) => (
@@ -500,14 +487,14 @@ function ItemInlineForm({
                   {s.name}
                 </option>
               ))}
-            </select>
+            </Select>
           </div>
         )}
 
         {showToAccount && (
           <div className="w-[170px]">
-            <label className="text-[10px] text-muted-foreground">To Account</label>
-            <select
+            <label className="text-xs text-muted-foreground">To Account</label>
+            <Select
               value={destAccountId}
               onChange={(e) => {
                 if (e.target.value === '__new__') {
@@ -516,7 +503,7 @@ function ItemInlineForm({
                   setDestAccountId(e.target.value);
                 }
               }}
-              className={selectCn}
+              className={compactSelect}
             >
               <option value="">None</option>
               {(accounts ?? []).map((a) => (
@@ -525,17 +512,17 @@ function ItemInlineForm({
                 </option>
               ))}
               <option value="__new__">+ New Account</option>
-            </select>
+            </Select>
           </div>
         )}
 
         {showCategory && expenseCategories && expenseCategories.length > 0 && (
           <div className="w-[130px]">
-            <label className="text-[10px] text-muted-foreground">Category</label>
-            <select
+            <label className="text-xs text-muted-foreground">Category</label>
+            <Select
               value={category}
               onChange={(e) => setCategory(e.target.value)}
-              className={selectCn}
+              className={compactSelect}
             >
               <option value="">None</option>
               {expenseCategories.map((c) => (
@@ -543,7 +530,7 @@ function ItemInlineForm({
                   {c.name}
                 </option>
               ))}
-            </select>
+            </Select>
           </div>
         )}
 

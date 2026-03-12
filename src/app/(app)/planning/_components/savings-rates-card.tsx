@@ -36,7 +36,7 @@ function RateDisplay({
 }) {
   return (
     <div>
-      <div className="text-[11px] text-muted-foreground">{label}</div>
+      <div className="text-xs text-muted-foreground">{label}</div>
       <div className={`font-mono text-lg tabular-nums ${highlight ? 'font-semibold' : ''}`}>
         {fmtPct(value)}
       </div>

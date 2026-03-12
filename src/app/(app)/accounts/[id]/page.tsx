@@ -24,7 +24,9 @@ import { TAX_BUCKET_LABELS, API_PROVIDERS } from '@/lib/constants';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { BalanceChart } from '@/components/charts';
 import { Input } from '@/components/ui/input';
+import { Select } from '@/components/ui/select';
 import { Button } from '@/components/ui/button';
+import { Alert } from '@/components/ui/alert';
 import {
   IconArrowLeft,
   IconPlugConnected,
@@ -163,9 +165,9 @@ export default function AccountDetailPage({ params }: { params: Promise<{ id: st
           <IconArrowLeft size={16} />
           Back to Accounts
         </Link>
-        <div className="rounded-md bg-destructive/10 p-4 text-sm text-destructive">
+        <Alert variant="error">
           Failed to load account. {error.message || 'Please try again later.'}
-        </div>
+        </Alert>
       </div>
     );
   }
@@ -287,8 +289,8 @@ function OverviewTab({
     <div className="space-y-3">
       {/* Balance over time chart */}
       {balanceHistory.length > 1 && (
-        <Card>
-          <CardContent className="pt-5">
+        <Card size="sm">
+          <CardContent>
             <p className="text-sm text-muted-foreground mb-3">Balance Over Time</p>
             <BalanceChart data={balanceHistory} />
           </CardContent>
@@ -374,11 +376,7 @@ function OverviewTab({
                   </p>
                 </div>
               </div>
-              <Button
-                variant="outline"
-                size="sm"
-                className="hover:bg-primary hover:text-primary-foreground hover:border-primary"
-              >
+              <Button variant="primary-outline" size="sm">
                 <IconLink size={14} />
                 Link Account
               </Button>
@@ -528,9 +526,7 @@ function HistoryTab({
 
   return (
     <div className="space-y-3">
-      {formError && (
-        <div className="rounded-md bg-destructive/10 p-3 text-sm text-destructive">{formError}</div>
-      )}
+      {formError && <Alert variant="error">{formError}</Alert>}
 
       {/* Action buttons */}
       <div className="flex justify-end gap-2">
@@ -549,8 +545,7 @@ function HistoryTab({
         ) : (
           <>
             <Button
-              variant="outline"
-              className="hover:bg-primary hover:text-primary-foreground hover:border-primary"
+              variant="primary-outline"
               onClick={() => {
                 setShowUpload(true);
                 setShowManualForm(false);
@@ -560,8 +555,7 @@ function HistoryTab({
               Upload File
             </Button>
             <Button
-              variant="outline"
-              className="hover:bg-primary hover:text-primary-foreground hover:border-primary"
+              variant="primary-outline"
               onClick={() => {
                 setShowManualForm(true);
                 setShowUpload(false);
@@ -627,14 +621,10 @@ function HistoryTab({
               <div className="grid gap-4 sm:grid-cols-2">
                 <div>
                   <label className="mb-1.5 block text-sm font-medium">Type</label>
-                  <select
-                    name="entry_type"
-                    required
-                    className="h-9 w-full rounded-md border border-input bg-card px-3 text-sm outline-none focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/50"
-                  >
+                  <Select name="entry_type" required>
                     <option value="current">Current Balance (override)</option>
                     <option value="delta">Delta (add/subtract)</option>
-                  </select>
+                  </Select>
                 </div>
                 <div>
                   <label className="mb-1.5 block text-sm font-medium">Amount</label>
@@ -646,12 +636,7 @@ function HistoryTab({
                 <Input name="description" placeholder="Deposit, adjustment, etc." />
               </div>
               <div className="flex justify-end">
-                <Button
-                  type="submit"
-                  variant="outline"
-                  disabled={submitting}
-                  className="hover:bg-primary hover:text-primary-foreground hover:border-primary"
-                >
+                <Button type="submit" variant="primary-outline" disabled={submitting}>
                   <IconCheck size={16} />
                   {submitting ? 'Saving...' : 'Save Entry'}
                 </Button>

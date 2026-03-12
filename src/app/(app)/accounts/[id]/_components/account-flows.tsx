@@ -5,8 +5,10 @@ import { useFlash } from '@/lib/use-flash';
 import { Card, CardHeader, CardTitle, CardAction, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Select } from '@/components/ui/select';
+import { Alert } from '@/components/ui/alert';
 import { IconPlus, IconPencil, IconTrash, IconCheck, IconX } from '@tabler/icons-react';
-import { cn } from '@/lib/utils';
+
 import { fmt } from '@/lib/formatters';
 import { TAX_BUCKET_LABELS } from '@/lib/constants';
 import {
@@ -163,16 +165,9 @@ export function AccountFlows({ accountId, taxTreatment: accountTax, memberId }: 
       </CardHeader>
       <CardContent>
         {flash && (
-          <div
-            className={cn(
-              'mb-2 rounded-md px-3 py-1.5 text-xs',
-              flash.type === 'error'
-                ? 'bg-destructive/10 text-destructive'
-                : 'bg-gain/10 text-gain',
-            )}
-          >
+          <Alert variant={flash.type === 'error' ? 'error' : 'success'} size="sm" className="mb-2">
             {flash.message}
-          </div>
+          </Alert>
         )}
 
         {isLoading ? (
@@ -263,7 +258,7 @@ function FlowRow({
       <div className="min-w-0 flex-1">
         <div className="flex items-center gap-2">
           <span className="truncate text-sm font-medium">{item.name}</span>
-          <span className="shrink-0 rounded bg-muted px-1.5 py-0.5 text-[10px] text-muted-foreground">
+          <span className="shrink-0 rounded bg-muted px-1.5 py-0.5 text-xs text-muted-foreground">
             {badge}
           </span>
         </div>
@@ -318,9 +313,6 @@ function FlowForm({
 
   const [sourceType, setSourceType] = useState(defaultSourceType);
 
-  const selectCn =
-    'h-9 w-full rounded-md border border-input bg-card px-3 text-sm focus-visible:outline-none focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/50';
-
   function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     onSubmit(new FormData(e.currentTarget));
@@ -335,18 +327,13 @@ function FlowForm({
         </div>
         <div>
           <label className="mb-1.5 block text-sm font-medium">Type</label>
-          <select
-            name="bucket"
-            required
-            defaultValue={item?.bucket ?? defaultBucket ?? 'saving'}
-            className={selectCn}
-          >
+          <Select name="bucket" required defaultValue={item?.bucket ?? defaultBucket ?? 'saving'}>
             {BUCKET_OPTIONS.map((o) => (
               <option key={o.value} value={o.value}>
                 {o.label}
               </option>
             ))}
-          </select>
+          </Select>
         </div>
       </div>
 
@@ -365,39 +352,33 @@ function FlowForm({
         </div>
         <div>
           <label className="mb-1.5 block text-sm font-medium">Frequency</label>
-          <select
-            name="frequency"
-            required
-            defaultValue={item?.frequency || 'monthly'}
-            className={selectCn}
-          >
+          <Select name="frequency" required defaultValue={item?.frequency || 'monthly'}>
             {CASHFLOW_FREQUENCIES.map((f) => (
               <option key={f} value={f}>
                 {FREQ_LABELS[f]}
               </option>
             ))}
-          </select>
+          </Select>
         </div>
       </div>
 
       <div className="grid gap-3 sm:grid-cols-2">
         <div>
           <label className="mb-1.5 block text-sm font-medium">Source</label>
-          <select
+          <Select
             name="source_type"
             value={sourceType}
             onChange={(e) => setSourceType(e.target.value)}
-            className={selectCn}
           >
             <option value="income">From income source</option>
             <option value="account">From account</option>
-          </select>
+          </Select>
         </div>
         <div>
           <label className="mb-1.5 block text-sm font-medium">
             {sourceType === 'income' ? 'Income Source' : 'Source Account'}
           </label>
-          <select name="source_id" defaultValue={defaultSourceId} className={selectCn}>
+          <Select name="source_id" defaultValue={defaultSourceId}>
             <option value="">None</option>
             {sourceType === 'income'
               ? incomeSources.map((s) => (
@@ -410,7 +391,7 @@ function FlowForm({
                     {a.name}
                   </option>
                 ))}
-          </select>
+          </Select>
         </div>
       </div>
 

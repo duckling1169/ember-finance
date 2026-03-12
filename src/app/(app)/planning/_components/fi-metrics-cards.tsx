@@ -71,8 +71,8 @@ function MetricCard({
 }) {
   return (
     <Card size="sm" className="p-3">
-      <div className="text-[11px] text-muted-foreground">{label}</div>
-      {value && <div className="font-mono text-base font-medium tabular-nums">{value}</div>}
+      <div className="text-xs text-muted-foreground">{label}</div>
+      {value && <div className="font-mono text-xl font-semibold tabular-nums">{value}</div>}
       {children}
     </Card>
   );

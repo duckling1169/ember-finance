@@ -5,8 +5,10 @@ import { useFlash } from '@/lib/use-flash';
 import { Card, CardHeader, CardTitle, CardAction, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Select } from '@/components/ui/select';
+import { Alert } from '@/components/ui/alert';
 import { IconPlus, IconPencil, IconTrash, IconCheck, IconX } from '@tabler/icons-react';
-import { cn } from '@/lib/utils';
+
 import { fmt } from '@/lib/formatters';
 import { useIncomeSources, mutateIncomeSources, mutatePlanningComputed } from '@/lib/swr';
 import { createIncomeSource, updateIncomeSource, deleteIncomeSource } from '@/lib/api';
@@ -97,16 +99,9 @@ export function IncomeSourcesCard({ memberId }: IncomeSourcesCardProps) {
       </CardHeader>
       <CardContent className="space-y-1">
         {flash && (
-          <div
-            className={cn(
-              'rounded-md px-3 py-1.5 text-xs',
-              flash.type === 'error'
-                ? 'bg-destructive/10 text-destructive'
-                : 'bg-gain/10 text-gain',
-            )}
-          >
+          <Alert variant={flash.type === 'error' ? 'error' : 'success'} size="sm">
             {flash.message}
-          </div>
+          </Alert>
         )}
 
         {isLoading && <p className="text-sm text-muted-foreground">Loading...</p>}
@@ -164,7 +159,7 @@ function SourceRow({
       <div className="min-w-0 flex-1">
         <div className="flex items-center gap-2">
           <span className="truncate text-sm font-medium">{source.name}</span>
-          <span className="shrink-0 rounded bg-muted px-1.5 py-0.5 text-[10px] text-muted-foreground">
+          <span className="shrink-0 rounded bg-muted px-1.5 py-0.5 text-xs text-muted-foreground">
             {TYPE_LABELS[source.type]}
           </span>
         </div>
@@ -210,18 +205,13 @@ function InlineForm({
     onSave({ member_id: memberId, name: name.trim(), type, gross_amount: parsed, frequency });
   }
 
-  const selectCn = cn(
-    'flex h-7 w-full rounded-md border border-input bg-card px-2 text-xs',
-    'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50',
-  );
-
   return (
     <form
       onSubmit={handleSubmit}
       className="flex flex-wrap items-end gap-2 rounded-md bg-muted/30 p-2"
     >
       <div className="min-w-[120px] flex-1">
-        <label className="text-[10px] text-muted-foreground">Name</label>
+        <label className="text-xs text-muted-foreground">Name</label>
         <Input
           value={name}
           onChange={(e) => setName(e.target.value)}
@@ -230,21 +220,21 @@ function InlineForm({
         />
       </div>
       <div className="w-[120px]">
-        <label className="text-[10px] text-muted-foreground">Type</label>
-        <select
+        <label className="text-xs text-muted-foreground">Type</label>
+        <Select
           value={type}
           onChange={(e) => setType(e.target.value as IncomeSourceType)}
-          className={selectCn}
+          className="h-7 px-2 text-xs"
         >
           {INCOME_SOURCE_TYPES.map((t) => (
             <option key={t} value={t}>
               {TYPE_LABELS[t]}
             </option>
           ))}
-        </select>
+        </Select>
       </div>
       <div className="w-[100px]">
-        <label className="text-[10px] text-muted-foreground">Amount</label>
+        <label className="text-xs text-muted-foreground">Amount</label>
         <Input
           type="number"
           step="0.01"
@@ -256,18 +246,18 @@ function InlineForm({
         />
       </div>
       <div className="w-[100px]">
-        <label className="text-[10px] text-muted-foreground">Frequency</label>
-        <select
+        <label className="text-xs text-muted-foreground">Frequency</label>
+        <Select
           value={frequency}
           onChange={(e) => setFrequency(e.target.value as CashflowFrequency)}
-          className={selectCn}
+          className="h-7 px-2 text-xs"
         >
           {CASHFLOW_FREQUENCIES.map((f) => (
             <option key={f} value={f}>
               {FREQ_LABELS[f]}
             </option>
           ))}
-        </select>
+        </Select>
       </div>
       <div className="flex h-7 items-center gap-1">
         <Button type="submit" variant="ghost" size="icon-xs" disabled={saving}>

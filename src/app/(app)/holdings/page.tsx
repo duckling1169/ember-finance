@@ -11,6 +11,7 @@ import {
 import type { HouseholdHoldingsResponse } from '@shared/types';
 import { useHouseholdHoldings, useAccounts } from '@/lib/swr';
 import { Card, CardContent } from '@/components/ui/card';
+import { Alert } from '@/components/ui/alert';
 import {
   Table,
   TableHeader,
@@ -155,9 +156,7 @@ export default function HoldingsPage() {
     return (
       <div className="space-y-3">
         <h1 className="text-2xl font-semibold">Holdings</h1>
-        <div className="rounded-md bg-destructive/10 p-4 text-sm text-destructive">
-          Failed to load holdings data. {msg}
-        </div>
+        <Alert variant="error">Failed to load holdings data. {msg}</Alert>
       </div>
     );
   }
@@ -268,21 +267,21 @@ export default function HoldingsPage() {
       </div>
 
       {/* Summary */}
-      <div className="grid gap-4 sm:grid-cols-3">
-        <Card>
-          <CardContent className="pt-5">
+      <div className="grid gap-3 sm:grid-cols-3">
+        <Card size="sm">
+          <CardContent>
             <p className="text-sm text-muted-foreground">Total Value</p>
             <p className="mt-1 text-xl font-semibold font-mono tabular-nums">{fmt(totalValue)}</p>
           </CardContent>
         </Card>
-        <Card>
-          <CardContent className="pt-5">
+        <Card size="sm">
+          <CardContent>
             <p className="text-sm text-muted-foreground">Cost Basis</p>
             <p className="mt-1 text-xl font-semibold font-mono tabular-nums">{fmt(totalCost)}</p>
           </CardContent>
         </Card>
-        <Card>
-          <CardContent className="pt-5">
+        <Card size="sm">
+          <CardContent>
             <p className="text-sm text-muted-foreground">Unrealized Gain/Loss</p>
             <div className="mt-1 flex items-baseline gap-2">
               <span className="text-xl font-semibold">
@@ -296,8 +295,8 @@ export default function HoldingsPage() {
 
       {/* Allocation bar */}
       {holdings.length > 0 && (
-        <Card>
-          <CardContent className="pt-5">
+        <Card size="sm">
+          <CardContent>
             <p className="text-sm text-muted-foreground mb-3">Allocation</p>
             <div className="flex gap-0.5 h-4 rounded-full overflow-hidden">
               {holdings.map((h, i) => (
@@ -318,7 +317,9 @@ export default function HoldingsPage() {
                     style={{ backgroundColor: `var(--chart-${(i % 14) + 1})` }}
                   />
                   <span className="font-medium text-foreground">{h.symbol}</span>
-                  {((h.value / totalValue) * 100).toFixed(1)}%
+                  <span className="ml-auto font-mono tabular-nums">
+                    {((h.value / totalValue) * 100).toFixed(0)}%
+                  </span>
                 </span>
               ))}
             </div>
@@ -327,8 +328,8 @@ export default function HoldingsPage() {
       )}
 
       {/* Holdings table */}
-      <Card>
-        <CardContent className="pt-5">
+      <Card size="sm">
+        <CardContent>
           <Table>
             <TableHeader>
               <TableRow>
@@ -590,7 +591,7 @@ function HoldingRow({
               <TableCell className="text-xs text-muted-foreground">
                 {lot.acquired_date}
                 <span
-                  className={`ml-1.5 px-1 py-0.5 rounded text-[10px] font-medium ${lot.holding_period === 'long_term' ? 'bg-primary/10 text-primary' : 'bg-muted text-muted-foreground'}`}
+                  className={`ml-1.5 px-1 py-0.5 rounded text-xs font-medium ${lot.holding_period === 'long_term' ? 'bg-primary/10 text-primary' : 'bg-muted text-muted-foreground'}`}
                 >
                   {lot.holding_period === 'long_term' ? 'LT' : 'ST'}
                 </span>
@@ -738,7 +739,7 @@ function LotDetailPanel({
                         <span className="text-muted-foreground">
                           {lot.acquired_date}
                           <span
-                            className={`ml-1.5 px-1 py-0.5 rounded text-[10px] font-medium ${lot.holding_period === 'long_term' ? 'bg-primary/10 text-primary' : 'bg-muted text-muted-foreground'}`}
+                            className={`ml-1.5 px-1 py-0.5 rounded text-xs font-medium ${lot.holding_period === 'long_term' ? 'bg-primary/10 text-primary' : 'bg-muted text-muted-foreground'}`}
                           >
                             {lot.holding_period === 'long_term' ? 'Long' : 'Short'}
                           </span>
@@ -779,7 +780,7 @@ function LotDetailPanel({
               <span>
                 {lot.acquired_date} &middot; {lot.quantity} sh
               </span>
-              <span className="px-1.5 py-0.5 rounded bg-muted text-[10px] font-medium">
+              <span className="px-1.5 py-0.5 rounded bg-muted text-xs font-medium">
                 {lot.source.replace('_', ' ')}
               </span>
             </div>
