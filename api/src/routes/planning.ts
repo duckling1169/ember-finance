@@ -13,6 +13,8 @@ import {
   type UpdateIncomeSourceInput,
   type CreatePlanningScenarioInput,
   type UpdatePlanningScenarioInput,
+  type CreateExpenseCategoryInput,
+  type UpdateExpenseCategoryInput,
 } from '../types/index.js';
 import type { AuthEnv } from '../middleware/auth.js';
 import { computeHouseholdWaterfall } from '../engine/household.js';
@@ -171,10 +173,13 @@ const CASHFLOW_UPDATABLE_FIELDS = new Set([
   'start_date',
   'end_date',
   'income_source_id',
+  'source_account_id',
   'destination_account_id',
+  'category',
+  'is_essential',
 ]);
 
-planningRoute.get('/items', async (c) => {
+planningRoute.get('/flows', async (c) => {
   const householdId = c.get('householdId');
   const db = c.get('userClient');
   const memberFilter = c.req.query('member_id');
@@ -195,7 +200,7 @@ planningRoute.get('/items', async (c) => {
   return c.json(data);
 });
 
-planningRoute.post('/items', async (c) => {
+planningRoute.post('/flows', async (c) => {
   const householdId = c.get('householdId');
   const db = c.get('userClient');
   const body = await c.req.json<CreateCashflowItemInput>();
@@ -236,7 +241,10 @@ planningRoute.post('/items', async (c) => {
       start_date: body.start_date,
       end_date: body.end_date || null,
       income_source_id: body.income_source_id || null,
+      source_account_id: body.source_account_id || null,
       destination_account_id: body.destination_account_id || null,
+      category: body.category || null,
+      is_essential: body.is_essential ?? true,
     })
     .select()
     .single();
@@ -245,9 +253,9 @@ planningRoute.post('/items', async (c) => {
   return c.json(data, 201);
 });
 
-planningRoute.patch('/items/:itemId', async (c) => {
+planningRoute.patch('/flows/:flowId', async (c) => {
   const householdId = c.get('householdId');
-  const itemId = c.req.param('itemId');
+  const flowId = c.req.param('flowId');
   const db = c.get('userClient');
   const body = await c.req.json<UpdateCashflowItemInput>();
 
@@ -279,7 +287,7 @@ planningRoute.patch('/items/:itemId', async (c) => {
   const { data, error } = await db
     .from('cashflow_item')
     .update(update)
-    .eq('id', itemId)
+    .eq('id', flowId)
     .eq('household_id', householdId)
     .select()
     .single();
@@ -291,19 +299,146 @@ planningRoute.patch('/items/:itemId', async (c) => {
   return c.json(data);
 });
 
-planningRoute.delete('/items/:itemId', async (c) => {
+planningRoute.delete('/flows/:flowId', async (c) => {
   const householdId = c.get('householdId');
-  const itemId = c.req.param('itemId');
+  const flowId = c.req.param('flowId');
   const db = c.get('userClient');
 
   const { error, count } = await db
     .from('cashflow_item')
     .delete({ count: 'exact' })
-    .eq('id', itemId)
+    .eq('id', flowId)
     .eq('household_id', householdId);
 
   if (error) return c.json({ error: error.message }, 500);
   if (count === 0) return c.json({ error: 'Item not found' }, 404);
+  return c.json({ success: true });
+});
+
+// ── Expense Categories ──
+
+planningRoute.get('/expense-categories', async (c) => {
+  const householdId = c.get('householdId');
+  const db = c.get('userClient');
+
+  const { data, error } = await db
+    .from('expense_category')
+    .select('*')
+    .eq('household_id', householdId)
+    .order('name', { ascending: true });
+
+  if (error) return c.json({ error: error.message }, 500);
+  return c.json(data);
+});
+
+planningRoute.post('/expense-categories', async (c) => {
+  const householdId = c.get('householdId');
+  const db = c.get('userClient');
+  const body = await c.req.json<CreateExpenseCategoryInput>();
+
+  if (!body.name?.trim()) return c.json({ error: 'name is required' }, 400);
+
+  const { data, error } = await db
+    .from('expense_category')
+    .insert({
+      household_id: householdId,
+      name: body.name.trim(),
+      is_essential: body.is_essential ?? true,
+    })
+    .select()
+    .single();
+
+  if (error) {
+    if (error.code === '23505') return c.json({ error: 'Category name already exists' }, 409);
+    return c.json({ error: error.message }, 500);
+  }
+  return c.json(data, 201);
+});
+
+planningRoute.patch('/expense-categories/:categoryId', async (c) => {
+  const householdId = c.get('householdId');
+  const categoryId = c.req.param('categoryId');
+  const db = c.get('userClient');
+  const body = await c.req.json<UpdateExpenseCategoryInput>();
+
+  const update: Record<string, unknown> = { updated_at: new Date().toISOString() };
+  if (body.name !== undefined) update.name = body.name.trim();
+  if (body.is_essential !== undefined) update.is_essential = body.is_essential;
+
+  if (Object.keys(update).length === 1) {
+    return c.json({ error: 'No valid fields to update' }, 400);
+  }
+
+  // Get old category name for bulk-updating items
+  const { data: oldCat } = await db
+    .from('expense_category')
+    .select('name')
+    .eq('id', categoryId)
+    .eq('household_id', householdId)
+    .single();
+
+  if (!oldCat) return c.json({ error: 'Category not found' }, 404);
+
+  const { data, error } = await db
+    .from('expense_category')
+    .update(update)
+    .eq('id', categoryId)
+    .eq('household_id', householdId)
+    .select()
+    .single();
+
+  if (error) {
+    if (error.code === '23505') return c.json({ error: 'Category name already exists' }, 409);
+    return c.json({ error: error.message }, error.code === 'PGRST116' ? 404 : 500);
+  }
+
+  // Bulk-update matching cashflow items when is_essential or name changes
+  const itemUpdate: Record<string, unknown> = {};
+  if (body.is_essential !== undefined) itemUpdate.is_essential = body.is_essential;
+  if (body.name !== undefined && body.name.trim() !== oldCat.name) {
+    itemUpdate.category = body.name.trim();
+  }
+
+  if (Object.keys(itemUpdate).length > 0) {
+    await db
+      .from('cashflow_item')
+      .update(itemUpdate)
+      .eq('household_id', householdId)
+      .eq('category', oldCat.name);
+  }
+
+  return c.json(data);
+});
+
+planningRoute.delete('/expense-categories/:categoryId', async (c) => {
+  const householdId = c.get('householdId');
+  const categoryId = c.req.param('categoryId');
+  const db = c.get('userClient');
+
+  // Get the category name to null out references on items
+  const { data: cat } = await db
+    .from('expense_category')
+    .select('name')
+    .eq('id', categoryId)
+    .eq('household_id', householdId)
+    .single();
+
+  if (!cat) return c.json({ error: 'Category not found' }, 404);
+
+  // Null out category on matching items
+  await db
+    .from('cashflow_item')
+    .update({ category: null })
+    .eq('household_id', householdId)
+    .eq('category', cat.name);
+
+  const { error } = await db
+    .from('expense_category')
+    .delete()
+    .eq('id', categoryId)
+    .eq('household_id', householdId);
+
+  if (error) return c.json({ error: error.message }, 500);
   return c.json({ success: true });
 });
 

@@ -17,13 +17,7 @@ import {
 } from '@/components/ui/table';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import {
-  IconPlus,
-  IconX,
-  IconBuildingBank,
-  IconLink,
-  IconPlugConnected,
-} from '@tabler/icons-react';
+import { IconPlus, IconX, IconBuildingBank, IconPlugConnected } from '@tabler/icons-react';
 import { ACCOUNT_TYPES } from '@shared/types';
 import { fmt, timeAgo } from '@/lib/formatters';
 import { TAX_BUCKET_OPTIONS } from '@/lib/constants';
@@ -161,26 +155,14 @@ function AccountsContent() {
               Cancel
             </Button>
           ) : (
-            <>
-              <Button
-                variant="outline"
-                className="hover:bg-primary hover:text-primary-foreground hover:border-primary"
-                onClick={() => {
-                  /* TODO: Teller/Snap link flow */
-                }}
-              >
-                <IconLink size={16} />
-                Link Account
-              </Button>
-              <Button
-                variant="outline"
-                className="hover:bg-primary hover:text-primary-foreground hover:border-primary"
-                onClick={() => setShowForm(true)}
-              >
-                <IconPlus size={16} />
-                Add Manual
-              </Button>
-            </>
+            <Button
+              variant="outline"
+              className="hover:bg-primary hover:text-primary-foreground hover:border-primary"
+              onClick={() => setShowForm(true)}
+            >
+              <IconPlus size={16} />
+              Add Account
+            </Button>
           )}
         </div>
       </div>

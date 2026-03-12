@@ -9,6 +9,7 @@ import {
   IconWallet,
   IconArrowsExchange,
   IconArrowsSplit,
+  IconReceipt,
   IconTargetArrow,
   IconSettings,
   IconMenu2,
@@ -28,6 +29,7 @@ const navItems = [
   { href: '/holdings', label: 'Holdings', icon: IconWallet },
   { href: '/activity', label: 'Activity', icon: IconArrowsExchange },
   { href: '/flows', label: 'Flows', icon: IconArrowsSplit },
+  { href: '/budget', label: 'Budget', icon: IconReceipt },
   { href: '/planning', label: 'Planning', icon: IconTargetArrow },
 ];
 

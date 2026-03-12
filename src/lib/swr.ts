@@ -17,6 +17,7 @@ import {
   getCashflowSummary,
   getProjections,
   getMetrics,
+  getExpenseCategories,
 } from './api';
 import type { Household } from '@shared/types';
 
@@ -195,6 +196,18 @@ export function useIncomeSources(memberId?: string) {
 
 export function mutateIncomeSources() {
   return mutate((key: unknown) => Array.isArray(key) && key[0] === 'income-sources');
+}
+
+// ── Planning: Expense Categories ──
+
+export function useExpenseCategories() {
+  return useSWR('expense-categories', () => getExpenseCategories(), {
+    revalidateOnFocus: false,
+  });
+}
+
+export function mutateExpenseCategories() {
+  return mutate('expense-categories');
 }
 
 // ── Planning: Cashflow Items ──

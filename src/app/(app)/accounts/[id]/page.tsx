@@ -10,7 +10,14 @@ import {
   type AccountHistoryEvent,
 } from '@/lib/mock-data';
 import type { AccountDetailResponse } from '@shared/types';
-import { useAccountDetail, useAccounts, mutateAccountDetail, mutateAccounts } from '@/lib/swr';
+import {
+  useAccountDetail,
+  useAccounts,
+  useProfile,
+  mutateAccountDetail,
+  mutateAccounts,
+} from '@/lib/swr';
+import { AccountFlows } from './_components/account-flows';
 import { ingestManual, ingestCsv } from '@/lib/api';
 import { fmt, fmtDateTime } from '@/lib/formatters';
 import { TAX_BUCKET_LABELS, API_PROVIDERS } from '@/lib/constants';
@@ -254,7 +261,7 @@ export default function AccountDetailPage({ params }: { params: Promise<{ id: st
 
       {/* Tab content */}
       {activeTab === 'overview' && (
-        <OverviewTab account={account} balanceHistory={balanceHistory} />
+        <OverviewTab account={account} balanceHistory={balanceHistory} accountId={id} />
       )}
       {activeTab === 'history' && (
         <HistoryTab history={history} accountId={id} householdId={householdId} />
@@ -268,10 +275,14 @@ export default function AccountDetailPage({ params }: { params: Promise<{ id: st
 function OverviewTab({
   account,
   balanceHistory,
+  accountId,
 }: {
   account: AccountView;
   balanceHistory: { date: string; balance: number }[];
+  accountId: string;
 }) {
+  const { data: profile } = useProfile();
+
   return (
     <div className="space-y-3">
       {/* Balance over time chart */}
@@ -283,6 +294,13 @@ function OverviewTab({
           </CardContent>
         </Card>
       )}
+
+      {/* Flows into/out of this account */}
+      <AccountFlows
+        accountId={accountId}
+        taxTreatment={account.tax_bucket}
+        memberId={profile?.id}
+      />
 
       {/* Account details */}
       <Card>
