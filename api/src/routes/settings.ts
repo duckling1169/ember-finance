@@ -68,12 +68,33 @@ settingsRoute.patch('/household', async (c) => {
 
 settingsRoute.get('/profile', async (c) => {
   const memberId = c.get('memberId');
+  const householdId = c.get('householdId');
   const db = c.get('userClient');
 
   const { data, error } = await db.from('member').select('*').eq('id', memberId).single();
 
   if (error) return c.json({ error: error.message }, 500);
-  return c.json(data);
+
+  // Compute annual_income from income sources (SSOT) instead of the column
+  const { data: sources } = await db
+    .from('income_source')
+    .select('gross_amount, frequency, is_active')
+    .eq('household_id', householdId)
+    .eq('member_id', memberId)
+    .eq('is_active', true);
+
+  const FREQ_TO_ANNUAL: Record<string, number> = {
+    monthly: 12,
+    biweekly: 26,
+    annual: 1,
+    one_time: 0,
+  };
+
+  const computed = (sources ?? []).reduce((sum, s) => {
+    return sum + Number(s.gross_amount) * (FREQ_TO_ANNUAL[s.frequency] ?? 12);
+  }, 0);
+
+  return c.json({ ...data, annual_income: computed || null });
 });
 
 settingsRoute.patch('/profile', async (c) => {
@@ -103,7 +124,7 @@ settingsRoute.patch('/profile', async (c) => {
   if (body.displayName != null) update.display_name = body.displayName.trim();
   if (body.birthday != null) update.birthday = body.birthday;
   if (body.targetRetirementAge != null) update.target_retirement_age = body.targetRetirementAge;
-  if (body.annualIncome !== undefined) update.annual_income = body.annualIncome || null;
+  // annual_income is computed from income sources — not directly editable
   if (body.employmentType !== undefined) update.employment_type = body.employmentType || null;
   if (body.riskTolerance !== undefined) update.risk_tolerance = body.riskTolerance || null;
   if (body.stateOfResidence !== undefined)

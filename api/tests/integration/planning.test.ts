@@ -195,9 +195,9 @@ describe('Planning API', () => {
   let itemId: string;
   let oneTimeItemId: string;
 
-  describe('POST /api/planning/items', () => {
+  describe('POST /api/planning/flows', () => {
     it('creates a recurring salary inflow', async () => {
-      const res = await req('POST', '/api/planning/items', {
+      const res = await req('POST', '/api/planning/flows', {
         member_id: memberId,
         name: 'Base Salary',
         direction: 'inflow',
@@ -222,7 +222,7 @@ describe('Planning API', () => {
     });
 
     it('creates a one-time expense with correct defaults', async () => {
-      const res = await req('POST', '/api/planning/items', {
+      const res = await req('POST', '/api/planning/flows', {
         name: 'Moving Expenses',
         direction: 'outflow',
         bucket: 'expense',
@@ -240,7 +240,7 @@ describe('Planning API', () => {
     });
 
     it('creates an employer match inflow', async () => {
-      const res = await req('POST', '/api/planning/items', {
+      const res = await req('POST', '/api/planning/flows', {
         member_id: memberId,
         name: 'Employer 401k Match',
         direction: 'inflow',
@@ -258,7 +258,7 @@ describe('Planning API', () => {
     });
 
     it('creates a cashflow item with income_source_id and destination_account_id', async () => {
-      const res = await req('POST', '/api/planning/items', {
+      const res = await req('POST', '/api/planning/flows', {
         member_id: memberId,
         name: '401k Deferral',
         direction: 'outflow',
@@ -278,7 +278,7 @@ describe('Planning API', () => {
     });
 
     it('rejects invalid direction', async () => {
-      const res = await req('POST', '/api/planning/items', {
+      const res = await req('POST', '/api/planning/flows', {
         name: 'Bad',
         direction: 'sideways',
         bucket: 'salary',
@@ -290,7 +290,7 @@ describe('Planning API', () => {
     });
 
     it('rejects invalid bucket', async () => {
-      const res = await req('POST', '/api/planning/items', {
+      const res = await req('POST', '/api/planning/flows', {
         name: 'Bad',
         direction: 'inflow',
         bucket: 'fake_bucket',
@@ -302,7 +302,7 @@ describe('Planning API', () => {
     });
 
     it('rejects zero amount', async () => {
-      const res = await req('POST', '/api/planning/items', {
+      const res = await req('POST', '/api/planning/flows', {
         name: 'Bad',
         direction: 'inflow',
         bucket: 'salary',
@@ -314,7 +314,7 @@ describe('Planning API', () => {
     });
 
     it('rejects negative amount', async () => {
-      const res = await req('POST', '/api/planning/items', {
+      const res = await req('POST', '/api/planning/flows', {
         name: 'Bad',
         direction: 'outflow',
         bucket: 'expense',
@@ -326,16 +326,16 @@ describe('Planning API', () => {
     });
   });
 
-  describe('GET /api/planning/items', () => {
+  describe('GET /api/planning/flows', () => {
     it('lists all items for household', async () => {
-      const res = await req('GET', '/api/planning/items');
+      const res = await req('GET', '/api/planning/flows');
       expect(res.status).toBe(200);
       const data = await res.json();
       expect(data.length).toBe(4);
     });
 
     it('filters by member_id', async () => {
-      const res = await req('GET', `/api/planning/items?member_id=${memberId}`);
+      const res = await req('GET', `/api/planning/flows?member_id=${memberId}`);
       expect(res.status).toBe(200);
       const data = await res.json();
       expect(data.length).toBe(3); // salary + employer match + 401k deferral
@@ -343,9 +343,9 @@ describe('Planning API', () => {
     });
   });
 
-  describe('PATCH /api/planning/items/:itemId', () => {
+  describe('PATCH /api/planning/flows/:itemId', () => {
     it('updates item fields', async () => {
-      const res = await req('PATCH', `/api/planning/items/${itemId}`, {
+      const res = await req('PATCH', `/api/planning/flows/${itemId}`, {
         amount: 9000,
         name: 'Updated Salary',
       });
@@ -357,7 +357,7 @@ describe('Planning API', () => {
     });
 
     it('updates routing fields', async () => {
-      const res = await req('PATCH', `/api/planning/items/${itemId}`, {
+      const res = await req('PATCH', `/api/planning/flows/${itemId}`, {
         income_source_id: incomeSourceId,
       });
 
@@ -367,7 +367,7 @@ describe('Planning API', () => {
     });
 
     it('clears routing fields with null', async () => {
-      const res = await req('PATCH', `/api/planning/items/${itemId}`, {
+      const res = await req('PATCH', `/api/planning/flows/${itemId}`, {
         income_source_id: null,
       });
 
@@ -377,35 +377,35 @@ describe('Planning API', () => {
     });
 
     it('rejects update with no valid fields', async () => {
-      const res = await req('PATCH', `/api/planning/items/${itemId}`, {
+      const res = await req('PATCH', `/api/planning/flows/${itemId}`, {
         household_id: 'sneaky',
       });
       expect(res.status).toBe(400);
     });
 
     it('rejects invalid amount in update', async () => {
-      const res = await req('PATCH', `/api/planning/items/${itemId}`, {
+      const res = await req('PATCH', `/api/planning/flows/${itemId}`, {
         amount: -50,
       });
       expect(res.status).toBe(400);
     });
   });
 
-  describe('DELETE /api/planning/items/:itemId', () => {
+  describe('DELETE /api/planning/flows/:itemId', () => {
     it('deletes the one-time item', async () => {
-      const res = await req('DELETE', `/api/planning/items/${oneTimeItemId}`);
+      const res = await req('DELETE', `/api/planning/flows/${oneTimeItemId}`);
       expect(res.status).toBe(200);
       const data = await res.json();
       expect(data.success).toBe(true);
     });
 
     it('returns 404 for already-deleted item', async () => {
-      const res = await req('DELETE', `/api/planning/items/${oneTimeItemId}`);
+      const res = await req('DELETE', `/api/planning/flows/${oneTimeItemId}`);
       expect(res.status).toBe(404);
     });
 
     it('returns 404 for nonexistent item', async () => {
-      const res = await req('DELETE', '/api/planning/items/00000000-0000-0000-0000-000000000000');
+      const res = await req('DELETE', '/api/planning/flows/00000000-0000-0000-0000-000000000000');
       expect(res.status).toBe(404);
     });
   });

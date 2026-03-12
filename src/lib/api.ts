@@ -32,6 +32,9 @@ import type {
   CashflowSummaryResponse,
   MetricsResponse,
   ProjectionResponse,
+  ExpenseCategory,
+  CreateExpenseCategoryInput,
+  UpdateExpenseCategoryInput,
 } from '@shared/types';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
@@ -329,29 +332,53 @@ export function deleteIncomeSource(sourceId: string) {
   return apiFetch(`/api/planning/income-sources/${sourceId}`, { method: 'DELETE' });
 }
 
-// ── Planning: Cashflow Items ──
+// ── Planning: Flows ──
 
 export function getCashflowItems(memberId?: string) {
   const qs = memberId ? `?member_id=${memberId}` : '';
-  return apiFetch<CashflowItem[]>(`/api/planning/items${qs}`);
+  return apiFetch<CashflowItem[]>(`/api/planning/flows${qs}`);
 }
 
 export function createCashflowItem(data: CreateCashflowItemInput) {
-  return apiFetch<CashflowItem>('/api/planning/items', {
+  return apiFetch<CashflowItem>('/api/planning/flows', {
     method: 'POST',
     body: JSON.stringify(data),
   });
 }
 
 export function updateCashflowItem(itemId: string, data: UpdateCashflowItemInput) {
-  return apiFetch<CashflowItem>(`/api/planning/items/${itemId}`, {
+  return apiFetch<CashflowItem>(`/api/planning/flows/${itemId}`, {
     method: 'PATCH',
     body: JSON.stringify(data),
   });
 }
 
 export function deleteCashflowItem(itemId: string) {
-  return apiFetch(`/api/planning/items/${itemId}`, { method: 'DELETE' });
+  return apiFetch(`/api/planning/flows/${itemId}`, { method: 'DELETE' });
+}
+
+// ── Planning: Expense Categories ──
+
+export function getExpenseCategories() {
+  return apiFetch<ExpenseCategory[]>('/api/planning/expense-categories');
+}
+
+export function createExpenseCategory(data: CreateExpenseCategoryInput) {
+  return apiFetch<ExpenseCategory>('/api/planning/expense-categories', {
+    method: 'POST',
+    body: JSON.stringify(data),
+  });
+}
+
+export function updateExpenseCategory(categoryId: string, data: UpdateExpenseCategoryInput) {
+  return apiFetch<ExpenseCategory>(`/api/planning/expense-categories/${categoryId}`, {
+    method: 'PATCH',
+    body: JSON.stringify(data),
+  });
+}
+
+export function deleteExpenseCategory(categoryId: string) {
+  return apiFetch(`/api/planning/expense-categories/${categoryId}`, { method: 'DELETE' });
 }
 
 // ── Planning: Scenarios ──

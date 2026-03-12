@@ -606,7 +606,19 @@ export interface CashflowItem {
   start_date: string;
   end_date: string | null;
   income_source_id: string | null;
+  source_account_id: string | null;
   destination_account_id: string | null;
+  category: string | null;
+  is_essential: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface ExpenseCategory {
+  id: string;
+  household_id: string;
+  name: string;
+  is_essential: boolean;
   created_at: string;
   updated_at: string;
 }
@@ -663,7 +675,10 @@ export interface CreateCashflowItemInput {
   start_date: string;
   end_date?: string | null;
   income_source_id?: string | null;
+  source_account_id?: string | null;
   destination_account_id?: string | null;
+  category?: string | null;
+  is_essential?: boolean;
 }
 
 export interface UpdateCashflowItemInput {
@@ -678,7 +693,20 @@ export interface UpdateCashflowItemInput {
   start_date?: string;
   end_date?: string | null;
   income_source_id?: string | null;
+  source_account_id?: string | null;
   destination_account_id?: string | null;
+  category?: string | null;
+  is_essential?: boolean;
+}
+
+export interface CreateExpenseCategoryInput {
+  name: string;
+  is_essential?: boolean;
+}
+
+export interface UpdateExpenseCategoryInput {
+  name?: string;
+  is_essential?: boolean;
 }
 
 export interface CreatePlanningScenarioInput {

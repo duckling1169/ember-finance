@@ -5,7 +5,7 @@ import { ResponsiveSankey } from '@nivo/sankey';
 import { getNivoTheme, CHART_COLORS } from './theme';
 import { ChartTooltip } from './chart-tooltip';
 import { fmt } from '@/lib/formatters';
-import type { SankeyData } from '@/lib/sankey-transform';
+import type { SankeyData, SankeyNode } from '@/lib/sankey-transform';
 
 interface SankeyChartProps {
   data: SankeyData;
@@ -27,7 +27,8 @@ export function SankeyChart({ data, className }: SankeyChartProps) {
         data={data}
         theme={theme}
         colors={CHART_COLORS}
-        margin={{ top: 16, right: 160, bottom: 16, left: 16 }}
+        margin={{ top: 16, right: 100, bottom: 16, left: 100 }}
+        label={(node) => (node as unknown as SankeyNode).label ?? node.id}
         align="justify"
         nodeOpacity={1}
         nodeHoverOthersOpacity={0.35}
