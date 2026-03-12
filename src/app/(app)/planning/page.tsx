@@ -2,6 +2,7 @@
 
 import { useSearchParams, useRouter } from 'next/navigation';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
+import { Skeleton } from '@/components/ui/skeleton';
 import { InfoTip } from '@/components/ui/info-tip';
 import { ScenarioSelector } from '@/components/planning/scenario-selector';
 import { FIMetricsCards } from './_components/fi-metrics-cards';
@@ -44,10 +45,17 @@ export default function PlanningPage() {
         <ScenarioSelector value={scenarioId} onChange={handleScenarioChange} />
       </div>
 
-      {/* Loading state */}
+      {/* Loading skeletons */}
       {loading && (
-        <div className="py-12 text-center text-sm text-muted-foreground">
-          Loading planning data...
+        <div className="space-y-3">
+          <Skeleton className="h-[72px] w-full" />
+          <div className="grid grid-cols-2 gap-2 lg:grid-cols-4">
+            {Array.from({ length: 8 }).map((_, i) => (
+              <Skeleton key={i} className="h-[72px]" />
+            ))}
+          </div>
+          <Skeleton className="h-[80px] w-full" />
+          <Skeleton className="h-[300px] w-full" />
         </div>
       )}
 
@@ -94,7 +102,7 @@ export default function PlanningPage() {
             <ProjectionChart
               projection={projData.projection}
               fireNumber={metricsData?.metrics.fire_number}
-              className="h-[300px]"
+              className="h-[220px] sm:h-[300px]"
             />
           </CardContent>
         </Card>

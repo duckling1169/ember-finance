@@ -3,6 +3,8 @@
 import { useMemo, useState } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { Card, CardContent } from '@/components/ui/card';
+import { Alert } from '@/components/ui/alert';
+import { Skeleton } from '@/components/ui/skeleton';
 import { Select } from '@/components/ui/select';
 import dynamic from 'next/dynamic';
 
@@ -31,7 +33,11 @@ export default function FlowsPage() {
 
   const { data: profile } = useProfile();
   const { data: members } = useMembers();
-  const { data: summary, isLoading: summaryLoading } = useCashflowSummary(scenarioId);
+  const {
+    data: summary,
+    isLoading: summaryLoading,
+    error: summaryError,
+  } = useCashflowSummary(scenarioId);
   const { data: cashflowItems } = useCashflowItems();
   const { data: incomeSources } = useIncomeSources();
   const { data: accounts } = useAccounts();
@@ -88,16 +94,30 @@ export default function FlowsPage() {
         </div>
       </div>
 
+      {/* Error state */}
+      {summaryError && !summaryLoading && (
+        <Alert variant="error" size="sm">
+          {summaryError.message?.includes('birthday')
+            ? 'Add your birthday in Settings to compute your money flows.'
+            : `Error loading flows: ${summaryError.message}`}
+        </Alert>
+      )}
+
       {/* Waterfall summary bar */}
+      {summaryLoading && (
+        <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 lg:grid-cols-7">
+          {Array.from({ length: 7 }).map((_, i) => (
+            <Skeleton key={i} className="h-[56px] rounded-lg" />
+          ))}
+        </div>
+      )}
       {summary?.waterfall && <WaterfallSummary waterfall={summary.waterfall} />}
 
       {/* Sankey chart */}
       <Card>
         <CardContent>
           {summaryLoading ? (
-            <div className="flex h-[400px] items-center justify-center text-sm text-muted-foreground">
-              Loading flows...
-            </div>
+            <Skeleton className="h-[400px]" />
           ) : sankeyData.nodes.length === 0 ? (
             <div className="flex h-[400px] items-center justify-center text-sm text-muted-foreground">
               Add income sources and cashflow items to see your money flows.

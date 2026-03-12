@@ -24,7 +24,7 @@ export function SavingsRatesCard({ rates }: SavingsRatesCardProps) {
         <CardTitle>Savings Rates</CardTitle>
       </CardHeader>
       <CardContent>
-        <div className="flex gap-6">
+        <div className="flex flex-wrap gap-6">
           <RateDisplay
             label="Investment Rate"
             tip={RATE_DESCRIPTIONS.investment}
