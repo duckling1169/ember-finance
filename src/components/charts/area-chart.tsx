@@ -1,8 +1,8 @@
 'use client';
 
-import { useMemo, useState, useEffect } from 'react';
+import { useMemo } from 'react';
 import { ResponsiveLine } from '@nivo/line';
-import { getNivoTheme, CHART_COLORS } from './theme';
+import { useNivoTheme, CHART_COLORS } from './theme';
 import { createAreaGradientLayer } from './gradient-layer';
 import { ChartTooltip } from './chart-tooltip';
 import { fmt, fmtAxisK } from '@/lib/formatters';
@@ -15,11 +15,7 @@ interface AreaChartProps {
 }
 
 export function AreaChart({ data, className }: AreaChartProps) {
-  const [theme, setTheme] = useState<ReturnType<typeof getNivoTheme> | null>(null);
-
-  useEffect(() => {
-    setTheme(getNivoTheme());
-  }, []);
+  const theme = useNivoTheme();
 
   const nivoData = useMemo(
     () => [

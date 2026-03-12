@@ -47,7 +47,13 @@ export function ScenarioSelector({ value, onChange, className }: ScenarioSelecto
           className="h-7 w-[140px] text-xs"
           autoFocus
         />
-        <Button type="submit" variant="ghost" size="icon-xs" disabled={saving}>
+        <Button
+          type="submit"
+          variant="ghost"
+          size="icon-xs"
+          disabled={saving}
+          aria-label="Save scenario"
+        >
           <IconCheck size={14} stroke={1.5} className="text-primary" />
         </Button>
         <Button
@@ -58,6 +64,7 @@ export function ScenarioSelector({ value, onChange, className }: ScenarioSelecto
             setAdding(false);
             setNewName('');
           }}
+          aria-label="Cancel"
         >
           <IconX size={14} stroke={1.5} />
         </Button>
@@ -72,6 +79,7 @@ export function ScenarioSelector({ value, onChange, className }: ScenarioSelecto
           value={value ?? ''}
           onChange={(e) => onChange(e.target.value || undefined)}
           className={`h-8 w-auto ${className ?? ''}`}
+          aria-label="Select scenario"
         >
           <option value="">Base scenario</option>
           {scenarios
@@ -83,7 +91,13 @@ export function ScenarioSelector({ value, onChange, className }: ScenarioSelecto
             ))}
         </Select>
       )}
-      <Button variant="ghost" size="icon-xs" onClick={() => setAdding(true)} title="New scenario">
+      <Button
+        variant="ghost"
+        size="icon-xs"
+        onClick={() => setAdding(true)}
+        title="New scenario"
+        aria-label="Create new scenario"
+      >
         <IconPlus size={14} stroke={1.5} />
       </Button>
     </div>

@@ -1,8 +1,8 @@
 'use client';
 
-import { useMemo, useState, useEffect } from 'react';
+import { useMemo } from 'react';
 import { ResponsiveLine } from '@nivo/line';
-import { getNivoTheme, CHART_COLORS } from '@/components/charts/theme';
+import { useNivoTheme, CHART_COLORS } from '@/components/charts/theme';
 import { ChartTooltip } from '@/components/charts/chart-tooltip';
 import { fmt, fmtAxisK } from '@/lib/formatters';
 import type { ProjectionResult } from '@shared/types';
@@ -14,11 +14,7 @@ interface ProjectionChartProps {
 }
 
 export function ProjectionChart({ projection, fireNumber, className }: ProjectionChartProps) {
-  const [theme, setTheme] = useState<ReturnType<typeof getNivoTheme> | null>(null);
-
-  useEffect(() => {
-    setTheme(getNivoTheme());
-  }, []);
+  const theme = useNivoTheme();
 
   const nivoData = useMemo(
     () => [
@@ -44,7 +40,11 @@ export function ProjectionChart({ projection, fireNumber, className }: Projectio
     .map((y) => (hasAge && y.age != null ? Math.floor(y.age) : y.year));
 
   return (
-    <div className={className}>
+    <div
+      className={className}
+      role="img"
+      aria-label="Portfolio projection chart showing projected portfolio growth over time"
+    >
       <ResponsiveLine
         data={nivoData}
         theme={theme}
@@ -91,7 +91,7 @@ export function ProjectionChart({ projection, fireNumber, className }: Projectio
                   axis: 'y',
                   value: fireNumber,
                   lineStyle: { stroke: CHART_COLORS[11], strokeWidth: 1.5, strokeDasharray: '6 4' },
-                  legend: `FIRE ${fmtAxisK(fireNumber)}`,
+                  legend: `FI Number ${fmtAxisK(fireNumber)}`,
                   legendPosition: 'top-right',
                   textStyle: { fill: CHART_COLORS[11], fontSize: 11 },
                 },

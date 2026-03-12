@@ -35,9 +35,6 @@ import {
 } from '@tabler/icons-react';
 
 import type {
-  Household,
-  Member,
-  MemberSummary,
   HouseholdInvite,
   TaxFilingStatus,
   EmploymentType,

@@ -178,10 +178,10 @@ export function buildSankeyData(
   // Residual (scaled proportionally when filtered)
   const residual = waterfall.total_residual_annual * grossShare;
   if (residual > 0) {
-    savingsNodes.push({ id: 'surplus', label: 'Unallocated', category: 'hub' });
+    savingsNodes.push({ id: 'surplus', label: 'Surplus', category: 'hub' });
     addLink(links, 'net-income', 'surplus', residual);
   } else if (residual < 0) {
-    costNodes.push({ id: 'deficit', label: 'Deficit', category: 'cost' });
+    costNodes.push({ id: 'deficit', label: 'Shortfall', category: 'cost' });
     addLink(links, 'net-income', 'deficit', Math.abs(residual));
   }
 

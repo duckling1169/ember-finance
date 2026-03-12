@@ -1,13 +1,7 @@
 'use client';
 
 import { useState, useMemo } from 'react';
-import {
-  devBypass,
-  mockHoldings,
-  mockTaxLots,
-  mockAccounts,
-  type MockTaxLot,
-} from '@/lib/mock-data';
+import { devBypass, mockHoldings, mockTaxLots, mockAccounts } from '@/lib/mock-data';
 import type { HouseholdHoldingsResponse } from '@shared/types';
 import { useHouseholdHoldings, useAccounts } from '@/lib/swr';
 import { Card, CardContent } from '@/components/ui/card';
@@ -119,7 +113,10 @@ export default function HoldingsPage() {
 
   const [selectedAccountIds, setSelectedAccountIds] = useState<Set<string> | null>(null);
   // Initialize selectedAccountIds from accountList once available
-  const effectiveSelectedIds = selectedAccountIds ?? new Set(accountList.map((a) => a.id));
+  const effectiveSelectedIds = useMemo(
+    () => selectedAccountIds ?? new Set(accountList.map((a) => a.id)),
+    [selectedAccountIds, accountList],
+  );
 
   const [sortKey, setSortKey] = useState<SortKey | null>('value');
   const [sortDir, setSortDir] = useState<SortDir>('desc');

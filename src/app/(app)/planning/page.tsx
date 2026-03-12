@@ -2,6 +2,7 @@
 
 import { useSearchParams, useRouter } from 'next/navigation';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
+import { InfoTip } from '@/components/ui/info-tip';
 import { ScenarioSelector } from '@/components/planning/scenario-selector';
 import { FIMetricsCards } from './_components/fi-metrics-cards';
 import { SavingsRatesCard } from './_components/savings-rates-card';
@@ -64,7 +65,13 @@ export default function PlanningPage() {
       {/* FI Portfolio Value */}
       {metricsData && (
         <Card size="sm" className="p-3">
-          <div className="text-xs text-muted-foreground">FI Portfolio Value</div>
+          <div className="flex items-center gap-1 text-xs text-muted-foreground">
+            FI Portfolio Value
+            <InfoTip
+              content="The current total value of accounts included in your FI portfolio — the assets you are growing toward financial independence."
+              size={13}
+            />
+          </div>
           <div className="font-mono text-xl font-semibold tabular-nums">
             {fmt(metricsData.fi_portfolio_value)}
           </div>

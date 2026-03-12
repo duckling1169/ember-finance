@@ -91,7 +91,12 @@ export function IncomeSourcesCard({ memberId }: IncomeSourcesCardProps) {
         <CardTitle>Income Sources</CardTitle>
         <CardAction>
           {!adding && (
-            <Button variant="ghost" size="icon-xs" onClick={() => setAdding(true)}>
+            <Button
+              variant="ghost"
+              size="icon-xs"
+              onClick={() => setAdding(true)}
+              aria-label="Add income source"
+            >
               <IconPlus size={14} stroke={1.5} />
             </Button>
           )}
@@ -169,10 +174,15 @@ function SourceRow({
         </div>
       </div>
       <div className="flex shrink-0 gap-1">
-        <Button variant="ghost" size="icon-xs" onClick={onEdit}>
+        <Button variant="ghost" size="icon-xs" onClick={onEdit} aria-label={`Edit ${source.name}`}>
           <IconPencil size={14} stroke={1.5} />
         </Button>
-        <Button variant="ghost" size="icon-xs" onClick={onDelete}>
+        <Button
+          variant="ghost"
+          size="icon-xs"
+          onClick={onDelete}
+          aria-label={`Delete ${source.name}`}
+        >
           <IconTrash size={14} stroke={1.5} />
         </Button>
       </div>
@@ -260,10 +270,16 @@ function InlineForm({
         </Select>
       </div>
       <div className="flex h-7 items-center gap-1">
-        <Button type="submit" variant="ghost" size="icon-xs" disabled={saving}>
+        <Button
+          type="submit"
+          variant="ghost"
+          size="icon-xs"
+          disabled={saving}
+          aria-label="Save income source"
+        >
           <IconCheck size={14} stroke={1.5} className="text-primary" />
         </Button>
-        <Button type="button" variant="ghost" size="icon-xs" onClick={onCancel}>
+        <Button type="button" variant="ghost" size="icon-xs" onClick={onCancel} aria-label="Cancel">
           <IconX size={14} stroke={1.5} />
         </Button>
       </div>
