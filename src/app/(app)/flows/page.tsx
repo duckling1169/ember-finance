@@ -4,7 +4,12 @@ import { useMemo, useState } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { Card, CardContent } from '@/components/ui/card';
 import { Select } from '@/components/ui/select';
-import { SankeyChart } from '@/components/charts';
+import dynamic from 'next/dynamic';
+
+const SankeyChart = dynamic(
+  () => import('@/components/charts/sankey-chart').then((m) => ({ default: m.SankeyChart })),
+  { ssr: false },
+);
 import { ScenarioSelector } from '@/components/planning/scenario-selector';
 import { WaterfallSummary } from './_components/waterfall-summary';
 import { IncomeSourcesCard } from './_components/income-sources-card';

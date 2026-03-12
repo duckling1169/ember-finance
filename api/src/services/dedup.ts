@@ -38,7 +38,7 @@ export async function detectDuplicateTransactions(
   const maxDate = dates.reduce((a, b) => (a > b ? a : b));
 
   // Fetch all visible transactions in the date range
-  const { data: txns, error } = await supabase
+  const { data: transactions, error } = await supabase
     .from('transaction')
     .select('id, date, amount, description, raw_ingest_id, provider_txn_id, fingerprint, is_hidden')
     .eq('account_id', accountId)
@@ -46,11 +46,11 @@ export async function detectDuplicateTransactions(
     .gte('date', minDate)
     .lte('date', maxDate);
 
-  if (error || !txns) return { autoHidden: 0, potentialDupes: 0 };
+  if (error || !transactions) return { autoHidden: 0, potentialDupes: 0 };
 
   // Group by (date, amount)
-  const groups = new Map<string, typeof txns>();
-  for (const txn of txns) {
+  const groups = new Map<string, typeof transactions>();
+  for (const txn of transactions) {
     const key = `${txn.date}|${txn.amount}`;
     if (!groups.has(key)) groups.set(key, []);
     groups.get(key)!.push(txn);

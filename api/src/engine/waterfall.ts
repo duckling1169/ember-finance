@@ -18,17 +18,17 @@ import { estimateTaxes } from './tax.js';
  */
 export function computeMemberWaterfall(member: WaterfallMemberInput): MemberWaterfall {
   // 1. Gross inflows — sum all active income sources, normalized to monthly
-  const incomeSources = member.income_sources.filter((s) => s.is_active);
+  const incomeSources = member.income_sources.filter((source) => source.is_active);
   const totalGrossMonthly = incomeSources.reduce(
-    (sum, s) => sum + toMonthly(s.gross_amount, s.frequency),
+    (sum, source) => sum + toMonthly(source.gross_amount, source.frequency),
     0,
   );
 
-  // 2. Pre-tax deductions — saving items whose destination account has tax_bucket === 'pre_tax'
+  // 2. Pre-tax deductions — saving items whose destination account has tax_treatment === 'pre_tax'
   const isPreTaxSaving = (item: CashflowItem) =>
-    item.bucket === 'saving' &&
+    item.bucket === 'savings' &&
     item.destination_account_id != null &&
-    member.account_tax_buckets.get(item.destination_account_id) === 'pre_tax';
+    member.account_tax_treatments.get(item.destination_account_id) === 'pre_tax';
 
   const preTaxItems = member.cashflow_items.filter(
     (item) => isPreTaxSaving(item) && item.income_source_id != null,
@@ -51,7 +51,7 @@ export function computeMemberWaterfall(member: WaterfallMemberInput): MemberWate
   });
 
   const totalPreTaxDeductionsMonthly = incomeSourceSummaries.reduce(
-    (sum, s) => sum + s.pre_tax_deductions_monthly,
+    (sum, source) => sum + source.pre_tax_deductions_monthly,
     0,
   );
 
@@ -86,7 +86,7 @@ export function computeMemberWaterfall(member: WaterfallMemberInput): MemberWate
   } else {
     // Auto mode: full estimation
     const grossEarnedIncomeAnnual = monthlyToAnnual(totalGrossMonthly);
-    const isSelfEmployed = incomeSources.some((s) => s.type === 'self_employment');
+    const isSelfEmployed = incomeSources.some((source) => source.type === 'self_employment');
 
     taxBreakdown = estimateTaxes({
       taxable_income: taxableIncomeAnnual,
@@ -103,7 +103,7 @@ export function computeMemberWaterfall(member: WaterfallMemberInput): MemberWate
 
   // 6. Post-tax contributions — saving items that are NOT pre-tax
   const postTaxItems = member.cashflow_items.filter(
-    (item) => item.bucket === 'saving' && !isPreTaxSaving(item),
+    (item) => item.bucket === 'savings' && !isPreTaxSaving(item),
   );
   const postTaxContributions: ContributionSummary[] = postTaxItems.map((item) => ({
     cashflow_item_id: item.id,

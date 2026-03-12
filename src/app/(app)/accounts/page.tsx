@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { createAccount } from '@/lib/api';
 import { useAccounts, mutateAccounts } from '@/lib/swr';
 import { devBypass, enrichAccounts } from '@/lib/mock-data';
-import type { EnrichedAccount, AccountType, TaxBucket } from '@shared/types';
+import type { EnrichedAccount, AccountType, TaxTreatment } from '@shared/types';
 import { Card, CardContent } from '@/components/ui/card';
 import {
   Table,
@@ -22,7 +22,7 @@ import { Alert } from '@/components/ui/alert';
 import { IconPlus, IconX, IconBuildingBank, IconPlugConnected } from '@tabler/icons-react';
 import { ACCOUNT_TYPES } from '@shared/types';
 import { fmt, timeAgo } from '@/lib/formatters';
-import { TAX_BUCKET_OPTIONS } from '@/lib/constants';
+import { TAX_TREATMENT_OPTIONS } from '@/lib/constants';
 import { SortIcon, type SortDir } from '@/components/common/sort-icon';
 
 type AccountData = EnrichedAccount;
@@ -95,7 +95,7 @@ function AccountsContent() {
         account_type: form.get('account_type') as AccountType,
         currency: 'USD',
         meta: {
-          tax_bucket: form.get('tax_bucket') as string,
+          tax_treatment: form.get('tax_treatment') as string,
         },
         is_active: true,
         is_liability: ['credit', 'loan', 'mortgage'].includes(form.get('account_type') as string),
@@ -107,7 +107,7 @@ function AccountsContent() {
         balance_date: null,
         linked: false,
         last_synced: null,
-        tax_bucket: (form.get('tax_bucket') as TaxBucket) ?? 'after_tax',
+        tax_treatment: (form.get('tax_treatment') as TaxTreatment) ?? 'after_tax',
       };
       setMockAccts((prev) => [...prev, newAccount]);
       setShowForm(false);
@@ -120,7 +120,7 @@ function AccountsContent() {
         name: form.get('name') as string,
         institution: (form.get('institution') as string) || undefined,
         account_type: form.get('account_type') as AccountType,
-        meta: { tax_bucket: form.get('tax_bucket') as string },
+        meta: { tax_treatment: form.get('tax_treatment') as string },
       });
       setShowForm(false);
       await mutateAccounts();
@@ -193,9 +193,9 @@ function AccountsContent() {
                   </Select>
                 </div>
                 <div>
-                  <label className="mb-1.5 block text-sm font-medium">Tax Bucket</label>
-                  <Select name="tax_bucket" required>
-                    {TAX_BUCKET_OPTIONS.map((t) => (
+                  <label className="mb-1.5 block text-sm font-medium">Tax Treatment</label>
+                  <Select name="tax_treatment" required>
+                    {TAX_TREATMENT_OPTIONS.map((t) => (
                       <option key={t.value} value={t.value}>
                         {t.label}
                       </option>

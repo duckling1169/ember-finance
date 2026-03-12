@@ -13,8 +13,8 @@ import {
 import {
   devBypass,
   enrichAccounts,
-  mockNetWorthHistory,
-  mockPortfolioHistory,
+  getMockNetWorthHistory,
+  getMockPortfolioHistory,
   mockHoldings,
 } from '@/lib/mock-data';
 import type { EnrichedAccount } from '@shared/types';
@@ -22,9 +22,19 @@ import { cn } from '@/lib/utils';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Alert } from '@/components/ui/alert';
-import { AreaChart, DonutChart, CHART_COLORS } from '@/components/charts';
+import dynamic from 'next/dynamic';
+import { CHART_COLORS } from '@/components/charts';
+
+const AreaChart = dynamic(
+  () => import('@/components/charts/area-chart').then((m) => ({ default: m.AreaChart })),
+  { ssr: false },
+);
+const DonutChart = dynamic(
+  () => import('@/components/charts/donut-chart').then((m) => ({ default: m.DonutChart })),
+  { ssr: false },
+);
 import { fmt } from '@/lib/formatters';
-import { TAX_BUCKET_LABELS } from '@/lib/constants';
+import { TAX_TREATMENT_LABELS } from '@/lib/constants';
 import { ChangeIndicator } from '@/components/common/financial-cells';
 
 type RangeKey = '30D' | '90D' | 'YTD' | '1Y' | 'Custom';
@@ -133,14 +143,14 @@ export default function DashboardPage() {
   const nwData = useMemo(
     () =>
       devBypass
-        ? filterByRange(mockNetWorthHistory, range, customStart, customEnd)
+        ? filterByRange(getMockNetWorthHistory(), range, customStart, customEnd)
         : (apiNwHistory ?? []),
     [range, customStart, customEnd, apiNwHistory],
   );
   const invData = useMemo(
     () =>
       devBypass
-        ? filterByRange(mockPortfolioHistory, range, customStart, customEnd)
+        ? filterByRange(getMockPortfolioHistory(), range, customStart, customEnd)
         : (apiInvHistory ?? []),
     [range, customStart, customEnd, apiInvHistory],
   );
@@ -197,7 +207,7 @@ export default function DashboardPage() {
   const bucketTotals = new Map<string, number>();
   for (const a of accounts) {
     if (a.balance <= 0) continue;
-    const bucket = a.tax_bucket || 'taxable';
+    const bucket = a.tax_treatment || 'taxable';
     bucketTotals.set(bucket, (bucketTotals.get(bucket) || 0) + a.balance);
   }
   const taxBuckets = [...bucketTotals.entries()]
@@ -275,13 +285,13 @@ export default function DashboardPage() {
           {/* Tax buckets by value */}
           <Card size="flush" className="flex-1 flex">
             <CardContent className="flex flex-col justify-center flex-1">
-              <p className="text-sm text-muted-foreground mb-2">Tax Buckets</p>
+              <p className="text-sm text-muted-foreground mb-2">Tax Treatment</p>
               {taxBuckets.length > 0 ? (
                 <div className="flex items-center gap-3">
                   <DonutChart
                     segments={taxBuckets.map((b) => ({
                       id: b.name,
-                      label: TAX_BUCKET_LABELS[b.name] || b.name,
+                      label: TAX_TREATMENT_LABELS[b.name] || b.name,
                       value: b.value,
                     }))}
                     total={taxBucketTotal}
@@ -293,7 +303,7 @@ export default function DashboardPage() {
                           className="h-2 w-2 rounded-sm shrink-0"
                           style={{ backgroundColor: CHART_COLORS[i % CHART_COLORS.length] }}
                         />
-                        <span>{TAX_BUCKET_LABELS[b.name] || b.name}</span>
+                        <span>{TAX_TREATMENT_LABELS[b.name] || b.name}</span>
                         <span className="ml-auto font-mono tabular-nums">{fmt(b.value)}</span>
                       </span>
                     ))}

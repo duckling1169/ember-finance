@@ -186,10 +186,10 @@ function validateOptionalMemberFields(body: Record<string, unknown>): Validation
 
   if (body.effectiveTaxRateOverride != null) {
     const rate = body.effectiveTaxRateOverride as number;
-    if (typeof rate !== 'number' || rate < 0 || rate > 100) {
+    if (typeof rate !== 'number' || rate < 0 || rate > 1) {
       errors.push({
         field: 'effectiveTaxRateOverride',
-        message: 'Must be a number between 0 and 100',
+        message: 'Must be a decimal between 0 and 1 (e.g. 0.25 for 25%)',
       });
     }
   }

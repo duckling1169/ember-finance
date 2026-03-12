@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { computeHouseholdWaterfall } from '../../../src/engine/household.js';
 import type { HouseholdWaterfallInput, WaterfallMemberInput } from '../../../src/engine/types.js';
-import type { IncomeSource, CashflowItem, TaxBucket } from '../../../shared/types/index.js';
+import type { IncomeSource, CashflowItem, TaxTreatment } from '../../../shared/types/index.js';
 
 function makeIncomeSource(overrides: Partial<IncomeSource> = {}): IncomeSource {
   return {
@@ -55,7 +55,7 @@ function makeMember(overrides: Partial<WaterfallMemberInput> = {}): WaterfallMem
     effective_tax_rate_override: null,
     income_sources: [makeIncomeSource()],
     cashflow_items: [],
-    account_tax_buckets: new Map<string, TaxBucket>(),
+    account_tax_treatments: new Map<string, TaxTreatment>(),
     ...overrides,
   };
 }
@@ -186,7 +186,7 @@ describe('computeHouseholdWaterfall', () => {
           cashflow_items: [
             makeCashflowItem({
               id: 'cf-401k',
-              bucket: 'saving',
+              bucket: 'savings',
               amount: 23500,
               frequency: 'annual',
               income_source_id: 'inc-1',
@@ -194,14 +194,14 @@ describe('computeHouseholdWaterfall', () => {
             }),
             makeCashflowItem({
               id: 'cf-roth',
-              bucket: 'saving',
+              bucket: 'savings',
               amount: 7000,
               frequency: 'annual',
               destination_account_id: 'acct-roth',
             }),
             makeCashflowItem({ id: 'cf-rent', bucket: 'expense', amount: 2000 }),
           ],
-          account_tax_buckets: new Map([
+          account_tax_treatments: new Map([
             ['acct-401k', 'pre_tax'],
             ['acct-roth', 'tax_free'],
           ]),

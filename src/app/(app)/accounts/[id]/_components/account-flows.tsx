@@ -10,7 +10,7 @@ import { Alert } from '@/components/ui/alert';
 import { IconPlus, IconPencil, IconTrash, IconCheck, IconX } from '@tabler/icons-react';
 
 import { fmt } from '@/lib/formatters';
-import { TAX_BUCKET_LABELS } from '@/lib/constants';
+import { TAX_TREATMENT_LABELS } from '@/lib/constants';
 import {
   useCashflowItems,
   mutateCashflowItems,
@@ -35,7 +35,7 @@ const FREQ_LABELS: Record<CashflowFrequency, string> = {
 };
 
 const BUCKET_OPTIONS: { value: CashflowBucket; label: string }[] = [
-  { value: 'saving', label: 'Saving' },
+  { value: 'savings', label: 'Savings' },
   { value: 'employer_match', label: 'Employer match' },
 ];
 
@@ -217,7 +217,7 @@ export function AccountFlows({ accountId, taxTreatment: accountTax, memberId }: 
         {adding && (
           <div className={accountItems.length > 0 ? 'mt-3' : ''}>
             <FlowForm
-              defaultBucket="saving"
+              defaultBucket="savings"
               incomeSources={incomeSources ?? []}
               accounts={(accounts ?? []).filter((a) => a.id !== accountId)}
               saving={saving}
@@ -248,8 +248,8 @@ function FlowRow({
   onEdit: () => void;
   onDelete: () => void;
 }) {
-  const bucketLabel = item.bucket === 'employer_match' ? 'Employer' : 'Saving';
-  const taxLabel = accountTax ? TAX_BUCKET_LABELS[accountTax] : undefined;
+  const bucketLabel = item.bucket === 'employer_match' ? 'Employer' : 'Savings';
+  const taxLabel = accountTax ? TAX_TREATMENT_LABELS[accountTax] : undefined;
   const badge = item.bucket === 'employer_match' ? 'Employer' : (taxLabel ?? bucketLabel);
   const direction = isDestination ? 'from' : 'to';
 
@@ -327,7 +327,7 @@ function FlowForm({
         </div>
         <div>
           <label className="mb-1.5 block text-sm font-medium">Type</label>
-          <Select name="bucket" required defaultValue={item?.bucket ?? defaultBucket ?? 'saving'}>
+          <Select name="bucket" required defaultValue={item?.bucket ?? defaultBucket ?? 'savings'}>
             {BUCKET_OPTIONS.map((o) => (
               <option key={o.value} value={o.value}>
                 {o.label}

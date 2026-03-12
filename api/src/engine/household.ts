@@ -15,13 +15,13 @@ export function computeHouseholdWaterfall(input: HouseholdWaterfallInput): House
   const memberWaterfalls = input.members.map(computeMemberWaterfall);
 
   const isJoint = input.tax_filing_status === 'married_jointly';
-  const anyManual = input.members.some(
+  const hasManualTaxOverride = input.members.some(
     (m) => m.tax_mode === 'manual' && m.effective_tax_rate_override != null,
   );
 
   let members: MemberWaterfall[];
 
-  if (isJoint && !anyManual && memberWaterfalls.length > 1) {
+  if (isJoint && !hasManualTaxOverride && memberWaterfalls.length > 1) {
     // Recompute taxes jointly: combine all member incomes
     const combinedTaxableAnnual = memberWaterfalls.reduce(
       (sum, m) => sum + m.taxable_income_annual,
@@ -41,18 +41,22 @@ export function computeHouseholdWaterfall(input: HouseholdWaterfallInput): House
     });
 
     // Distribute joint tax proportionally across members by gross income
-    members = memberWaterfalls.map((mw) => {
-      const proportion = combinedGrossAnnual > 0 ? mw.total_gross_annual / combinedGrossAnnual : 0;
+    members = memberWaterfalls.map((memberWaterfall) => {
+      const proportion =
+        combinedGrossAnnual > 0 ? memberWaterfall.total_gross_annual / combinedGrossAnnual : 0;
       const memberTaxAnnual = jointTax.total * proportion;
       const memberTaxMonthly = memberTaxAnnual / 12;
 
       const netIncomeMonthly =
-        mw.total_gross_monthly - mw.total_pre_tax_deductions_monthly - memberTaxMonthly;
-      const disposableIncomeMonthly = netIncomeMonthly - mw.total_post_tax_contributions_monthly;
-      const residualMonthly = disposableIncomeMonthly - mw.total_expenses_monthly;
+        memberWaterfall.total_gross_monthly -
+        memberWaterfall.total_pre_tax_deductions_monthly -
+        memberTaxMonthly;
+      const disposableIncomeMonthly =
+        netIncomeMonthly - memberWaterfall.total_post_tax_contributions_monthly;
+      const residualMonthly = disposableIncomeMonthly - memberWaterfall.total_expenses_monthly;
 
       return {
-        ...mw,
+        ...memberWaterfall,
         tax_breakdown: {
           federal: jointTax.federal * proportion,
           state: jointTax.state * proportion,
@@ -75,16 +79,18 @@ export function computeHouseholdWaterfall(input: HouseholdWaterfallInput): House
   }
 
   // Aggregate
-  const sum = (fn: (m: MemberWaterfall) => number) => members.reduce((s, m) => s + fn(m), 0);
+  const sumMembers = (fn: (m: MemberWaterfall) => number) => members.reduce((s, m) => s + fn(m), 0);
 
-  const totalGrossMonthly = sum((m) => m.total_gross_monthly);
-  const totalPreTaxDeductionsMonthly = sum((m) => m.total_pre_tax_deductions_monthly);
-  const totalTaxMonthly = sum((m) => m.tax_monthly);
-  const totalNetIncomeMonthly = sum((m) => m.net_income_monthly);
-  const totalPostTaxContributionsMonthly = sum((m) => m.total_post_tax_contributions_monthly);
-  const totalDisposableIncomeMonthly = sum((m) => m.disposable_income_monthly);
-  const totalExpensesMonthly = sum((m) => m.total_expenses_monthly);
-  const totalResidualMonthly = sum((m) => m.residual_monthly);
+  const totalGrossMonthly = sumMembers((m) => m.total_gross_monthly);
+  const totalPreTaxDeductionsMonthly = sumMembers((m) => m.total_pre_tax_deductions_monthly);
+  const totalTaxMonthly = sumMembers((m) => m.tax_monthly);
+  const totalNetIncomeMonthly = sumMembers((m) => m.net_income_monthly);
+  const totalPostTaxContributionsMonthly = sumMembers(
+    (m) => m.total_post_tax_contributions_monthly,
+  );
+  const totalDisposableIncomeMonthly = sumMembers((m) => m.disposable_income_monthly);
+  const totalExpensesMonthly = sumMembers((m) => m.total_expenses_monthly);
+  const totalResidualMonthly = sumMembers((m) => m.residual_monthly);
 
   return {
     members,

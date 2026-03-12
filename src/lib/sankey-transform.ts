@@ -70,9 +70,9 @@ export function buildSankeyData(
   const grossShare = totalGross > 0 ? filteredGross / totalGross : 0;
 
   const isPreTaxSaving = (ci: CashflowItem) =>
-    ci.bucket === 'saving' &&
+    ci.bucket === 'savings' &&
     ci.destination_account_id != null &&
-    accountById.get(ci.destination_account_id)?.tax_bucket === 'pre_tax';
+    accountById.get(ci.destination_account_id)?.tax_treatment === 'pre_tax';
 
   // Filter cashflow items when viewing a single source
   const visibleItems = filterSourceIds
@@ -149,7 +149,7 @@ export function buildSankeyData(
   // ── Column 2: Flows out of Net Income ──
 
   // Post-tax savings → contributions (saving items that are NOT pre-tax)
-  const postTaxItems = visibleItems.filter((ci) => ci.bucket === 'saving' && !isPreTaxSaving(ci));
+  const postTaxItems = visibleItems.filter((ci) => ci.bucket === 'savings' && !isPreTaxSaving(ci));
   for (const item of postTaxItems) {
     let annual = normalizeToAnnual(item.amount, item.frequency);
     // Scale unlinked items by gross share when filtered

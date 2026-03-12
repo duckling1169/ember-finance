@@ -9,7 +9,7 @@ import type {
   PlanningScenario,
   ScenarioAssumptions,
   TaxFilingStatus,
-  TaxBucket,
+  TaxTreatment,
   USState,
   TaxMode,
 } from '../types/index.js';
@@ -56,8 +56,8 @@ interface PlanningData {
   scenario: PlanningScenario;
   fi_portfolio_value: number;
   fi_account_ids: Set<string>;
-  /** Map from account ID → tax_bucket for determining pre-tax vs post-tax */
-  account_tax_buckets: Map<string, TaxBucket>;
+  /** Map from account ID → tax_treatment for determining pre-tax vs post-tax */
+  account_tax_treatments: Map<string, TaxTreatment>;
 }
 
 export async function fetchPlanningData(
@@ -117,16 +117,16 @@ export async function fetchPlanningData(
     updated_at: new Date().toISOString(),
   };
 
-  // Build account tax_bucket lookup
+  // Build account tax_treatment lookup
   const allAccounts = accountsRes.data ?? [];
-  const accountTaxBuckets = new Map<string, TaxBucket>();
+  const accountTaxTreatments = new Map<string, TaxTreatment>();
   for (const a of allAccounts as {
     id: string;
     include_in_fi_portfolio: boolean;
     meta: Record<string, unknown>;
   }[]) {
     const meta = a.meta || {};
-    accountTaxBuckets.set(a.id, (meta.tax_bucket as TaxBucket) ?? 'after_tax');
+    accountTaxTreatments.set(a.id, (meta.tax_treatment as TaxTreatment) ?? 'after_tax');
   }
 
   // FI-flagged accounts
@@ -176,7 +176,7 @@ export async function fetchPlanningData(
     scenario,
     fi_portfolio_value: fiPortfolioValue,
     fi_account_ids: fiAccountIds,
-    account_tax_buckets: accountTaxBuckets,
+    account_tax_treatments: accountTaxTreatments,
   };
 }
 
@@ -199,7 +199,7 @@ export function assembleWaterfallInput(data: PlanningData): HouseholdWaterfallIn
     cashflow_items: data.cashflow_items.filter(
       (item) => item.member_id === m.id || item.member_id === null,
     ),
-    account_tax_buckets: data.account_tax_buckets,
+    account_tax_treatments: data.account_tax_treatments,
   }));
 
   return {
@@ -243,7 +243,7 @@ export function computeYearlyFIContributions(
   // Saving items that route to FI accounts
   const fiItems = cashflowItems.filter(
     (item) =>
-      item.bucket === 'saving' &&
+      item.bucket === 'savings' &&
       item.destination_account_id != null &&
       fiAccountIds.has(item.destination_account_id),
   );
@@ -258,7 +258,7 @@ export function computeYearlySavingsContributions(
 ): number {
   const savingsItems = cashflowItems.filter(
     (item) =>
-      item.bucket === 'saving' &&
+      item.bucket === 'savings' &&
       item.destination_account_id != null &&
       !fiAccountIds.has(item.destination_account_id),
   );
@@ -323,7 +323,7 @@ export function assembleProjectionInput(
 
   for (const item of data.cashflow_items) {
     if (
-      item.bucket === 'saving' &&
+      item.bucket === 'savings' &&
       item.destination_account_id &&
       data.fi_account_ids.has(item.destination_account_id)
     ) {

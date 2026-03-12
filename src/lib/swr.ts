@@ -1,3 +1,4 @@
+import { useEffect } from 'react';
 import useSWR, { mutate } from 'swr';
 import {
   getHousehold,
@@ -23,20 +24,36 @@ import type { Household } from '@shared/types';
 
 // ── Household ──
 
+const HH_ID_KEY = 'ember:hhid';
+
+function getCachedHouseholdId(): string | undefined {
+  if (typeof window === 'undefined') return undefined;
+  return localStorage.getItem(HH_ID_KEY) ?? undefined;
+}
+
 export function useHousehold() {
-  return useSWR('household', () => getHousehold() as Promise<Household | null>, {
+  const result = useSWR('household', () => getHousehold() as Promise<Household | null>, {
     revalidateOnFocus: false,
   });
+
+  // Cache householdId for fast subsequent loads
+  useEffect(() => {
+    if (result.data?.id) {
+      localStorage.setItem(HH_ID_KEY, result.data.id);
+    }
+  }, [result.data?.id]);
+
+  return result;
 }
 
 export function mutateHousehold() {
   return mutate('household');
 }
 
-// Helper to extract householdId from the household hook
+// Helper to extract householdId — uses localStorage cache to avoid waterfall
 function useHouseholdId() {
   const { data } = useHousehold();
-  return data?.id;
+  return data?.id ?? getCachedHouseholdId();
 }
 
 // ── Accounts (enriched list — depends on household ID) ──
@@ -119,9 +136,19 @@ export function useTransactions(params?: {
   offset?: number;
 }) {
   const householdId = useHouseholdId();
-  const key = householdId ? ['transactions', householdId, JSON.stringify(params)] : null;
+  const key = householdId
+    ? [
+        'transactions',
+        householdId,
+        params?.accountId,
+        params?.from,
+        params?.to,
+        params?.limit,
+        params?.offset,
+      ]
+    : null;
 
-  return useSWR(key, ([, id]) => getTransactions(id, params), {
+  return useSWR(key, ([, id]) => getTransactions(id as string, params), {
     revalidateOnFocus: false,
   });
 }
@@ -136,9 +163,21 @@ export function useInvestmentActivity(params?: {
   offset?: number;
 }) {
   const householdId = useHouseholdId();
-  const key = householdId ? ['investment-activity', householdId, JSON.stringify(params)] : null;
+  const key = householdId
+    ? [
+        'investment-activity',
+        householdId,
+        params?.accountId,
+        params?.from,
+        params?.to,
+        params?.symbol,
+        params?.activityType,
+        params?.limit,
+        params?.offset,
+      ]
+    : null;
 
-  return useSWR(key, ([, id]) => getInvestmentActivity(id, params), {
+  return useSWR(key, ([, id]) => getInvestmentActivity(id as string, params), {
     revalidateOnFocus: false,
   });
 }

@@ -27,7 +27,7 @@ export interface FIMetrics {
 }
 
 /** FIRE number = retirement spend / withdrawal rate */
-export function fireNumber(retirementAnnualSpend: number, withdrawalRate: number): number {
+export function fiNumber(retirementAnnualSpend: number, withdrawalRate: number): number {
   if (withdrawalRate <= 0) return Infinity;
   return retirementAnnualSpend / withdrawalRate;
 }
@@ -60,7 +60,7 @@ export function boilingPoint(yearlyContributions: number, realReturnRate: number
 }
 
 /** Progress to FIRE = current FI portfolio / FIRE number (as percentage 0–100+) */
-export function progressToFIRE(fiPortfolioValue: number, fireNum: number): number {
+export function progressToFI(fiPortfolioValue: number, fireNum: number): number {
   if (fireNum <= 0 || !isFinite(fireNum)) return 0;
   return (fiPortfolioValue / fireNum) * 100;
 }
@@ -75,7 +75,7 @@ export function progressToFIRE(fiPortfolioValue: number, fireNum: number): numbe
  *
  * Returns null if FIRE is unreachable (contributions + growth can't reach target).
  */
-export function yearsToFIRE(
+export function yearsToFI(
   currentPortfolio: number,
   yearlyContributions: number,
   fireNum: number,
@@ -113,18 +113,23 @@ export function computeFIMetrics(input: FIMetricsInput): FIMetrics {
     retirement_annual_spend,
   } = input;
 
-  const fireNum = fireNumber(retirement_annual_spend, withdrawal_rate);
-  const secFI = securityFI(yearly_expenses, real_return_rate);
+  const fireNum = fiNumber(retirement_annual_spend, withdrawal_rate);
+  const securityFIValue = securityFI(yearly_expenses, real_return_rate);
   const yearsToDesired = Math.max(0, desired_retirement_age - current_age);
-  const coastFIVal = coastFI(fireNum, real_return_rate, yearsToDesired);
-  const boilingPt = boilingPoint(yearly_contributions, real_return_rate);
-  const progress = progressToFIRE(fi_portfolio_value, fireNum);
-  const ytf = yearsToFIRE(fi_portfolio_value, yearly_contributions, fireNum, real_return_rate);
+  const coastFIValue = coastFI(fireNum, real_return_rate, yearsToDesired);
+  const boilingPointValue = boilingPoint(yearly_contributions, real_return_rate);
+  const progress = progressToFI(fi_portfolio_value, fireNum);
+  const yearsToFire = yearsToFI(
+    fi_portfolio_value,
+    yearly_contributions,
+    fireNum,
+    real_return_rate,
+  );
 
-  const projectedAge = ytf != null ? current_age + ytf : null;
+  const projectedAge = yearsToFire != null ? current_age + yearsToFire : null;
 
   let onTrack: FIMetrics['on_track'];
-  if (ytf == null) {
+  if (yearsToFire == null) {
     onTrack = 'unreachable';
   } else if (projectedAge != null && projectedAge <= desired_retirement_age) {
     onTrack = projectedAge < desired_retirement_age - 1 ? 'ahead' : 'on_track';
@@ -134,11 +139,11 @@ export function computeFIMetrics(input: FIMetricsInput): FIMetrics {
 
   return {
     fire_number: fireNum,
-    security_fi: secFI,
-    coast_fi: coastFIVal,
-    boiling_point: boilingPt,
+    security_fi: securityFIValue,
+    coast_fi: coastFIValue,
+    boiling_point: boilingPointValue,
     progress_pct: progress,
-    years_to_fire: ytf,
+    years_to_fire: yearsToFire,
     projected_retirement_age: projectedAge,
     on_track: onTrack,
   };

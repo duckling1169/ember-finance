@@ -20,9 +20,14 @@ import {
 import { AccountFlows } from './_components/account-flows';
 import { ingestManual, ingestCsv } from '@/lib/api';
 import { fmt, fmtDateTime } from '@/lib/formatters';
-import { TAX_BUCKET_LABELS, API_PROVIDERS } from '@/lib/constants';
+import { TAX_TREATMENT_LABELS, API_PROVIDERS } from '@/lib/constants';
+import dynamic from 'next/dynamic';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
-import { BalanceChart } from '@/components/charts';
+
+const BalanceChart = dynamic(
+  () => import('@/components/charts/balance-chart').then((m) => ({ default: m.BalanceChart })),
+  { ssr: false },
+);
 import { Input } from '@/components/ui/input';
 import { Select } from '@/components/ui/select';
 import { Button } from '@/components/ui/button';
@@ -53,7 +58,7 @@ interface AccountView {
   balance: number;
   linked: boolean;
   last_updated: string | null;
-  tax_bucket: string;
+  tax_treatment: string;
   notes: string;
 }
 
@@ -90,7 +95,7 @@ function mapApiDetail(
     balance: bal?.balance ?? 0,
     linked,
     last_updated: lastSynced,
-    tax_bucket: (meta.tax_bucket as string) || 'none',
+    tax_treatment: (meta.tax_treatment as string) || 'none',
     notes: (meta.notes as string) || '',
   };
 
@@ -138,7 +143,7 @@ export default function AccountDetailPage({ params }: { params: Promise<{ id: st
         balance: enriched.balance,
         linked: enriched.linked,
         last_updated: enriched.last_synced,
-        tax_bucket: enriched.tax_bucket,
+        tax_treatment: enriched.tax_treatment,
         notes: (enriched.meta?.notes as string) || '',
       };
       history = mockAccountHistory[id] || [];
@@ -216,10 +221,10 @@ export default function AccountDetailPage({ params }: { params: Promise<{ id: st
           <div className="mt-1 flex items-center gap-3 text-sm text-muted-foreground">
             {account.institution && <span>{account.institution}</span>}
             <span className="capitalize">{account.account_type}</span>
-            {account.tax_bucket && account.tax_bucket !== 'none' && (
+            {account.tax_treatment && account.tax_treatment !== 'none' && (
               <>
                 <span>&middot;</span>
-                <span>{TAX_BUCKET_LABELS[account.tax_bucket] || account.tax_bucket}</span>
+                <span>{TAX_TREATMENT_LABELS[account.tax_treatment] || account.tax_treatment}</span>
               </>
             )}
           </div>
@@ -300,7 +305,7 @@ function OverviewTab({
       {/* Flows into/out of this account */}
       <AccountFlows
         accountId={accountId}
-        taxTreatment={account.tax_bucket}
+        taxTreatment={account.tax_treatment}
         memberId={profile?.id}
       />
 
@@ -320,9 +325,9 @@ function OverviewTab({
               <dd className="font-medium capitalize">{account.account_type}</dd>
             </div>
             <div>
-              <dt className="text-muted-foreground">Tax Bucket</dt>
+              <dt className="text-muted-foreground">Tax Treatment</dt>
               <dd className="font-medium">
-                {TAX_BUCKET_LABELS[account.tax_bucket] || account.tax_bucket}
+                {TAX_TREATMENT_LABELS[account.tax_treatment] || account.tax_treatment}
               </dd>
             </div>
             <div>

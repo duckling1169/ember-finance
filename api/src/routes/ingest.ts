@@ -1,6 +1,6 @@
 import { Hono } from 'hono';
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { processIngest } from '../services/ingest.js';
+import { persistIngest } from '../services/ingest.js';
 import { ManualAdapter } from '../adapters/manual.js';
 import { CsvAdapter, detectCsvFormat } from '../adapters/csv.js';
 import type { Account, AccountSource, ManualIngestInput } from '../types/index.js';
@@ -14,7 +14,7 @@ interface LegacyManualIngestInput {
 
 // Temporary compatibility shim for older clients using entry_type/amount payloads.
 // New clients should send normalized ManualIngestInput directly.
-function normalizeManualPayload(body: Record<string, unknown>): ManualIngestInput {
+function convertLegacyPayload(body: Record<string, unknown>): ManualIngestInput {
   if (!('entry_type' in body)) return body as ManualIngestInput;
 
   const { entry_type, amount, description } = body as unknown as LegacyManualIngestInput;
@@ -40,7 +40,7 @@ async function getOrCreateSource(
   accountId: string,
   provider: string,
 ) {
-  const { data: existing, error: lookupErr } = await db
+  const { data: existingSource, error: lookupErr } = await db
     .from('account_source')
     .select('*')
     .eq('account_id', accountId)
@@ -51,7 +51,7 @@ async function getOrCreateSource(
     .maybeSingle();
 
   if (lookupErr) throw new Error(`Source lookup failed: ${lookupErr.message}`);
-  if (existing) return existing;
+  if (existingSource) return existingSource;
 
   const { data: newSource, error: createErr } = await db
     .from('account_source')
@@ -70,21 +70,21 @@ ingestRoute.post('/manual/:householdId/:accountId', async (c) => {
 
   // Verify account exists (RLS-enforced — confirms caller owns this account)
   const db = c.get('userClient');
-  const { data: account, error: accError } = await db
+  const { data: account, error: accountError } = await db
     .from('account')
     .select('*')
     .eq('id', accountId)
     .eq('household_id', householdId)
     .single();
 
-  if (accError || !account) return c.json({ error: 'Account not found' }, 404);
+  if (accountError || !account) return c.json({ error: 'Account not found' }, 404);
 
   try {
     const source = await getOrCreateSource(db, householdId, accountId, 'manual');
     const adapter = new ManualAdapter(body);
     const result = await adapter.sync(account as Account, source as AccountSource);
 
-    const ingestResult = await processIngest(
+    const ingestResult = await persistIngest(
       {
         householdId,
         accountId,
@@ -121,14 +121,14 @@ ingestRoute.post('/csv/:householdId/:accountId', async (c) => {
 
   // Verify account exists (RLS-enforced — confirms caller owns this account)
   const db = c.get('userClient');
-  const { data: account, error: accError } = await db
+  const { data: account, error: accountError } = await db
     .from('account')
     .select('*')
     .eq('id', accountId)
     .eq('household_id', householdId)
     .single();
 
-  if (accError || !account) return c.json({ error: 'Account not found' }, 404);
+  if (accountError || !account) return c.json({ error: 'Account not found' }, 404);
 
   try {
     const source = await getOrCreateSource(db, householdId, accountId, 'csv');
@@ -144,10 +144,10 @@ ingestRoute.post('/csv/:householdId/:accountId', async (c) => {
     }
 
     const adapter = new CsvAdapter();
-    const formatOpts = JSON.stringify({ format, accountType: account.account_type });
-    const result = await adapter.parse!(buffer, formatOpts);
+    const parseConfig = JSON.stringify({ format, accountType: account.account_type });
+    const result = await adapter.parse!(buffer, parseConfig);
 
-    const ingestResult = await processIngest(
+    const ingestResult = await persistIngest(
       {
         householdId,
         accountId,
