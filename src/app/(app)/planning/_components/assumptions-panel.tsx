@@ -5,11 +5,27 @@ import { Card, CardHeader, CardTitle, CardAction, CardContent } from '@/componen
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select } from '@/components/ui/select';
+import { InfoTip } from '@/components/ui/info-tip';
 import { IconChevronDown, IconChevronUp } from '@tabler/icons-react';
 import { updateScenario } from '@/lib/api';
 import { mutateScenarios, mutatePlanningComputed } from '@/lib/swr';
 
 import type { ResolvedScenario, ScenarioAssumptions, ContributionGrowthMode } from '@shared/types';
+
+const FIELD_TIPS: Record<string, string> = {
+  gross_return: 'Expected average annual market return before adjusting for inflation (nominal).',
+  inflation:
+    'Expected average annual inflation rate used to convert nominal returns to real returns.',
+  real_return:
+    'Gross return minus inflation — the actual purchasing-power growth of your portfolio. Calculated automatically.',
+  withdrawal_rate:
+    'Percentage of your portfolio withdrawn annually in retirement. The classic "4% rule" is a common starting point.',
+  retirement_spend:
+    'Override the budget-derived annual spending estimate for retirement. Leave blank to use your actual expense total.',
+  contribution_growth:
+    'How your contributions change over time: None keeps them flat, Match Inflation adjusts for CPI, Fixed Rate grows by a set percentage.',
+  growth_rate: 'Annual percentage increase applied to contributions each year.',
+};
 
 interface AssumptionsPanelProps {
   scenario: ResolvedScenario;
@@ -59,37 +75,72 @@ export function AssumptionsPanel({ scenario }: AssumptionsPanelProps) {
     }
   }
 
+  const panelId = 'assumptions-content';
+
   return (
     <Card size="sm">
-      <CardHeader className="cursor-pointer" onClick={() => setOpen(!open)}>
-        <CardTitle>
-          Assumptions
-          <span className="ml-2 text-xs font-normal text-muted-foreground">({scenario.name})</span>
-        </CardTitle>
-        <CardAction>
-          {open ? (
-            <IconChevronUp size={16} stroke={1.5} />
-          ) : (
-            <IconChevronDown size={16} stroke={1.5} />
-          )}
-        </CardAction>
-      </CardHeader>
+      <button
+        type="button"
+        className="flex w-full cursor-pointer items-center justify-between"
+        onClick={() => setOpen(!open)}
+        aria-expanded={open}
+        aria-controls={panelId}
+      >
+        <CardHeader className="flex-1 pointer-events-none">
+          <CardTitle>
+            Assumptions
+            <span className="ml-2 text-xs font-normal text-muted-foreground">
+              ({scenario.name})
+            </span>
+          </CardTitle>
+          <CardAction>
+            {open ? (
+              <IconChevronUp size={16} stroke={1.5} aria-hidden="true" />
+            ) : (
+              <IconChevronDown size={16} stroke={1.5} aria-hidden="true" />
+            )}
+          </CardAction>
+        </CardHeader>
+      </button>
 
       {open && (
-        <CardContent>
+        <CardContent id={panelId}>
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
-            <Field label="Gross Return (%)" value={grossReturn} onChange={setGrossReturn} />
-            <Field label="Inflation (%)" value={inflation} onChange={setInflation} />
-            <Field label="Real Return (%)" value={realReturn} onChange={setRealReturn} />
+            <Field
+              label="Gross Return (%)"
+              tip={FIELD_TIPS.gross_return}
+              value={grossReturn}
+              onChange={setGrossReturn}
+            />
+            <Field
+              label="Inflation (%)"
+              tip={FIELD_TIPS.inflation}
+              value={inflation}
+              onChange={setInflation}
+            />
+            <Field
+              label="Real Return (%)"
+              tip={FIELD_TIPS.real_return}
+              value={realReturn}
+              onChange={setRealReturn}
+            />
             <Field
               label="Withdrawal Rate (%)"
+              tip={FIELD_TIPS.withdrawal_rate}
               value={withdrawalRate}
               onChange={setWithdrawalRate}
             />
 
             <div>
-              <label className="text-xs text-muted-foreground">Retirement Spend Override</label>
+              <label
+                htmlFor="retirement-spend"
+                className="flex items-center gap-1 text-xs text-muted-foreground"
+              >
+                Retirement Spend Override
+                <InfoTip content={FIELD_TIPS.retirement_spend} size={13} />
+              </label>
               <Input
+                id="retirement-spend"
                 type="number"
                 step="1000"
                 min="0"
@@ -101,8 +152,15 @@ export function AssumptionsPanel({ scenario }: AssumptionsPanelProps) {
             </div>
 
             <div>
-              <label className="text-xs text-muted-foreground">Contribution Growth</label>
+              <label
+                htmlFor="contribution-growth"
+                className="flex items-center gap-1 text-xs text-muted-foreground"
+              >
+                Contribution Growth
+                <InfoTip content={FIELD_TIPS.contribution_growth} size={13} />
+              </label>
               <Select
+                id="contribution-growth"
                 value={growthMode}
                 onChange={(e) => setGrowthMode(e.target.value as ContributionGrowthMode)}
                 className="h-7 px-2 text-xs"
@@ -114,7 +172,12 @@ export function AssumptionsPanel({ scenario }: AssumptionsPanelProps) {
             </div>
 
             {growthMode === 'fixed_rate' && (
-              <Field label="Growth Rate (%)" value={growthRate} onChange={setGrowthRate} />
+              <Field
+                label="Growth Rate (%)"
+                tip={FIELD_TIPS.growth_rate}
+                value={growthRate}
+                onChange={setGrowthRate}
+              />
             )}
           </div>
 
@@ -129,19 +192,29 @@ export function AssumptionsPanel({ scenario }: AssumptionsPanelProps) {
   );
 }
 
+let fieldCounter = 0;
+
 function Field({
   label,
+  tip,
   value,
   onChange,
 }: {
   label: string;
+  tip?: string;
   value: string;
   onChange: (v: string) => void;
 }) {
+  const [id] = useState(() => `assumption-field-${++fieldCounter}`);
+
   return (
     <div>
-      <label className="text-xs text-muted-foreground">{label}</label>
+      <label htmlFor={id} className="flex items-center gap-1 text-xs text-muted-foreground">
+        {label}
+        {tip && <InfoTip content={tip} size={13} />}
+      </label>
       <Input
+        id={id}
         type="number"
         step="0.1"
         value={value}

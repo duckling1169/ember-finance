@@ -33,7 +33,7 @@ import type {
   AccountType,
   TaxTreatment,
 } from '@shared/types';
-import { CASHFLOW_FREQUENCIES, ACCOUNT_TYPES } from '@shared/types';
+import { CASHFLOW_FREQUENCIES } from '@shared/types';
 import { TAX_TREATMENT_LABELS, TAX_TREATMENT_OPTIONS } from '@/lib/constants';
 import { mutateAccounts } from '@/lib/swr';
 
@@ -94,7 +94,7 @@ export function CashflowItemsCard({ memberId }: CashflowItemsCardProps) {
       await Promise.all([mutateCashflowItems(), mutatePlanningComputed()]);
       setAdding(false);
     } catch (err) {
-      showFlash('error', err instanceof Error ? err.message : 'Failed to create flow');
+      showFlash('error', err instanceof Error ? err.message : 'Failed to create allocation');
     } finally {
       setSaving(false);
     }
@@ -107,7 +107,7 @@ export function CashflowItemsCard({ memberId }: CashflowItemsCardProps) {
       await Promise.all([mutateCashflowItems(), mutatePlanningComputed()]);
       setEditingId(null);
     } catch (err) {
-      showFlash('error', err instanceof Error ? err.message : 'Failed to update flow');
+      showFlash('error', err instanceof Error ? err.message : 'Failed to update allocation');
     } finally {
       setSaving(false);
     }
@@ -119,7 +119,7 @@ export function CashflowItemsCard({ memberId }: CashflowItemsCardProps) {
       await deleteCashflowItem(id);
       await Promise.all([mutateCashflowItems(), mutatePlanningComputed()]);
     } catch (err) {
-      showFlash('error', err instanceof Error ? err.message : 'Failed to delete flow');
+      showFlash('error', err instanceof Error ? err.message : 'Failed to delete allocation');
     } finally {
       setSaving(false);
     }
@@ -128,10 +128,15 @@ export function CashflowItemsCard({ memberId }: CashflowItemsCardProps) {
   return (
     <Card size="sm">
       <CardHeader>
-        <CardTitle>Flows</CardTitle>
+        <CardTitle>Allocations</CardTitle>
         <CardAction>
           {!adding && (
-            <Button variant="ghost" size="icon-xs" onClick={() => setAdding(true)}>
+            <Button
+              variant="ghost"
+              size="icon-xs"
+              onClick={() => setAdding(true)}
+              aria-label="Add allocation"
+            >
               <IconPlus size={14} stroke={1.5} />
             </Button>
           )}
@@ -147,7 +152,9 @@ export function CashflowItemsCard({ memberId }: CashflowItemsCardProps) {
         {isLoading && <p className="text-sm text-muted-foreground">Loading...</p>}
 
         {!isLoading && memberItems.length === 0 && !adding && (
-          <p className="text-sm text-muted-foreground">No flows yet. Add savings or expenses.</p>
+          <p className="text-sm text-muted-foreground">
+            No allocations yet. Add savings or expenses.
+          </p>
         )}
 
         {DISPLAY_GROUPS.map((group) => {
@@ -241,10 +248,15 @@ function ItemRow({
         </div>
       </div>
       <div className="flex shrink-0 gap-1">
-        <Button variant="ghost" size="icon-xs" onClick={onEdit}>
+        <Button variant="ghost" size="icon-xs" onClick={onEdit} aria-label={`Edit ${item.name}`}>
           <IconPencil size={14} stroke={1.5} />
         </Button>
-        <Button variant="ghost" size="icon-xs" onClick={onDelete}>
+        <Button
+          variant="ghost"
+          size="icon-xs"
+          onClick={onDelete}
+          aria-label={`Delete ${item.name}`}
+        >
           <IconTrash size={14} stroke={1.5} />
         </Button>
       </div>
@@ -344,10 +356,17 @@ function InlineNewAccount({
             size="icon-xs"
             disabled={busy || !acctName.trim()}
             onClick={handleCreate}
+            aria-label="Create account"
           >
             <IconCheck size={14} stroke={1.5} className="text-primary" />
           </Button>
-          <Button type="button" variant="ghost" size="icon-xs" onClick={onCancel}>
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon-xs"
+            onClick={onCancel}
+            aria-label="Cancel account creation"
+          >
             <IconX size={14} stroke={1.5} />
           </Button>
         </div>
@@ -535,10 +554,22 @@ function ItemInlineForm({
         )}
 
         <div className="ml-auto flex h-7 items-center gap-1">
-          <Button type="submit" variant="ghost" size="icon-xs" disabled={saving}>
+          <Button
+            type="submit"
+            variant="ghost"
+            size="icon-xs"
+            disabled={saving}
+            aria-label="Save allocation"
+          >
             <IconCheck size={14} stroke={1.5} className="text-primary" />
           </Button>
-          <Button type="button" variant="ghost" size="icon-xs" onClick={onCancel}>
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon-xs"
+            onClick={onCancel}
+            aria-label="Cancel"
+          >
             <IconX size={14} stroke={1.5} />
           </Button>
         </div>

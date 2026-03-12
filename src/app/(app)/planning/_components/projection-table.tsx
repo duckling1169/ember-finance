@@ -28,15 +28,27 @@ export function ProjectionTable({ projection }: ProjectionTableProps) {
         </CardAction>
       </CardHeader>
       <CardContent className="-mx-4 overflow-x-auto sm:mx-0">
-        <table className="w-full text-sm">
+        <table className="w-full text-sm" aria-label="Portfolio projection by year">
           <thead>
             <tr className="border-b border-border/50 text-xs text-muted-foreground">
-              <th className="px-3 py-2 text-left font-medium">Year</th>
-              <th className="px-3 py-2 text-left font-medium">Age</th>
-              <th className="px-3 py-2 text-right font-medium">Starting</th>
-              <th className="px-3 py-2 text-right font-medium">Contributions</th>
-              <th className="px-3 py-2 text-right font-medium">Growth</th>
-              <th className="px-3 py-2 text-right font-medium">Ending</th>
+              <th scope="col" className="px-3 py-2 text-left font-medium">
+                Year
+              </th>
+              <th scope="col" className="px-3 py-2 text-left font-medium">
+                Age
+              </th>
+              <th scope="col" className="px-3 py-2 text-right font-medium">
+                Starting Portfolio
+              </th>
+              <th scope="col" className="px-3 py-2 text-right font-medium">
+                Contributions
+              </th>
+              <th scope="col" className="px-3 py-2 text-right font-medium">
+                Growth
+              </th>
+              <th scope="col" className="px-3 py-2 text-right font-medium">
+                Ending Portfolio
+              </th>
             </tr>
           </thead>
           <tbody>

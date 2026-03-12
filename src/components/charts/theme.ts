@@ -1,3 +1,4 @@
+import { useSyncExternalStore } from 'react';
 import type { PartialTheme } from '@nivo/theming';
 
 // Hard-coded chart palette (same in light & dark mode)
@@ -22,6 +23,18 @@ export const CHART_COLORS = [
  * Build a nivo theme that reads from CSS custom properties at call time.
  * Must be called inside a component (or effect) so getComputedStyle works.
  */
+const noop = () => () => {};
+const serverSnapshot = () => null as PartialTheme | null;
+const clientSnapshot = () => getNivoTheme() as PartialTheme | null;
+
+/**
+ * Hook that safely provides the Nivo theme on the client.
+ * Returns null during SSR; resolves after hydration.
+ */
+export function useNivoTheme(): PartialTheme | null {
+  return useSyncExternalStore(noop, clientSnapshot, serverSnapshot);
+}
+
 export function getNivoTheme(): PartialTheme {
   const s = getComputedStyle(document.documentElement);
   const fg = s.getPropertyValue('--foreground').trim();

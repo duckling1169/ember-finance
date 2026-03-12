@@ -1,10 +1,9 @@
 'use client';
 
-import { useMemo, useState, useEffect } from 'react';
+import { useMemo } from 'react';
 import { ResponsivePie } from '@nivo/pie';
-import { getNivoTheme, CHART_COLORS } from './theme';
+import { useNivoTheme, CHART_COLORS } from './theme';
 import { ChartTooltip } from './chart-tooltip';
-import { fmt } from '@/lib/formatters';
 
 interface DonutChartProps {
   segments: { id: string; label: string; value: number }[];
@@ -14,11 +13,7 @@ interface DonutChartProps {
 }
 
 export function DonutChart({ segments, total, className = 'w-28 h-28' }: DonutChartProps) {
-  const [theme, setTheme] = useState<ReturnType<typeof getNivoTheme> | null>(null);
-
-  useEffect(() => {
-    setTheme(getNivoTheme());
-  }, []);
+  const theme = useNivoTheme();
 
   const nivoData = useMemo(
     () =>

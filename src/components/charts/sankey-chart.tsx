@@ -1,8 +1,7 @@
 'use client';
 
-import { useState, useEffect } from 'react';
 import { ResponsiveSankey } from '@nivo/sankey';
-import { getNivoTheme } from './theme';
+import { useNivoTheme } from './theme';
 import { ChartTooltip } from './chart-tooltip';
 import { fmt } from '@/lib/formatters';
 import type { SankeyData, SankeyNode } from '@/lib/sankey-transform';
@@ -67,11 +66,7 @@ function StackedLabels({ nodes, width }: { nodes: readonly any[]; width: number 
 /* eslint-enable @typescript-eslint/no-explicit-any */
 
 export function SankeyChart({ data, className, height }: SankeyChartProps) {
-  const [theme, setTheme] = useState<ReturnType<typeof getNivoTheme> | null>(null);
-
-  useEffect(() => {
-    setTheme(getNivoTheme());
-  }, []);
+  const theme = useNivoTheme();
 
   if (!theme || data.nodes.length === 0) return null;
 
@@ -89,7 +84,12 @@ export function SankeyChart({ data, className, height }: SankeyChartProps) {
   const chartHeight = height ?? autoHeight;
 
   return (
-    <div className={className} style={{ height: chartHeight }}>
+    <div
+      className={className}
+      style={{ height: chartHeight }}
+      role="img"
+      aria-label="Sankey diagram showing money flow from income through taxes and deductions to savings and expenses"
+    >
       <ResponsiveSankey
         data={data}
         theme={theme}

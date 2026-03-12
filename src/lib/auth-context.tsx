@@ -52,6 +52,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (key) {
         const stored = JSON.parse(localStorage.getItem(key) || '');
         if (stored?.user) {
+          // eslint-disable-next-line react-hooks/set-state-in-effect -- reduce auth loading flash
           setState({ user: stored.user, session: stored, loading: false });
         }
       }

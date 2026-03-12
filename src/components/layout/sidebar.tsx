@@ -115,6 +115,7 @@ export function Sidebar() {
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- hydration-safe localStorage init
     setMounted(true);
     const stored = localStorage.getItem(SIDEBAR_KEY);
     if (stored !== null) {
