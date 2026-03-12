@@ -86,11 +86,6 @@ describe('validateOnboarding', () => {
     const errors = validateOnboarding({ ...valid, riskTolerance: 'yolo' });
     expect(errors).toContainEqual(expect.objectContaining({ field: 'riskTolerance' }));
   });
-
-  it('fails with negative annualIncome', () => {
-    const errors = validateOnboarding({ ...valid, annualIncome: -50000 });
-    expect(errors).toContainEqual(expect.objectContaining({ field: 'annualIncome' }));
-  });
 });
 
 describe('validateMemberProfile', () => {

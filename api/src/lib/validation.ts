@@ -148,12 +148,6 @@ export function validateHouseholdSettings(body: Record<string, unknown>): Valida
 function validateOptionalMemberFields(body: Record<string, unknown>): ValidationError[] {
   const errors: ValidationError[] = [];
 
-  if (body.annualIncome != null) {
-    if (typeof body.annualIncome !== 'number' || body.annualIncome <= 0) {
-      errors.push({ field: 'annualIncome', message: 'Must be a positive number' });
-    }
-  }
-
   if (body.employmentType != null) {
     if (!EMPLOYMENT_TYPES.includes(body.employmentType as never)) {
       errors.push({

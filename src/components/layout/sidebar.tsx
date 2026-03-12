@@ -142,11 +142,7 @@ export function Sidebar() {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [togglePin]);
 
-  if (!mounted) {
-    return <div className={cn('hidden lg:block shrink-0', EXPANDED_WIDTH)} />;
-  }
-
-  const expanded = pinned || hovered;
+  const expanded = mounted ? pinned || hovered : true;
 
   return (
     <>
@@ -167,8 +163,8 @@ export function Sidebar() {
             expanded ? EXPANDED_WIDTH : COLLAPSED_WIDTH,
             !pinned && hovered && 'shadow-md',
           )}
-          onMouseEnter={() => !pinned && setHovered(true)}
-          onMouseLeave={() => !pinned && setHovered(false)}
+          onMouseEnter={() => mounted && !pinned && setHovered(true)}
+          onMouseLeave={() => mounted && !pinned && setHovered(false)}
         >
           {expanded && (
             <div className="absolute top-4 right-3">
@@ -186,9 +182,7 @@ export function Sidebar() {
       </div>
 
       {/* Mobile sidebar */}
-      <div className="lg:hidden">
-        <MobileHeader />
-      </div>
+      <div className="lg:hidden">{mounted && <MobileHeader />}</div>
     </>
   );
 }

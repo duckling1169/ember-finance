@@ -2,12 +2,10 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import Link from 'next/link';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/lib/auth-context';
 import { useTheme } from '@/lib/theme-context';
 import { updateHousehold, updateProfile, removeMember, sendInvite, cancelInvite } from '@/lib/api';
-import { fmt } from '@/lib/formatters';
 import {
   useHousehold,
   useProfile,
@@ -34,7 +32,6 @@ import {
   IconLoader2,
   IconCrown,
   IconUser,
-  IconExternalLink,
 } from '@tabler/icons-react';
 
 import type {
@@ -283,21 +280,6 @@ export default function SettingsPage() {
                 onChange={(e) => setRetirementAge(e.target.value)}
                 placeholder="55"
               />
-            </div>
-            <div>
-              <label className="mb-1.5 block text-sm font-medium">Annual Income</label>
-              <div className="flex h-9 items-center justify-between rounded-md border border-input bg-muted/50 px-3 text-sm">
-                <span className="font-mono tabular-nums">
-                  {profile?.annual_income ? fmt(profile.annual_income) : '—'}
-                </span>
-                <Link
-                  href="/flows"
-                  className="text-xs text-muted-foreground hover:text-primary transition-colors inline-flex items-center gap-1"
-                >
-                  Edit in Flows
-                  <IconExternalLink size={12} />
-                </Link>
-              </div>
             </div>
             <SelectField
               label="Employment Type"

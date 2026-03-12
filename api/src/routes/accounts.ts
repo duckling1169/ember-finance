@@ -18,6 +18,7 @@ const ACCOUNT_UPDATABLE_FIELDS = new Set([
   'meta',
   'is_active',
   'include_in_fi_portfolio',
+  'tax_treatment',
 ]);
 
 // ── List accounts (enriched with latest balance + source status) ──
@@ -86,14 +87,12 @@ accountsRoute.get('/:householdId', async (c) => {
   const enriched = accounts.map((a: Record<string, unknown>) => {
     const bal = balanceMap.get(a.id as string);
     const src = sourceMap.get(a.id as string);
-    const meta = (a.meta || {}) as Record<string, unknown>;
     return {
       ...a,
       balance: bal?.balance ?? 0,
       balance_date: bal?.date ?? null,
       linked: src?.linked ?? false,
       last_synced: src?.last_synced ?? null,
-      tax_treatment: meta.tax_treatment ?? 'after_tax',
     };
   });
 

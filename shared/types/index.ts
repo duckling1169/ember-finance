@@ -80,8 +80,6 @@ export const ACCOUNT_TYPES = [
   'hsa',
   'loan',
   'mortgage',
-  'property',
-  'vehicle',
   'other',
 ] as const;
 
@@ -95,8 +93,12 @@ export const NET_WORTH_GROUPS = {
   cash: ['checking', 'savings'] as AccountType[],
   investments: ['brokerage', 'retirement', 'hsa'] as AccountType[],
   debt: ['credit', 'loan', 'mortgage'] as AccountType[],
-  illiquid: ['property', 'vehicle', 'other'] as AccountType[],
 };
+
+// ── Asset Types (non-account items tracked for net worth) ──
+
+export const ASSET_CATEGORIES = ['real_estate', 'vehicle', 'other'] as const;
+export type AssetCategory = (typeof ASSET_CATEGORIES)[number];
 
 export type Provider = 'teller' | 'snaptrade' | 'csv' | 'pdf' | 'manual';
 
@@ -145,7 +147,6 @@ export interface Member {
   role: 'owner' | 'viewer';
   birthday: string | null;
   target_retirement_age: number | null;
-  annual_income: number | null;
   employment_type: EmploymentType | null;
   risk_tolerance: RiskTolerance | null;
   state_of_residence: string | null;
@@ -177,7 +178,18 @@ export interface Account {
   is_active: boolean;
   is_liability: boolean;
   include_in_fi_portfolio: boolean;
+  tax_treatment: TaxTreatment;
   created_at: string;
+}
+
+export interface Asset {
+  id: string;
+  household_id: string;
+  name: string;
+  category: AssetCategory;
+  estimated_value: number;
+  created_at: string;
+  updated_at: string;
 }
 
 export interface AccountSource {
@@ -402,7 +414,6 @@ export interface EnrichedAccount extends Account {
   balance_date: string | null;
   linked: boolean;
   last_synced: string | null;
-  tax_treatment: TaxTreatment;
 }
 
 export interface AccountTimelineEvent {
@@ -448,7 +459,6 @@ export interface CreateHouseholdInput {
   taxFilingStatus?: TaxFilingStatus | null;
   state?: USState | null;
   currency?: string;
-  annualIncome?: number | null;
   employmentType?: EmploymentType | null;
   riskTolerance?: RiskTolerance | null;
 }
@@ -470,7 +480,6 @@ export interface UpdateProfileInput {
   displayName?: string;
   birthday?: string | null;
   targetRetirementAge?: number | null;
-  annualIncome?: number | null;
   employmentType?: EmploymentType | null;
   riskTolerance?: RiskTolerance | null;
   stateOfResidence?: string | null;
@@ -485,6 +494,7 @@ export interface CreateAccountInput {
   member_id?: string;
   currency?: string;
   meta?: Record<string, unknown>;
+  tax_treatment?: TaxTreatment;
 }
 
 export interface UpdateAccountInput {

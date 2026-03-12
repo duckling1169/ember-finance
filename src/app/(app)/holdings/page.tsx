@@ -100,7 +100,7 @@ export default function HoldingsPage() {
           name: a.name,
           institution: a.institution,
           account_type: a.account_type,
-          tax_treatment: (a.meta?.tax_treatment as string) || 'taxable',
+          tax_treatment: a.tax_treatment || 'none',
           is_active: a.is_active,
         }));
     }

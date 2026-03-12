@@ -286,7 +286,7 @@ function InlineNewAccount({
       const acct = await createAccount(hhId, {
         name: acctName.trim(),
         account_type: acctType,
-        meta: { tax_treatment: taxTreatment },
+        tax_treatment: taxTreatment,
       });
       await mutateAccounts();
       onCreated(acct.id);

@@ -74,27 +74,7 @@ settingsRoute.get('/profile', async (c) => {
   const { data, error } = await db.from('member').select('*').eq('id', memberId).single();
 
   if (error) return c.json({ error: error.message }, 500);
-
-  // Compute annual_income from income sources (SSOT) instead of the column
-  const { data: sources } = await db
-    .from('income_source')
-    .select('gross_amount, frequency, is_active')
-    .eq('household_id', householdId)
-    .eq('member_id', memberId)
-    .eq('is_active', true);
-
-  const FREQ_TO_ANNUAL: Record<string, number> = {
-    monthly: 12,
-    biweekly: 26,
-    annual: 1,
-    one_time: 0,
-  };
-
-  const computedAnnualIncome = (sources ?? []).reduce((sum, s) => {
-    return sum + Number(s.gross_amount) * (FREQ_TO_ANNUAL[s.frequency] ?? 12);
-  }, 0);
-
-  return c.json({ ...data, annual_income: computedAnnualIncome || null });
+  return c.json(data);
 });
 
 settingsRoute.patch('/profile', async (c) => {
@@ -124,7 +104,6 @@ settingsRoute.patch('/profile', async (c) => {
   if (body.displayName != null) update.display_name = body.displayName.trim();
   if (body.birthday != null) update.birthday = body.birthday;
   if (body.targetRetirementAge != null) update.target_retirement_age = body.targetRetirementAge;
-  // annual_income is computed from income sources — not directly editable
   if (body.employmentType !== undefined) update.employment_type = body.employmentType || null;
   if (body.riskTolerance !== undefined) update.risk_tolerance = body.riskTolerance || null;
   if (body.stateOfResidence !== undefined)

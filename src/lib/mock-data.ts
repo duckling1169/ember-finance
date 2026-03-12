@@ -8,7 +8,7 @@
 //
 // The frontend composes these into enriched views (balance, linked status, etc.)
 
-// ── Accounts (matches DB `account` table + meta for tax_treatment/notes) ──
+// ── Accounts (matches DB `account` table) ──
 
 export const mockAccounts = [
   {
@@ -18,10 +18,11 @@ export const mockAccounts = [
     institution: 'Fidelity',
     account_type: 'retirement',
     currency: 'USD',
-    meta: { tax_treatment: 'traditional', notes: 'Employer match 4%' },
+    meta: { notes: 'Employer match 4%' },
     is_active: true,
     is_liability: false,
     include_in_fi_portfolio: true,
+    tax_treatment: 'pre_tax',
     created_at: '2026-01-10T13:45:00Z',
   },
   {
@@ -31,10 +32,11 @@ export const mockAccounts = [
     institution: 'Chase',
     account_type: 'checking',
     currency: 'USD',
-    meta: { tax_treatment: 'taxable', notes: '' },
+    meta: {},
     is_active: true,
     is_liability: false,
     include_in_fi_portfolio: false,
+    tax_treatment: 'none',
     created_at: '2026-02-01T08:50:00Z',
   },
   {
@@ -44,10 +46,11 @@ export const mockAccounts = [
     institution: 'Vanguard',
     account_type: 'brokerage',
     currency: 'USD',
-    meta: { tax_treatment: 'taxable', notes: '' },
+    meta: {},
     is_active: true,
     is_liability: false,
     include_in_fi_portfolio: true,
+    tax_treatment: 'after_tax',
     created_at: '2025-12-20T10:00:00Z',
   },
   {
@@ -57,10 +60,11 @@ export const mockAccounts = [
     institution: 'Schwab',
     account_type: 'retirement',
     currency: 'USD',
-    meta: { tax_treatment: 'roth', notes: '' },
+    meta: {},
     is_active: true,
     is_liability: false,
     include_in_fi_portfolio: true,
+    tax_treatment: 'tax_free',
     created_at: '2026-01-20T10:00:00Z',
   },
   {
@@ -70,10 +74,11 @@ export const mockAccounts = [
     institution: 'American Express',
     account_type: 'credit',
     currency: 'USD',
-    meta: { tax_treatment: 'none', notes: 'Annual fee due July' },
+    meta: { notes: 'Annual fee due July' },
     is_active: true,
     is_liability: true,
     include_in_fi_portfolio: false,
+    tax_treatment: 'none',
     created_at: '2026-01-15T12:00:00Z',
   },
   {
@@ -83,10 +88,11 @@ export const mockAccounts = [
     institution: 'Goldman Sachs',
     account_type: 'savings',
     currency: 'USD',
-    meta: { tax_treatment: 'taxable', notes: 'Emergency fund' },
+    meta: { notes: 'Emergency fund' },
     is_active: true,
     is_liability: false,
     include_in_fi_portfolio: false,
+    tax_treatment: 'none',
     created_at: '2025-12-01T09:00:00Z',
   },
 ];
@@ -883,7 +889,7 @@ export function enrichAccounts(): EnrichedAccount[] {
       balance_date: latestBalance ? '2026-03-09' : null,
       linked,
       last_synced: lastSynced,
-      tax_treatment: (a.meta.tax_treatment as string) || 'none',
+      tax_treatment: a.tax_treatment || 'none',
     } as EnrichedAccount;
   });
 }
