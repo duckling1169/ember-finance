@@ -4,8 +4,10 @@ import { useState, useMemo } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Alert } from '@/components/ui/alert';
 import { IconPlus, IconCheck, IconX } from '@tabler/icons-react';
-import { cn } from '@/lib/utils';
+
 import { fmt } from '@/lib/formatters';
 import { useFlash } from '@/lib/use-flash';
 import {
@@ -209,22 +211,17 @@ export default function BudgetPage() {
       </div>
 
       {flash && (
-        <div
-          className={cn(
-            'rounded-md px-3 py-1.5 text-xs',
-            flash.type === 'error' ? 'bg-destructive/10 text-destructive' : 'bg-gain/10 text-gain',
-          )}
-        >
+        <Alert variant={flash.type === 'error' ? 'error' : 'success'} size="sm">
           {flash.message}
-        </div>
+        </Alert>
       )}
 
       {/* Totals bar */}
       <div className="flex gap-3">
         <Card size="sm" className="flex-1">
           <CardContent className="py-2">
-            <p className="text-xs text-muted-foreground">Essentials</p>
-            <p className="font-mono tabular-nums text-lg font-semibold">
+            <p className="text-sm text-muted-foreground">Essentials</p>
+            <p className="font-mono tabular-nums text-xl font-semibold">
               {fmt(essentialTotal)}
               <span className="text-xs text-muted-foreground font-normal">/mo</span>
             </p>
@@ -232,8 +229,8 @@ export default function BudgetPage() {
         </Card>
         <Card size="sm" className="flex-1">
           <CardContent className="py-2">
-            <p className="text-xs text-muted-foreground">Non-essentials</p>
-            <p className="font-mono tabular-nums text-lg font-semibold">
+            <p className="text-sm text-muted-foreground">Non-essentials</p>
+            <p className="font-mono tabular-nums text-xl font-semibold">
               {fmt(nonEssentialTotal)}
               <span className="text-xs text-muted-foreground font-normal">/mo</span>
             </p>
@@ -241,8 +238,8 @@ export default function BudgetPage() {
         </Card>
         <Card size="sm" className="flex-1">
           <CardContent className="py-2">
-            <p className="text-xs text-muted-foreground">Total</p>
-            <p className="font-mono tabular-nums text-lg font-semibold">
+            <p className="text-sm text-muted-foreground">Total</p>
+            <p className="font-mono tabular-nums text-xl font-semibold">
               {fmt(grandTotal)}
               <span className="text-xs text-muted-foreground font-normal">/mo</span>
             </p>
@@ -257,7 +254,7 @@ export default function BudgetPage() {
           className="flex items-end gap-2 rounded-md bg-muted/30 p-2"
         >
           <div className="min-w-[160px] flex-1">
-            <label className="text-[10px] text-muted-foreground">Category Name</label>
+            <label className="text-xs text-muted-foreground">Category Name</label>
             <Input
               value={newCatName}
               onChange={(e) => setNewCatName(e.target.value)}
@@ -267,12 +264,10 @@ export default function BudgetPage() {
             />
           </div>
           <div className="flex h-7 items-center gap-1.5">
-            <label className="flex items-center gap-1.5 text-[10px] text-muted-foreground">
-              <input
-                type="checkbox"
+            <label className="flex items-center gap-1.5 text-xs text-muted-foreground">
+              <Checkbox
                 checked={newCatEssential}
                 onChange={(e) => setNewCatEssential(e.target.checked)}
-                className="h-3.5 w-3.5 rounded border-border accent-primary"
               />
               Essential
             </label>

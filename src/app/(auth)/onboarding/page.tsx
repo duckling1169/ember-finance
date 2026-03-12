@@ -85,12 +85,7 @@ function OnboardingContent() {
 
             {error && <p className="text-sm text-destructive">{error}</p>}
 
-            <Button
-              type="submit"
-              variant="outline"
-              disabled={loading}
-              className="w-full hover:bg-primary hover:text-primary-foreground hover:border-primary"
-            >
+            <Button type="submit" variant="primary-outline" disabled={loading} className="w-full">
               {loading ? '...' : inviteId ? 'Join Household' : 'Get Started'}
             </Button>
           </form>

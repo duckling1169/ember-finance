@@ -4,7 +4,6 @@ import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { IconPencil, IconTrash, IconCheck, IconX } from '@tabler/icons-react';
-import { cn } from '@/lib/utils';
 import { fmt } from '@/lib/formatters';
 import type { CashflowItem, ExpenseCategory } from '@shared/types';
 
@@ -119,18 +118,12 @@ export function CategorySection({
                 <span className="truncate text-sm">{item.name}</span>
               </div>
               <span className="shrink-0 font-mono tabular-nums text-xs text-muted-foreground">
-                {fmt(item.amount)}
-                <span className="ml-0.5">{FREQ_LABELS[item.frequency]}</span>
-              </span>
-              <span
-                className={cn(
-                  'shrink-0 font-mono tabular-nums text-xs',
-                  toMonthly(item.amount, item.frequency) > 0
-                    ? 'text-foreground'
-                    : 'text-muted-foreground',
-                )}
-              >
                 {fmt(toMonthly(item.amount, item.frequency))}/mo
+                {item.frequency !== 'monthly' && (
+                  <span className="ml-1 text-muted-foreground/60">
+                    ({fmt(item.amount)} {FREQ_LABELS[item.frequency]})
+                  </span>
+                )}
               </span>
               <div className="flex shrink-0 gap-1">
                 <Button variant="ghost" size="icon-xs" onClick={() => onEditItem(item.id)}>
@@ -178,11 +171,12 @@ export function UncategorizedSection({
               <span className="truncate text-sm">{item.name}</span>
             </div>
             <span className="shrink-0 font-mono tabular-nums text-xs text-muted-foreground">
-              {fmt(item.amount)}
-              <span className="ml-0.5">{FREQ_LABELS[item.frequency]}</span>
-            </span>
-            <span className="shrink-0 font-mono tabular-nums text-xs">
               {fmt(toMonthly(item.amount, item.frequency))}/mo
+              {item.frequency !== 'monthly' && (
+                <span className="ml-1 text-muted-foreground/60">
+                  ({fmt(item.amount)} {FREQ_LABELS[item.frequency]})
+                </span>
+              )}
             </span>
             <div className="flex shrink-0 gap-1">
               <Button variant="ghost" size="icon-xs" onClick={() => onEditItem(item.id)}>

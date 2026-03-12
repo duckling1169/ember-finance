@@ -3,6 +3,7 @@
 import { useMemo, useState } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { Card, CardContent } from '@/components/ui/card';
+import { Select } from '@/components/ui/select';
 import { SankeyChart } from '@/components/charts';
 import { ScenarioSelector } from '@/components/planning/scenario-selector';
 import { WaterfallSummary } from './_components/waterfall-summary';
@@ -17,7 +18,6 @@ import {
   useProfile,
 } from '@/lib/swr';
 import { buildSankeyData } from '@/lib/sankey-transform';
-import { cn } from '@/lib/utils';
 
 export default function FlowsPage() {
   const router = useRouter();
@@ -66,13 +66,10 @@ export default function FlowsPage() {
         <div className="flex items-center gap-2">
           {/* Filter by income source */}
           {incomeSources && incomeSources.length > 1 && (
-            <select
+            <Select
               value={filterSourceId ?? ''}
               onChange={(e) => setFilterSourceId(e.target.value || undefined)}
-              className={cn(
-                'h-8 rounded-md border border-input bg-card px-3 text-sm',
-                'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50',
-              )}
+              className="h-8 w-auto"
             >
               <option value="">All income</option>
               {incomeSources.map((s) => (
@@ -80,7 +77,7 @@ export default function FlowsPage() {
                   {s.name}
                 </option>
               ))}
-            </select>
+            </Select>
           )}
           <ScenarioSelector value={scenarioId} onChange={handleScenarioChange} />
         </div>
@@ -111,20 +108,17 @@ export default function FlowsPage() {
         {members && members.length > 1 && (
           <>
             <span className="text-xs text-muted-foreground">Editing for:</span>
-            <select
+            <Select
               value={selectedMemberId ?? profile?.id ?? ''}
               onChange={(e) => setSelectedMemberId(e.target.value || undefined)}
-              className={cn(
-                'h-7 rounded-md border border-input bg-card px-2 text-xs',
-                'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50',
-              )}
+              className="h-7 w-auto px-2 text-xs"
             >
               {members.map((m) => (
                 <option key={m.id} value={m.id}>
                   {m.display_name}
                 </option>
               ))}
-            </select>
+            </Select>
           </>
         )}
       </div>

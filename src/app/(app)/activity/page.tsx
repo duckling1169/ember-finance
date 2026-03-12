@@ -4,6 +4,7 @@ import { useState, useMemo } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { useAccounts, useTransactions, useInvestmentActivity } from '@/lib/swr';
 import { Card, CardContent } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
 import {
   Table,
   TableHeader,
@@ -259,19 +260,19 @@ export default function ActivityPage() {
         <div className="flex items-center gap-3">
           {/* Date range */}
           <div className="flex items-center gap-2 text-sm">
-            <input
+            <Input
               type="date"
               value={dateFrom}
               onChange={(e) => setDateFrom(e.target.value)}
-              className="rounded-md border border-border bg-transparent px-2 py-1.5 text-sm text-foreground"
+              className="h-8 w-auto"
               placeholder="From"
             />
             <span className="text-muted-foreground">—</span>
-            <input
+            <Input
               type="date"
               value={dateTo}
               onChange={(e) => setDateTo(e.target.value)}
-              className="rounded-md border border-border bg-transparent px-2 py-1.5 text-sm text-foreground"
+              className="h-8 w-auto"
             />
           </div>
 
@@ -336,8 +337,8 @@ export default function ActivityPage() {
       </div>
 
       {/* Activity table */}
-      <Card>
-        <CardContent className="pt-5">
+      <Card size="sm">
+        <CardContent>
           {loading ? (
             <div className="py-10 text-center text-muted-foreground">Loading...</div>
           ) : rows.length === 0 ? (

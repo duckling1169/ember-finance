@@ -20,7 +20,9 @@ import {
 } from '@/lib/swr';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
+import { Select } from '@/components/ui/select';
 import { Button } from '@/components/ui/button';
+import { Alert } from '@/components/ui/alert';
 import {
   IconSun,
   IconMoon,
@@ -87,18 +89,14 @@ function SelectField({
   return (
     <div>
       <label className="mb-1.5 block text-sm font-medium">{label}</label>
-      <select
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        className="h-9 w-full rounded-md border border-input bg-card px-3 text-sm outline-none focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/50"
-      >
+      <Select value={value} onChange={(e) => onChange(e.target.value)}>
         <option value="">{placeholder}</option>
         {options.map((o) => (
           <option key={o.value} value={o.value}>
             {o.label}
           </option>
         ))}
-      </select>
+      </Select>
     </div>
   );
 }
@@ -254,16 +252,8 @@ export default function SettingsPage() {
     <div className="space-y-3">
       <h1 className="text-2xl font-semibold">Settings</h1>
 
-      {error && (
-        <div className="rounded-md border border-destructive/50 bg-destructive/10 px-4 py-2 text-sm text-destructive">
-          {error}
-        </div>
-      )}
-      {success && (
-        <div className="rounded-md border border-gain/50 bg-gain/10 px-4 py-2 text-sm text-gain">
-          {success}
-        </div>
-      )}
+      {error && <Alert variant="error">{error}</Alert>}
+      {success && <Alert variant="success">{success}</Alert>}
 
       {/* Profile */}
       <Card>
@@ -323,12 +313,7 @@ export default function SettingsPage() {
             />
           </div>
           <div className="mt-4 flex justify-end">
-            <Button
-              variant="outline"
-              disabled={saving === 'profile'}
-              onClick={saveProfile}
-              className="hover:bg-primary hover:text-primary-foreground hover:border-primary"
-            >
+            <Button variant="primary-outline" disabled={saving === 'profile'} onClick={saveProfile}>
               {saving === 'profile' ? (
                 <IconLoader2 size={14} className="animate-spin" />
               ) : (
@@ -372,10 +357,9 @@ export default function SettingsPage() {
               </div>
               <div className="mt-4 flex justify-end">
                 <Button
-                  variant="outline"
+                  variant="primary-outline"
                   disabled={saving === 'household'}
                   onClick={saveHousehold}
-                  className="hover:bg-primary hover:text-primary-foreground hover:border-primary"
                 >
                   {saving === 'household' ? (
                     <IconLoader2 size={14} className="animate-spin" />
@@ -471,9 +455,8 @@ export default function SettingsPage() {
                 />
                 <Button
                   type="submit"
-                  variant="outline"
+                  variant="primary-outline"
                   disabled={saving === 'invite' || !inviteEmail}
-                  className="hover:bg-primary hover:text-primary-foreground hover:border-primary"
                 >
                   {saving === 'invite' ? (
                     <IconLoader2 size={14} className="animate-spin" />

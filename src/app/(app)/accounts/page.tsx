@@ -16,7 +16,9 @@ import {
   TableCell,
 } from '@/components/ui/table';
 import { Input } from '@/components/ui/input';
+import { Select } from '@/components/ui/select';
 import { Button } from '@/components/ui/button';
+import { Alert } from '@/components/ui/alert';
 import { IconPlus, IconX, IconBuildingBank, IconPlugConnected } from '@tabler/icons-react';
 import { ACCOUNT_TYPES } from '@shared/types';
 import { fmt, timeAgo } from '@/lib/formatters';
@@ -137,9 +139,9 @@ function AccountsContent() {
     return (
       <div className="space-y-3">
         <h1 className="text-2xl font-semibold">Accounts</h1>
-        <div className="rounded-md border border-destructive/50 bg-destructive/10 px-4 py-2 text-sm text-destructive">
+        <Alert variant="error">
           Failed to load accounts. {fetchError.message || 'Please try again later.'}
-        </div>
+        </Alert>
       </div>
     );
   }
@@ -155,11 +157,7 @@ function AccountsContent() {
               Cancel
             </Button>
           ) : (
-            <Button
-              variant="outline"
-              className="hover:bg-primary hover:text-primary-foreground hover:border-primary"
-              onClick={() => setShowForm(true)}
-            >
+            <Button variant="primary-outline" onClick={() => setShowForm(true)}>
               <IconPlus size={16} />
               Add Account
             </Button>
@@ -167,11 +165,7 @@ function AccountsContent() {
         </div>
       </div>
 
-      {error && (
-        <div className="rounded-md border border-destructive/50 bg-destructive/10 px-4 py-2 text-sm text-destructive">
-          {error}
-        </div>
-      )}
+      {error && <Alert variant="error">{error}</Alert>}
 
       {showForm && (
         <Card>
@@ -190,40 +184,27 @@ function AccountsContent() {
               <div className="grid gap-4 sm:grid-cols-2">
                 <div>
                   <label className="mb-1.5 block text-sm font-medium">Type</label>
-                  <select
-                    name="account_type"
-                    required
-                    className="h-9 w-full rounded-md border border-input bg-card px-3 text-sm capitalize outline-none focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/50"
-                  >
+                  <Select name="account_type" required className="capitalize">
                     {ACCOUNT_TYPES.map((t) => (
                       <option key={t} value={t}>
                         {t.charAt(0).toUpperCase() + t.slice(1).replace('_', ' ')}
                       </option>
                     ))}
-                  </select>
+                  </Select>
                 </div>
                 <div>
                   <label className="mb-1.5 block text-sm font-medium">Tax Bucket</label>
-                  <select
-                    name="tax_bucket"
-                    required
-                    className="h-9 w-full rounded-md border border-input bg-card px-3 text-sm outline-none focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/50"
-                  >
+                  <Select name="tax_bucket" required>
                     {TAX_BUCKET_OPTIONS.map((t) => (
                       <option key={t.value} value={t.value}>
                         {t.label}
                       </option>
                     ))}
-                  </select>
+                  </Select>
                 </div>
               </div>
               <div className="flex justify-end">
-                <Button
-                  type="submit"
-                  variant="outline"
-                  disabled={saving}
-                  className="hover:bg-primary hover:text-primary-foreground hover:border-primary"
-                >
+                <Button type="submit" variant="primary-outline" disabled={saving}>
                   {saving ? 'Adding...' : 'Add Account'}
                 </Button>
               </div>

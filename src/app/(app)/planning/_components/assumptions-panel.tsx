@@ -4,10 +4,11 @@ import { useState, useEffect } from 'react';
 import { Card, CardHeader, CardTitle, CardAction, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Select } from '@/components/ui/select';
 import { IconChevronDown, IconChevronUp } from '@tabler/icons-react';
 import { updateScenario } from '@/lib/api';
 import { mutateScenarios, mutatePlanningComputed } from '@/lib/swr';
-import { cn } from '@/lib/utils';
+
 import type { ResolvedScenario, ScenarioAssumptions, ContributionGrowthMode } from '@shared/types';
 
 interface AssumptionsPanelProps {
@@ -58,11 +59,6 @@ export function AssumptionsPanel({ scenario }: AssumptionsPanelProps) {
     }
   }
 
-  const selectCn = cn(
-    'flex h-7 w-full rounded-md border border-input bg-card px-2 text-xs',
-    'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50',
-  );
-
   return (
     <Card size="sm">
       <CardHeader className="cursor-pointer" onClick={() => setOpen(!open)}>
@@ -92,7 +88,7 @@ export function AssumptionsPanel({ scenario }: AssumptionsPanelProps) {
             />
 
             <div>
-              <label className="text-[10px] text-muted-foreground">Retirement Spend Override</label>
+              <label className="text-xs text-muted-foreground">Retirement Spend Override</label>
               <Input
                 type="number"
                 step="1000"
@@ -105,16 +101,16 @@ export function AssumptionsPanel({ scenario }: AssumptionsPanelProps) {
             </div>
 
             <div>
-              <label className="text-[10px] text-muted-foreground">Contribution Growth</label>
-              <select
+              <label className="text-xs text-muted-foreground">Contribution Growth</label>
+              <Select
                 value={growthMode}
                 onChange={(e) => setGrowthMode(e.target.value as ContributionGrowthMode)}
-                className={selectCn}
+                className="h-7 px-2 text-xs"
               >
                 <option value="none">None</option>
                 <option value="inflation">Match Inflation</option>
                 <option value="fixed_rate">Fixed Rate</option>
-              </select>
+              </Select>
             </div>
 
             {growthMode === 'fixed_rate' && (
@@ -144,7 +140,7 @@ function Field({
 }) {
   return (
     <div>
-      <label className="text-[10px] text-muted-foreground">{label}</label>
+      <label className="text-xs text-muted-foreground">{label}</label>
       <Input
         type="number"
         step="0.1"

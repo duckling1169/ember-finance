@@ -3,8 +3,10 @@
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Select } from '@/components/ui/select';
+import { Checkbox } from '@/components/ui/checkbox';
 import { IconCheck, IconX } from '@tabler/icons-react';
-import { cn } from '@/lib/utils';
+
 import type {
   CashflowItem,
   CashflowFrequency,
@@ -67,18 +69,13 @@ export function ExpenseItemForm({
     });
   }
 
-  const selectCn = cn(
-    'flex h-7 w-full rounded-md border border-input bg-card px-2 text-xs',
-    'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50',
-  );
-
   return (
     <form
       onSubmit={handleSubmit}
       className="flex flex-wrap items-end gap-2 rounded-md bg-muted/30 p-2"
     >
       <div className="min-w-[120px] flex-1">
-        <label className="text-[10px] text-muted-foreground">Name</label>
+        <label className="text-xs text-muted-foreground">Name</label>
         <Input
           value={name}
           onChange={(e) => setName(e.target.value)}
@@ -88,7 +85,7 @@ export function ExpenseItemForm({
         />
       </div>
       <div className="w-[100px]">
-        <label className="text-[10px] text-muted-foreground">Amount</label>
+        <label className="text-xs text-muted-foreground">Amount</label>
         <Input
           type="number"
           step="0.01"
@@ -100,25 +97,25 @@ export function ExpenseItemForm({
         />
       </div>
       <div className="w-[100px]">
-        <label className="text-[10px] text-muted-foreground">Frequency</label>
-        <select
+        <label className="text-xs text-muted-foreground">Frequency</label>
+        <Select
           value={frequency}
           onChange={(e) => setFrequency(e.target.value as CashflowFrequency)}
-          className={selectCn}
+          className="h-7 px-2 text-xs"
         >
           {CASHFLOW_FREQUENCIES.map((f) => (
             <option key={f} value={f}>
               {FREQ_LABELS[f]}
             </option>
           ))}
-        </select>
+        </Select>
       </div>
       <div className="w-[130px]">
-        <label className="text-[10px] text-muted-foreground">Category</label>
-        <select
+        <label className="text-xs text-muted-foreground">Category</label>
+        <Select
           value={category}
           onChange={(e) => handleCategoryChange(e.target.value)}
-          className={selectCn}
+          className="h-7 px-2 text-xs"
         >
           <option value="">None</option>
           {categories.map((c) => (
@@ -126,16 +123,11 @@ export function ExpenseItemForm({
               {c.name}
             </option>
           ))}
-        </select>
+        </Select>
       </div>
       <div className="flex h-7 items-center gap-1.5">
-        <label className="flex items-center gap-1.5 text-[10px] text-muted-foreground">
-          <input
-            type="checkbox"
-            checked={isEssential}
-            onChange={(e) => setIsEssential(e.target.checked)}
-            className="h-3.5 w-3.5 rounded border-border accent-primary"
-          />
+        <label className="flex items-center gap-1.5 text-xs text-muted-foreground">
+          <Checkbox checked={isEssential} onChange={(e) => setIsEssential(e.target.checked)} />
           Essential
         </label>
       </div>
