@@ -24,11 +24,14 @@ export function computeMemberWaterfall(member: WaterfallMemberInput): MemberWate
     0,
   );
 
-  // 2. Pre-tax deductions — cashflow items linked to income sources with
-  //    bucket in [pre_tax_deduction, retirement_deferral]
-  const preTaxBuckets = new Set(['pre_tax_deduction', 'retirement_deferral']);
+  // 2. Pre-tax deductions — saving items whose destination account has tax_bucket === 'pre_tax'
+  const isPreTaxSaving = (item: CashflowItem) =>
+    item.bucket === 'saving' &&
+    item.destination_account_id != null &&
+    member.account_tax_buckets.get(item.destination_account_id) === 'pre_tax';
+
   const preTaxItems = member.cashflow_items.filter(
-    (item) => preTaxBuckets.has(item.bucket) && item.income_source_id != null,
+    (item) => isPreTaxSaving(item) && item.income_source_id != null,
   );
 
   // Build per-income-source summaries
@@ -54,7 +57,7 @@ export function computeMemberWaterfall(member: WaterfallMemberInput): MemberWate
 
   // Also include pre-tax items NOT linked to a specific income source
   const unlinkedPreTaxMonthly = member.cashflow_items
-    .filter((item) => preTaxBuckets.has(item.bucket) && item.income_source_id == null)
+    .filter((item) => isPreTaxSaving(item) && item.income_source_id == null)
     .reduce((sum, item) => sum + toMonthly(item.amount, item.frequency), 0);
 
   const allPreTaxDeductionsMonthly = totalPreTaxDeductionsMonthly + unlinkedPreTaxMonthly;
@@ -98,9 +101,9 @@ export function computeMemberWaterfall(member: WaterfallMemberInput): MemberWate
   // 5. Net income
   const netIncomeMonthly = totalGrossMonthly - allPreTaxDeductionsMonthly - taxMonthly;
 
-  // 6. Post-tax contributions
+  // 6. Post-tax contributions — saving items that are NOT pre-tax
   const postTaxItems = member.cashflow_items.filter(
-    (item) => item.bucket === 'post_tax_contribution',
+    (item) => item.bucket === 'saving' && !isPreTaxSaving(item),
   );
   const postTaxContributions: ContributionSummary[] = postTaxItems.map((item) => ({
     cashflow_item_id: item.id,

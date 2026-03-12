@@ -3,11 +3,6 @@ export const TAX_BUCKET_LABELS: Record<string, string> = {
   after_tax: 'After-tax',
   tax_free: 'Tax-free',
   none: 'N/A',
-  // Legacy values
-  traditional: 'Pre-tax',
-  roth: 'Tax-free',
-  hsa: 'Tax-free',
-  taxable: 'After-tax',
 };
 
 export const TAX_BUCKET_OPTIONS = [

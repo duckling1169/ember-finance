@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { createAccount } from '@/lib/api';
 import { useAccounts, mutateAccounts } from '@/lib/swr';
 import { devBypass, enrichAccounts } from '@/lib/mock-data';
-import type { EnrichedAccount, AccountType } from '@shared/types';
+import type { EnrichedAccount, AccountType, TaxBucket } from '@shared/types';
 import { Card, CardContent } from '@/components/ui/card';
 import {
   Table,
@@ -105,7 +105,7 @@ function AccountsContent() {
         balance_date: null,
         linked: false,
         last_synced: null,
-        tax_bucket: form.get('tax_bucket') as string,
+        tax_bucket: (form.get('tax_bucket') as TaxBucket) ?? 'after_tax',
       };
       setMockAccts((prev) => [...prev, newAccount]);
       setShowForm(false);
@@ -130,14 +130,14 @@ function AccountsContent() {
   }
 
   if (loading) {
-    return <div className="py-10 text-muted-foreground">Loading...</div>;
+    return <div className="py-10 text-center text-muted-foreground">Loading...</div>;
   }
 
   if (!devBypass && fetchError) {
     return (
       <div className="space-y-3">
         <h1 className="text-2xl font-semibold">Accounts</h1>
-        <div className="rounded-md bg-destructive/10 p-4 text-sm text-destructive">
+        <div className="rounded-md border border-destructive/50 bg-destructive/10 px-4 py-2 text-sm text-destructive">
           Failed to load accounts. {fetchError.message || 'Please try again later.'}
         </div>
       </div>
@@ -168,7 +168,9 @@ function AccountsContent() {
       </div>
 
       {error && (
-        <div className="rounded-md bg-destructive/10 p-3 text-sm text-destructive">{error}</div>
+        <div className="rounded-md border border-destructive/50 bg-destructive/10 px-4 py-2 text-sm text-destructive">
+          {error}
+        </div>
       )}
 
       {showForm && (

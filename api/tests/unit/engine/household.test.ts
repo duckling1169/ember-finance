@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { computeHouseholdWaterfall } from '../../../src/engine/household.js';
 import type { HouseholdWaterfallInput, WaterfallMemberInput } from '../../../src/engine/types.js';
-import type { IncomeSource, CashflowItem } from '../../../shared/types/index.js';
+import type { IncomeSource, CashflowItem, TaxBucket } from '../../../shared/types/index.js';
 
 function makeIncomeSource(overrides: Partial<IncomeSource> = {}): IncomeSource {
   return {
@@ -27,7 +27,6 @@ function makeCashflowItem(overrides: Partial<CashflowItem> = {}): CashflowItem {
     name: 'Test Item',
     direction: 'outflow',
     bucket: 'expense',
-    tax_treatment: 'post_tax',
     amount: 1000,
     frequency: 'monthly',
     is_recurring: true,
@@ -35,7 +34,10 @@ function makeCashflowItem(overrides: Partial<CashflowItem> = {}): CashflowItem {
     start_date: '2025-01-01',
     end_date: null,
     income_source_id: null,
+    source_account_id: null,
     destination_account_id: null,
+    category: null,
+    is_essential: true,
     created_at: '2025-01-01',
     updated_at: '2025-01-01',
     ...overrides,
@@ -53,6 +55,7 @@ function makeMember(overrides: Partial<WaterfallMemberInput> = {}): WaterfallMem
     effective_tax_rate_override: null,
     income_sources: [makeIncomeSource()],
     cashflow_items: [],
+    account_tax_buckets: new Map<string, TaxBucket>(),
     ...overrides,
   };
 }
@@ -183,19 +186,25 @@ describe('computeHouseholdWaterfall', () => {
           cashflow_items: [
             makeCashflowItem({
               id: 'cf-401k',
-              bucket: 'retirement_deferral',
+              bucket: 'saving',
               amount: 23500,
               frequency: 'annual',
               income_source_id: 'inc-1',
+              destination_account_id: 'acct-401k',
             }),
             makeCashflowItem({
               id: 'cf-roth',
-              bucket: 'post_tax_contribution',
+              bucket: 'saving',
               amount: 7000,
               frequency: 'annual',
+              destination_account_id: 'acct-roth',
             }),
             makeCashflowItem({ id: 'cf-rent', bucket: 'expense', amount: 2000 }),
           ],
+          account_tax_buckets: new Map([
+            ['acct-401k', 'pre_tax'],
+            ['acct-roth', 'tax_free'],
+          ]),
         }),
       ],
     };

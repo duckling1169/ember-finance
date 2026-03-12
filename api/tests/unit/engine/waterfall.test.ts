@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { computeMemberWaterfall } from '../../../src/engine/waterfall.js';
 import type { WaterfallMemberInput } from '../../../src/engine/types.js';
-import type { IncomeSource, CashflowItem } from '../../../shared/types/index.js';
+import type { IncomeSource, CashflowItem, TaxBucket } from '../../../shared/types/index.js';
 
 function makeIncomeSource(overrides: Partial<IncomeSource> = {}): IncomeSource {
   return {
@@ -27,7 +27,6 @@ function makeCashflowItem(overrides: Partial<CashflowItem> = {}): CashflowItem {
     name: 'Test Item',
     direction: 'outflow',
     bucket: 'expense',
-    tax_treatment: 'post_tax',
     amount: 1000,
     frequency: 'monthly',
     is_recurring: true,
@@ -35,7 +34,10 @@ function makeCashflowItem(overrides: Partial<CashflowItem> = {}): CashflowItem {
     start_date: '2025-01-01',
     end_date: null,
     income_source_id: null,
+    source_account_id: null,
     destination_account_id: null,
+    category: null,
+    is_essential: true,
     created_at: '2025-01-01',
     updated_at: '2025-01-01',
     ...overrides,
@@ -53,6 +55,7 @@ function makeMember(overrides: Partial<WaterfallMemberInput> = {}): WaterfallMem
     effective_tax_rate_override: null,
     income_sources: [makeIncomeSource()],
     cashflow_items: [],
+    account_tax_buckets: new Map<string, TaxBucket>(),
     ...overrides,
   };
 }
@@ -79,19 +82,21 @@ describe('computeMemberWaterfall', () => {
     expect(result.total_gross_annual).toBeCloseTo(100000, 0);
   });
 
-  it('deducts pre-tax items linked to income source', () => {
+  it('deducts pre-tax saving items linked to income source', () => {
     const result = computeMemberWaterfall(
       makeMember({
         cashflow_items: [
           makeCashflowItem({
             id: 'cf-401k',
             name: '401k Deferral',
-            bucket: 'retirement_deferral',
+            bucket: 'saving',
             amount: 23500,
             frequency: 'annual',
             income_source_id: 'inc-1',
+            destination_account_id: 'acct-401k',
           }),
         ],
+        account_tax_buckets: new Map([['acct-401k', 'pre_tax']]),
       }),
     );
 
@@ -123,19 +128,20 @@ describe('computeMemberWaterfall', () => {
     );
   });
 
-  it('tracks post-tax contributions', () => {
+  it('tracks post-tax contributions (saving to non-pre-tax account)', () => {
     const result = computeMemberWaterfall(
       makeMember({
         cashflow_items: [
           makeCashflowItem({
             id: 'cf-roth',
             name: 'Roth IRA',
-            bucket: 'post_tax_contribution',
+            bucket: 'saving',
             amount: 7000,
             frequency: 'annual',
             destination_account_id: 'acct-roth',
           }),
         ],
+        account_tax_buckets: new Map([['acct-roth', 'tax_free']]),
       }),
     );
 
@@ -174,16 +180,18 @@ describe('computeMemberWaterfall', () => {
         cashflow_items: [
           makeCashflowItem({
             id: 'cf-401k',
-            bucket: 'retirement_deferral',
+            bucket: 'saving',
             amount: 23500,
             frequency: 'annual',
             income_source_id: 'inc-1',
+            destination_account_id: 'acct-401k',
           }),
           makeCashflowItem({
             id: 'cf-roth',
-            bucket: 'post_tax_contribution',
+            bucket: 'saving',
             amount: 7000,
             frequency: 'annual',
+            destination_account_id: 'acct-roth',
           }),
           makeCashflowItem({
             id: 'cf-rent',
@@ -192,6 +200,10 @@ describe('computeMemberWaterfall', () => {
             frequency: 'monthly',
           }),
         ],
+        account_tax_buckets: new Map([
+          ['acct-401k', 'pre_tax'],
+          ['acct-roth', 'tax_free'],
+        ]),
       }),
     );
 
@@ -222,5 +234,26 @@ describe('computeMemberWaterfall', () => {
 
     // $4842.31 * 26/12 = ~$10,491.67/mo → ~$125,900/yr
     expect(result.total_gross_annual).toBeCloseTo(125900, 0);
+  });
+
+  it('saving without destination account is treated as post-tax', () => {
+    const result = computeMemberWaterfall(
+      makeMember({
+        cashflow_items: [
+          makeCashflowItem({
+            id: 'cf-save',
+            name: 'General Savings',
+            bucket: 'saving',
+            amount: 500,
+            frequency: 'monthly',
+            destination_account_id: null,
+          }),
+        ],
+      }),
+    );
+
+    // Should appear as post-tax contribution, not pre-tax deduction
+    expect(result.total_pre_tax_deductions_monthly).toBe(0);
+    expect(result.total_post_tax_contributions_monthly).toBeCloseTo(500, 0);
   });
 });
