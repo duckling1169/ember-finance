@@ -3,7 +3,7 @@ import type {
   CashflowItem,
   IncomeSource,
   TaxFilingStatus,
-  TaxBucket,
+  TaxTreatment,
   USState,
   TaxMode,
 } from '../types/index.js';
@@ -21,8 +21,8 @@ export interface WaterfallMemberInput {
   effective_tax_rate_override: number | null;
   income_sources: IncomeSource[];
   cashflow_items: CashflowItem[];
-  /** Map from account ID → tax_bucket, used to determine pre-tax vs post-tax savings */
-  account_tax_buckets: Map<string, TaxBucket>;
+  /** Map from account ID → tax_treatment, used to determine pre-tax vs post-tax savings */
+  account_tax_treatments: Map<string, TaxTreatment>;
 }
 
 /** Household-level inputs for aggregation */

@@ -90,11 +90,11 @@ settingsRoute.get('/profile', async (c) => {
     one_time: 0,
   };
 
-  const computed = (sources ?? []).reduce((sum, s) => {
+  const computedAnnualIncome = (sources ?? []).reduce((sum, s) => {
     return sum + Number(s.gross_amount) * (FREQ_TO_ANNUAL[s.frequency] ?? 12);
   }, 0);
 
-  return c.json({ ...data, annual_income: computed || null });
+  return c.json({ ...data, annual_income: computedAnnualIncome || null });
 });
 
 settingsRoute.patch('/profile', async (c) => {

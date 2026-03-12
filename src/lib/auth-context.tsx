@@ -33,17 +33,34 @@ const mockUser: User = {
   is_anonymous: false,
 };
 
+/** Read Supabase session from localStorage synchronously to avoid loading flash. */
+function getInitialState(): AuthState {
+  if (devBypass) return { user: mockUser, session: null, loading: false };
+  if (typeof window === 'undefined') return { user: null, session: null, loading: true };
+
+  try {
+    const key = Object.keys(localStorage).find(
+      (k) => k.startsWith('sb-') && k.endsWith('-auth-token'),
+    );
+    if (key) {
+      const stored = JSON.parse(localStorage.getItem(key) || '');
+      if (stored?.user) {
+        return { user: stored.user, session: stored, loading: false };
+      }
+    }
+  } catch {
+    // Fallback to async check
+  }
+  return { user: null, session: null, loading: true };
+}
+
 export function AuthProvider({ children }: { children: React.ReactNode }) {
-  const [state, setState] = useState<AuthState>(
-    devBypass
-      ? { user: mockUser, session: null, loading: false }
-      : { user: null, session: null, loading: true },
-  );
+  const [state, setState] = useState<AuthState>(getInitialState);
 
   useEffect(() => {
     if (devBypass) return;
 
-    // Get initial session
+    // Get authoritative session (corrects stale localStorage read)
     supabase.auth.getSession().then(({ data: { session } }) => {
       setState({ user: session?.user ?? null, session, loading: false });
     });

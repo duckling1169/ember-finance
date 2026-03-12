@@ -367,15 +367,15 @@ planningRoute.patch('/expense-categories/:categoryId', async (c) => {
     return c.json({ error: 'No valid fields to update' }, 400);
   }
 
-  // Get old category name for bulk-updating items
-  const { data: oldCat } = await db
+  // Get existing category name for bulk-updating items
+  const { data: existingCategory } = await db
     .from('expense_category')
     .select('name')
     .eq('id', categoryId)
     .eq('household_id', householdId)
     .single();
 
-  if (!oldCat) return c.json({ error: 'Category not found' }, 404);
+  if (!existingCategory) return c.json({ error: 'Category not found' }, 404);
 
   const { data, error } = await db
     .from('expense_category')
@@ -393,7 +393,7 @@ planningRoute.patch('/expense-categories/:categoryId', async (c) => {
   // Bulk-update matching cashflow items when is_essential or name changes
   const itemUpdate: Record<string, unknown> = {};
   if (body.is_essential !== undefined) itemUpdate.is_essential = body.is_essential;
-  if (body.name !== undefined && body.name.trim() !== oldCat.name) {
+  if (body.name !== undefined && body.name.trim() !== existingCategory.name) {
     itemUpdate.category = body.name.trim();
   }
 
@@ -402,7 +402,7 @@ planningRoute.patch('/expense-categories/:categoryId', async (c) => {
       .from('cashflow_item')
       .update(itemUpdate)
       .eq('household_id', householdId)
-      .eq('category', oldCat.name);
+      .eq('category', existingCategory.name);
   }
 
   return c.json(data);
@@ -414,21 +414,21 @@ planningRoute.delete('/expense-categories/:categoryId', async (c) => {
   const db = c.get('userClient');
 
   // Get the category name to null out references on items
-  const { data: cat } = await db
+  const { data: category } = await db
     .from('expense_category')
     .select('name')
     .eq('id', categoryId)
     .eq('household_id', householdId)
     .single();
 
-  if (!cat) return c.json({ error: 'Category not found' }, 404);
+  if (!category) return c.json({ error: 'Category not found' }, 404);
 
   // Null out category on matching items
   await db
     .from('cashflow_item')
     .update({ category: null })
     .eq('household_id', householdId)
-    .eq('category', cat.name);
+    .eq('category', category.name);
 
   const { error } = await db
     .from('expense_category')
@@ -516,13 +516,13 @@ planningRoute.get('/cashflow-summary', async (c) => {
   const scenarioId = c.req.query('scenario_id');
 
   try {
-    const data = await fetchPlanningData(db, householdId, scenarioId);
-    const waterfallInput = assembleWaterfallInput(data);
+    const planningData = await fetchPlanningData(db, householdId, scenarioId);
+    const waterfallInput = assembleWaterfallInput(planningData);
     const waterfall = computeHouseholdWaterfall(waterfallInput);
-    const assumptions = resolveAssumptions(data.scenario);
+    const assumptions = resolveAssumptions(planningData.scenario);
 
     return c.json({
-      scenario: { id: data.scenario.id, name: data.scenario.name, assumptions },
+      scenario: { id: planningData.scenario.id, name: planningData.scenario.name, assumptions },
       waterfall,
     });
   } catch (err) {
@@ -537,13 +537,13 @@ planningRoute.get('/projections', async (c) => {
   const scenarioId = c.req.query('scenario_id');
 
   try {
-    const data = await fetchPlanningData(db, householdId, scenarioId);
-    const waterfallInput = assembleWaterfallInput(data);
+    const planningData = await fetchPlanningData(db, householdId, scenarioId);
+    const waterfallInput = assembleWaterfallInput(planningData);
     const waterfall = computeHouseholdWaterfall(waterfallInput);
-    const assumptions = resolveAssumptions(data.scenario);
-    const projectionInput = assembleProjectionInput(waterfall, data, assumptions);
+    const assumptions = resolveAssumptions(planningData.scenario);
+    const projectionInput = assembleProjectionInput(waterfall, planningData, assumptions);
 
-    const primaryMember = data.members[0];
+    const primaryMember = planningData.members[0];
     const currentAge = primaryMember ? computeCurrentAge(primaryMember.birthday) : undefined;
 
     const projection = computeProjection(
@@ -552,8 +552,8 @@ planningRoute.get('/projections', async (c) => {
     );
 
     return c.json({
-      scenario: { id: data.scenario.id, name: data.scenario.name, assumptions },
-      fi_portfolio_value: data.fi_portfolio_value,
+      scenario: { id: planningData.scenario.id, name: planningData.scenario.name, assumptions },
+      fi_portfolio_value: planningData.fi_portfolio_value,
       projection,
     });
   } catch (err) {
@@ -568,12 +568,12 @@ planningRoute.get('/metrics', async (c) => {
   const scenarioId = c.req.query('scenario_id');
 
   try {
-    const data = await fetchPlanningData(db, householdId, scenarioId);
-    const waterfallInput = assembleWaterfallInput(data);
+    const planningData = await fetchPlanningData(db, householdId, scenarioId);
+    const waterfallInput = assembleWaterfallInput(planningData);
     const waterfall = computeHouseholdWaterfall(waterfallInput);
-    const assumptions = resolveAssumptions(data.scenario);
+    const assumptions = resolveAssumptions(planningData.scenario);
 
-    const metricsInput = assembleFIMetricsInput(waterfall, data, assumptions);
+    const metricsInput = assembleFIMetricsInput(waterfall, planningData, assumptions);
     if (!metricsInput) {
       return c.json(
         { error: 'Cannot compute FI metrics: primary member birthday is required' },
@@ -582,12 +582,12 @@ planningRoute.get('/metrics', async (c) => {
     }
 
     const metrics = computeFIMetrics(metricsInput);
-    const savingsInput = assembleSavingsRateInput(waterfall, data);
+    const savingsInput = assembleSavingsRateInput(waterfall, planningData);
     const savings_rates = computeSavingsRates(savingsInput);
 
     return c.json({
-      scenario: { id: data.scenario.id, name: data.scenario.name, assumptions },
-      fi_portfolio_value: data.fi_portfolio_value,
+      scenario: { id: planningData.scenario.id, name: planningData.scenario.name, assumptions },
+      fi_portfolio_value: planningData.fi_portfolio_value,
       inputs: metricsInput,
       metrics,
       savings_rates,

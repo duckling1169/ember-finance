@@ -121,10 +121,10 @@ export type AssetClass =
   | 'commodity'
   | 'other';
 
-// ── Tax Bucket (canonical vocabulary) ──
+// ── Tax Treatment (canonical vocabulary) ──
 
-export const TAX_BUCKETS = ['pre_tax', 'after_tax', 'tax_free', 'none'] as const;
-export type TaxBucket = (typeof TAX_BUCKETS)[number];
+export const TAX_TREATMENTS = ['pre_tax', 'after_tax', 'tax_free', 'none'] as const;
+export type TaxTreatment = (typeof TAX_TREATMENTS)[number];
 
 // ── DB Row Types ──
 
@@ -402,7 +402,7 @@ export interface EnrichedAccount extends Account {
   balance_date: string | null;
   linked: boolean;
   last_synced: string | null;
-  tax_bucket: TaxBucket;
+  tax_treatment: TaxTreatment;
 }
 
 export interface AccountTimelineEvent {
@@ -564,7 +564,7 @@ export type TaxMode = 'auto' | 'manual';
 
 export type CashflowDirection = 'inflow' | 'outflow';
 
-export const CASHFLOW_BUCKETS = ['saving', 'employer_match', 'expense'] as const;
+export const CASHFLOW_BUCKETS = ['savings', 'employer_match', 'expense'] as const;
 export type CashflowBucket = (typeof CASHFLOW_BUCKETS)[number];
 
 export const CASHFLOW_FREQUENCIES = ['monthly', 'biweekly', 'annual', 'one_time'] as const;

@@ -1,23 +1,23 @@
 import { describe, it, expect } from 'vitest';
 import {
-  fireNumber,
+  fiNumber,
   securityFI,
   coastFI,
   boilingPoint,
-  progressToFIRE,
-  yearsToFIRE,
+  progressToFI,
+  yearsToFI,
   computeFIMetrics,
 } from '../../../src/engine/metrics.js';
 import type { FIMetricsInput } from '../../../src/engine/metrics.js';
 
-describe('fireNumber', () => {
+describe('fiNumber', () => {
   it('computes FIRE number from spend and withdrawal rate', () => {
     // $200,000 / 3% = $6,666,667
-    expect(fireNumber(200000, 0.03)).toBeCloseTo(6666667, 0);
+    expect(fiNumber(200000, 0.03)).toBeCloseTo(6666667, 0);
   });
 
   it('returns Infinity for zero withdrawal rate', () => {
-    expect(fireNumber(200000, 0)).toBe(Infinity);
+    expect(fiNumber(200000, 0)).toBe(Infinity);
   });
 });
 
@@ -55,41 +55,41 @@ describe('boilingPoint', () => {
   });
 });
 
-describe('progressToFIRE', () => {
+describe('progressToFI', () => {
   it('computes progress percentage', () => {
     // $658,000 / $6,666,667 = 9.87%
-    expect(progressToFIRE(658000, 6666667)).toBeCloseTo(9.87, 1);
+    expect(progressToFI(658000, 6666667)).toBeCloseTo(9.87, 1);
   });
 
   it('returns 0 for zero FIRE number', () => {
-    expect(progressToFIRE(100000, 0)).toBe(0);
+    expect(progressToFI(100000, 0)).toBe(0);
   });
 
   it('can exceed 100%', () => {
-    expect(progressToFIRE(2000000, 1000000)).toBe(200);
+    expect(progressToFI(2000000, 1000000)).toBe(200);
   });
 });
 
-describe('yearsToFIRE', () => {
+describe('yearsToFI', () => {
   it('returns 0 when already at FIRE', () => {
-    expect(yearsToFIRE(1000000, 50000, 1000000, 0.06)).toBe(0);
+    expect(yearsToFI(1000000, 50000, 1000000, 0.06)).toBe(0);
   });
 
   it('computes years for reference scenario', () => {
     // Portfolio $658,000, contributions $128,665/yr, FIRE $6,666,667, 6% real return
     // Expected ~19.82 years
-    const result = yearsToFIRE(658000, 128665, 6666667, 0.06);
+    const result = yearsToFI(658000, 128665, 6666667, 0.06);
     expect(result).not.toBeNull();
     expect(result!).toBeCloseTo(19.82, 0);
   });
 
   it('returns null when unreachable (no contributions, no growth)', () => {
-    expect(yearsToFIRE(100000, 0, 1000000, 0)).toBeNull();
+    expect(yearsToFI(100000, 0, 1000000, 0)).toBeNull();
   });
 
   it('handles zero return with positive contributions', () => {
     // $0 portfolio, $50k/yr, $500k target, 0% return → 10 years
-    expect(yearsToFIRE(0, 50000, 500000, 0)).toBe(10);
+    expect(yearsToFI(0, 50000, 500000, 0)).toBe(10);
   });
 });
 

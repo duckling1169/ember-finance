@@ -23,13 +23,13 @@ onboardingRoute.post('/', async (c) => {
   }
 
   // Check user doesn't already have a household
-  const { data: existing } = await supabase
+  const { data: existingMember } = await supabase
     .from('member')
     .select('id')
     .eq('auth_user_id', authUser.id)
     .maybeSingle();
 
-  if (existing) {
+  if (existingMember) {
     return c.json({ error: 'User already belongs to a household' }, 409);
   }
 
@@ -57,7 +57,7 @@ onboardingRoute.post('/', async (c) => {
   }
 
   // Fallback: sequential inserts (non-atomic, but handles FK-less environments)
-  const { data: household, error: hhError } = await supabase
+  const { data: household, error: householdError } = await supabase
     .from('household')
     .insert({
       name: body.householdName.trim(),
@@ -68,11 +68,11 @@ onboardingRoute.post('/', async (c) => {
     .select()
     .single();
 
-  if (hhError) {
-    return c.json({ error: 'Failed to create household', details: hhError.message }, 500);
+  if (householdError) {
+    return c.json({ error: 'Failed to create household', details: householdError.message }, 500);
   }
 
-  const { data: member, error: memError } = await supabase
+  const { data: member, error: memberError } = await supabase
     .from('member')
     .insert({
       household_id: household.id,
@@ -88,10 +88,10 @@ onboardingRoute.post('/', async (c) => {
     .select()
     .single();
 
-  if (memError) {
+  if (memberError) {
     // Rollback household
     await supabase.from('household').delete().eq('id', household.id);
-    return c.json({ error: 'Failed to create member', details: memError.message }, 500);
+    return c.json({ error: 'Failed to create member', details: memberError.message }, 500);
   }
 
   return c.json({ household, member }, 201);
@@ -136,25 +136,25 @@ onboardingRoute.post('/accept-invite', async (c) => {
   }
 
   // Check user doesn't already have a household
-  const { data: existing } = await supabase
+  const { data: existingMember } = await supabase
     .from('member')
     .select('id')
     .eq('auth_user_id', authUser.id)
     .maybeSingle();
 
-  if (existing) {
+  if (existingMember) {
     return c.json({ error: 'User already belongs to a household' }, 409);
   }
 
   // Fetch and validate invite
-  const { data: invite, error: invErr } = await supabase
+  const { data: invite, error: inviteError } = await supabase
     .from('household_invite')
     .select('*')
     .eq('id', body.inviteId)
     .is('accepted_at', null)
     .maybeSingle();
 
-  if (invErr || !invite) {
+  if (inviteError || !invite) {
     return c.json({ error: 'Invite not found or already accepted' }, 404);
   }
 
@@ -167,7 +167,7 @@ onboardingRoute.post('/accept-invite', async (c) => {
   }
 
   // Create member (role always 'owner' per spec)
-  const { data: member, error: memError } = await supabase
+  const { data: member, error: memberError } = await supabase
     .from('member')
     .insert({
       household_id: invite.household_id,
@@ -183,8 +183,8 @@ onboardingRoute.post('/accept-invite', async (c) => {
     .select()
     .single();
 
-  if (memError) {
-    return c.json({ error: 'Failed to create member', details: memError.message }, 500);
+  if (memberError) {
+    return c.json({ error: 'Failed to create member', details: memberError.message }, 500);
   }
 
   // Mark invite as accepted

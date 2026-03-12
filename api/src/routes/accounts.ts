@@ -9,7 +9,7 @@ import type { AuthEnv } from '../middleware/auth.js';
 
 export const accountsRoute = new Hono<AuthEnv>();
 
-const UPDATABLE_FIELDS = new Set([
+const ACCOUNT_UPDATABLE_FIELDS = new Set([
   'name',
   'institution',
   'account_type',
@@ -51,8 +51,12 @@ accountsRoute.get('/:householdId', async (c) => {
   // Build lookup maps
   const balanceMap = new Map<string, { balance: number; date: string }>();
   if (balancesRes.data) {
-    for (const b of balancesRes.data as { account_id: string; balance: number; date: string }[]) {
-      balanceMap.set(b.account_id, { balance: b.balance, date: b.date });
+    for (const balance of balancesRes.data as {
+      account_id: string;
+      balance: number;
+      date: string;
+    }[]) {
+      balanceMap.set(balance.account_id, { balance: balance.balance, date: balance.date });
     }
   }
 
@@ -89,7 +93,7 @@ accountsRoute.get('/:householdId', async (c) => {
       balance_date: bal?.date ?? null,
       linked: src?.linked ?? false,
       last_synced: src?.last_synced ?? null,
-      tax_bucket: meta.tax_bucket ?? 'after_tax',
+      tax_treatment: meta.tax_treatment ?? 'after_tax',
     };
   });
 
@@ -410,7 +414,7 @@ accountsRoute.patch('/:householdId/:accountId', async (c) => {
 
   const update: Record<string, unknown> = {};
   for (const key of Object.keys(body)) {
-    if (UPDATABLE_FIELDS.has(key)) {
+    if (ACCOUNT_UPDATABLE_FIELDS.has(key)) {
       update[key] = body[key];
     }
   }

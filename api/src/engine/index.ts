@@ -10,12 +10,12 @@ export {
 export { computeMemberWaterfall } from './waterfall.js';
 export { computeHouseholdWaterfall } from './household.js';
 export {
-  fireNumber,
+  fiNumber,
   securityFI,
   coastFI,
   boilingPoint,
-  progressToFIRE,
-  yearsToFIRE,
+  progressToFI,
+  yearsToFI,
   computeFIMetrics,
 } from './metrics.js';
 export { computeProjection } from './projections.js';

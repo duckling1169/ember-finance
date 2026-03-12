@@ -30,7 +30,7 @@ import {
 import { IconChevronRight, IconChevronDown, IconCheck } from '@tabler/icons-react';
 import { INVESTMENT_ACCOUNT_TYPES } from '@shared/types';
 import { fmt } from '@/lib/formatters';
-import { TAX_BUCKET_LABELS } from '@/lib/constants';
+import { TAX_TREATMENT_LABELS } from '@/lib/constants';
 import { GainCell, PctCell } from '@/components/common/financial-cells';
 import { SortIcon, type SortDir } from '@/components/common/sort-icon';
 
@@ -69,7 +69,7 @@ interface AccountInfo {
   name: string;
   institution: string | null;
   account_type: string;
-  tax_bucket: string;
+  tax_treatment: string;
   is_active: boolean;
 }
 
@@ -100,7 +100,7 @@ export default function HoldingsPage() {
           name: a.name,
           institution: a.institution,
           account_type: a.account_type,
-          tax_bucket: (a.meta?.tax_bucket as string) || 'taxable',
+          tax_treatment: (a.meta?.tax_treatment as string) || 'taxable',
           is_active: a.is_active,
         }));
     }
@@ -112,7 +112,7 @@ export default function HoldingsPage() {
         name: a.name,
         institution: a.institution,
         account_type: a.account_type,
-        tax_bucket: a.tax_bucket || (a.meta?.tax_bucket as string) || 'taxable',
+        tax_treatment: a.tax_treatment || (a.meta?.tax_treatment as string) || 'taxable',
         is_active: true,
       }));
   }, [apiAccounts]);
@@ -192,8 +192,8 @@ export default function HoldingsPage() {
     return accountList.find((a) => a.id === id)?.name || id;
   }
 
-  function accountTaxBucket(id: string) {
-    return accountList.find((a) => a.id === id)?.tax_bucket || 'taxable';
+  function accountTaxTreatment(id: string) {
+    return accountList.find((a) => a.id === id)?.tax_treatment || 'taxable';
   }
 
   const columns: { key: SortKey; label: string; align?: 'right' }[] = [
@@ -374,7 +374,7 @@ export default function HoldingsPage() {
             <LotDetailPanel
               holding={sheetHolding}
               accountName={accountName}
-              accountTaxBucket={accountTaxBucket}
+              accountTaxTreatment={accountTaxTreatment}
             />
           )}
         </SheetContent>
@@ -637,11 +637,11 @@ function HoldingRow({
 function LotDetailPanel({
   holding,
   accountName,
-  accountTaxBucket,
+  accountTaxTreatment,
 }: {
   holding: AggregatedHolding;
   accountName: (id: string) => string;
-  accountTaxBucket: (id: string) => string;
+  accountTaxTreatment: (id: string) => string;
 }) {
   const h = holding;
   const longTermLots = h.lots.filter((l) => l.holding_period === 'long_term');
@@ -722,14 +722,14 @@ function LotDetailPanel({
             const acctValue = lots.reduce((s, l) => s + l.live_market_value, 0);
             const acctCost = lots.reduce((s, l) => s + l.cost_basis_total, 0);
             const acctGain = lots.reduce((s, l) => s + l.unrealized_gain_loss, 0);
-            const bucket = accountTaxBucket(accountId);
+            const bucket = accountTaxTreatment(accountId);
 
             return (
               <div key={accountId} className="rounded-md border border-border">
                 <div className="px-3 py-2 border-b border-border bg-muted/30">
                   <p className="text-sm font-medium">{accountName(accountId)}</p>
                   <p className="text-xs text-muted-foreground">
-                    {TAX_BUCKET_LABELS[bucket] || bucket}
+                    {TAX_TREATMENT_LABELS[bucket] || bucket}
                   </p>
                 </div>
                 <div className="divide-y divide-border">

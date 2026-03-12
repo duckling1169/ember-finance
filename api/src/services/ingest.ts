@@ -12,13 +12,13 @@ interface IngestContext {
   triggeredBy?: string;
 }
 
-export async function processIngest(ctx: IngestContext, result: IngestResult) {
+export async function persistIngest(ctx: IngestContext, ingestData: IngestResult) {
   // 1. Write raw payload to raw_ingest (immutable audit trail)
   const totalRecords =
-    result.transactions.length +
-    result.investmentActivity.length +
-    result.balances.length +
-    result.holdings.length;
+    ingestData.transactions.length +
+    ingestData.investmentActivity.length +
+    ingestData.balances.length +
+    ingestData.holdings.length;
 
   const { data: rawIngest, error: rawError } = await supabase
     .from('raw_ingest')
@@ -28,7 +28,7 @@ export async function processIngest(ctx: IngestContext, result: IngestResult) {
       source_id: ctx.sourceId,
       source_type: ctx.sourceType,
       source_ref: ctx.sourceRef || null,
-      payload: result,
+      payload: ingestData,
       record_count: totalRecords,
       triggered_by: ctx.triggeredBy || null,
       status: 'pending',
@@ -41,28 +41,28 @@ export async function processIngest(ctx: IngestContext, result: IngestResult) {
 
   try {
     // 2. Upsert transactions
-    if (result.transactions.length > 0) {
-      await upsertTransactions(ctx, rawIngestId, result);
+    if (ingestData.transactions.length > 0) {
+      await upsertTransactions(ctx, rawIngestId, ingestData);
     }
 
     // 3. Upsert investment activity
-    if (result.investmentActivity.length > 0) {
-      await upsertInvestmentActivity(ctx, rawIngestId, result);
+    if (ingestData.investmentActivity.length > 0) {
+      await upsertInvestmentActivity(ctx, rawIngestId, ingestData);
     }
 
     // 4. Upsert holdings
-    if (result.holdings.length > 0) {
-      await upsertHoldings(ctx, rawIngestId, result);
+    if (ingestData.holdings.length > 0) {
+      await upsertHoldings(ctx, rawIngestId, ingestData);
     }
 
     // 5. Upsert balances
-    if (result.balances.length > 0) {
-      await upsertBalances(ctx, rawIngestId, result);
+    if (ingestData.balances.length > 0) {
+      await upsertBalances(ctx, rawIngestId, ingestData);
     }
 
     // 6. Run cross-source duplicate detection
-    const txnDates = result.transactions.map((t) => t.date);
-    const actDates = result.investmentActivity.map((a) => a.date);
+    const txnDates = ingestData.transactions.map((t) => t.date);
+    const actDates = ingestData.investmentActivity.map((a) => a.date);
 
     const [txnDedup, actDedup] = await Promise.all([
       txnDates.length > 0

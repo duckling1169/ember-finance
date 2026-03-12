@@ -8,7 +8,7 @@
 //
 // The frontend composes these into enriched views (balance, linked status, etc.)
 
-// ── Accounts (matches DB `account` table + meta for tax_bucket/notes) ──
+// ── Accounts (matches DB `account` table + meta for tax_treatment/notes) ──
 
 export const mockAccounts = [
   {
@@ -18,7 +18,7 @@ export const mockAccounts = [
     institution: 'Fidelity',
     account_type: 'retirement',
     currency: 'USD',
-    meta: { tax_bucket: 'traditional', notes: 'Employer match 4%' },
+    meta: { tax_treatment: 'traditional', notes: 'Employer match 4%' },
     is_active: true,
     is_liability: false,
     include_in_fi_portfolio: true,
@@ -31,7 +31,7 @@ export const mockAccounts = [
     institution: 'Chase',
     account_type: 'checking',
     currency: 'USD',
-    meta: { tax_bucket: 'taxable', notes: '' },
+    meta: { tax_treatment: 'taxable', notes: '' },
     is_active: true,
     is_liability: false,
     include_in_fi_portfolio: false,
@@ -44,7 +44,7 @@ export const mockAccounts = [
     institution: 'Vanguard',
     account_type: 'brokerage',
     currency: 'USD',
-    meta: { tax_bucket: 'taxable', notes: '' },
+    meta: { tax_treatment: 'taxable', notes: '' },
     is_active: true,
     is_liability: false,
     include_in_fi_portfolio: true,
@@ -57,7 +57,7 @@ export const mockAccounts = [
     institution: 'Schwab',
     account_type: 'retirement',
     currency: 'USD',
-    meta: { tax_bucket: 'roth', notes: '' },
+    meta: { tax_treatment: 'roth', notes: '' },
     is_active: true,
     is_liability: false,
     include_in_fi_portfolio: true,
@@ -70,7 +70,7 @@ export const mockAccounts = [
     institution: 'American Express',
     account_type: 'credit',
     currency: 'USD',
-    meta: { tax_bucket: 'none', notes: 'Annual fee due July' },
+    meta: { tax_treatment: 'none', notes: 'Annual fee due July' },
     is_active: true,
     is_liability: true,
     include_in_fi_portfolio: false,
@@ -83,7 +83,7 @@ export const mockAccounts = [
     institution: 'Goldman Sachs',
     account_type: 'savings',
     currency: 'USD',
-    meta: { tax_bucket: 'taxable', notes: 'Emergency fund' },
+    meta: { tax_treatment: 'taxable', notes: 'Emergency fund' },
     is_active: true,
     is_liability: false,
     include_in_fi_portfolio: false,
@@ -833,22 +833,28 @@ function generateDailyHistory(
   return points;
 }
 
-export const mockNetWorthHistory = generateDailyHistory(
-  '2025-04-01',
-  '2026-03-10',
-  780000,
-  838147.13,
-  0.002,
-);
+// Lazy-initialized to avoid running generateDailyHistory on every module import
+let _mockNetWorthHistory: { date: string; value: number }[] | null = null;
+export function getMockNetWorthHistory() {
+  return (_mockNetWorthHistory ??= generateDailyHistory(
+    '2025-04-01',
+    '2026-03-10',
+    780000,
+    838147.13,
+    0.002,
+  ));
+}
 
-// Portfolio value over time (line chart)
-export const mockPortfolioHistory = generateDailyHistory(
-  '2025-04-01',
-  '2026-03-10',
-  120000,
-  145231.69,
-  0.003,
-);
+let _mockPortfolioHistory: { date: string; value: number }[] | null = null;
+export function getMockPortfolioHistory() {
+  return (_mockPortfolioHistory ??= generateDailyHistory(
+    '2025-04-01',
+    '2026-03-10',
+    120000,
+    145231.69,
+    0.003,
+  ));
+}
 
 // ── Enriched Account View (composed for frontend display) ──
 // In production, this would be assembled from API calls to accounts + sources + balances.
@@ -877,7 +883,7 @@ export function enrichAccounts(): EnrichedAccount[] {
       balance_date: latestBalance ? '2026-03-09' : null,
       linked,
       last_synced: lastSynced,
-      tax_bucket: (a.meta.tax_bucket as string) || 'none',
+      tax_treatment: (a.meta.tax_treatment as string) || 'none',
     } as EnrichedAccount;
   });
 }

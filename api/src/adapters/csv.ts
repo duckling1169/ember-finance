@@ -46,14 +46,14 @@ function stripMetadataRows(content: string, format: CsvFormat): string {
     schwab_positions: ['Symbol', 'Quantity', 'Market Value'],
   };
 
-  const sigs = headerSignatures[format];
-  if (!sigs) return cleaned;
+  const signatures = headerSignatures[format];
+  if (!signatures) return cleaned;
 
   const lines = cleaned.split(/\r?\n/);
   let headerIdx = 0;
   for (let i = 0; i < Math.min(lines.length, 15); i++) {
     const line = lines[i];
-    if (sigs.every((sig) => line.toLowerCase().includes(sig.toLowerCase()))) {
+    if (signatures.every((sig) => line.toLowerCase().includes(sig.toLowerCase()))) {
       headerIdx = i;
       break;
     }
@@ -93,55 +93,70 @@ export function detectCsvFormat(content: string, accountType: AccountType): CsvF
   const cleaned = content.replace(/^\uFEFF/, '');
   // Look at the first 15 lines for header signatures
   const lines = cleaned.split(/\r?\n/).slice(0, 15);
-  const blob = lines.join('\n').toLowerCase();
+  const headerText = lines.join('\n').toLowerCase();
 
   // Institution-specific detection (order matters — check specific before generic)
 
   // Chase: "Transaction Date" or "Posting Date" + "Description" + "Amount"
-  if (blob.includes('posting date') && blob.includes('description') && blob.includes('amount')) {
+  if (
+    headerText.includes('posting date') &&
+    headerText.includes('description') &&
+    headerText.includes('amount')
+  ) {
     return accountType === 'credit' ? 'chase_credit' : 'chase_checking';
   }
   if (
-    blob.includes('transaction date') &&
-    blob.includes('description') &&
-    blob.includes('amount')
+    headerText.includes('transaction date') &&
+    headerText.includes('description') &&
+    headerText.includes('amount')
   ) {
     return accountType === 'credit' ? 'chase_credit' : 'chase_checking';
   }
 
   // Fidelity transactions: "Run Date" + "Action"
-  if (blob.includes('run date') && blob.includes('action') && blob.includes('amount')) {
+  if (
+    headerText.includes('run date') &&
+    headerText.includes('action') &&
+    headerText.includes('amount')
+  ) {
     return 'fidelity_transactions';
   }
   // Fidelity positions: "Symbol" + "Current Value"
-  if (blob.includes('symbol') && blob.includes('current value')) {
+  if (headerText.includes('symbol') && headerText.includes('current value')) {
     return 'fidelity_positions';
   }
 
   // Schwab: "Date" + "Action" + "Symbol" + "Quantity" + "Price" + "Amount"
   if (
-    blob.includes('action') &&
-    blob.includes('symbol') &&
-    blob.includes('quantity') &&
-    blob.includes('price')
+    headerText.includes('action') &&
+    headerText.includes('symbol') &&
+    headerText.includes('quantity') &&
+    headerText.includes('price')
   ) {
     // Distinguish transactions vs positions by looking for "Market Value"
-    if (blob.includes('market value') && !blob.includes('action')) {
+    if (headerText.includes('market value') && !headerText.includes('action')) {
       return 'schwab_positions';
     }
     return 'schwab_transactions';
   }
   // Schwab positions: "Symbol" + "Market Value" + "Quantity"
-  if (blob.includes('symbol') && blob.includes('market value') && blob.includes('quantity')) {
+  if (
+    headerText.includes('symbol') &&
+    headerText.includes('market value') &&
+    headerText.includes('quantity')
+  ) {
     return 'schwab_positions';
   }
 
   // Vanguard transactions: "Trade Date" + "Transaction Type"
-  if (blob.includes('trade date') && blob.includes('transaction type')) {
+  if (headerText.includes('trade date') && headerText.includes('transaction type')) {
     return 'vanguard_transactions';
   }
   // Vanguard positions: "Symbol" + "Share Price" or "Fund Name"
-  if (blob.includes('symbol') && (blob.includes('share price') || blob.includes('fund name'))) {
+  if (
+    headerText.includes('symbol') &&
+    (headerText.includes('share price') || headerText.includes('fund name'))
+  ) {
     return 'vanguard_positions';
   }
 
@@ -149,13 +164,16 @@ export function detectCsvFormat(content: string, accountType: AccountType): CsvF
   const isBrokerage = ['brokerage', 'retirement', 'hsa'].includes(accountType);
   if (isBrokerage) {
     // If it has symbol/quantity columns, it's brokerage-like
-    if (blob.includes('symbol') && (blob.includes('quantity') || blob.includes('shares'))) {
+    if (
+      headerText.includes('symbol') &&
+      (headerText.includes('quantity') || headerText.includes('shares'))
+    ) {
       return 'generic_brokerage';
     }
   }
 
   // Generic banking: any CSV with date + amount + description-like column
-  if (blob.includes('date') && blob.includes('amount')) {
+  if (headerText.includes('date') && headerText.includes('amount')) {
     return isBrokerage ? 'generic_brokerage' : 'generic_banking';
   }
 
@@ -319,24 +337,25 @@ function parseFidelityTransactions(rows: Record<string, string>[]): IngestResult
   return result;
 }
 
-function mapFidelityAction(action: string): ActivityType {
-  const a = action.toUpperCase().trim();
-  if (a.includes('BOUGHT') || a.includes('BUY') || a.includes('PURCHASE')) return 'buy';
-  if (a.includes('SOLD') || a.includes('SELL')) return 'sell';
-  if (a.includes('REINVEST')) return 'reinvestment';
+function mapFidelityAction(raw: string): ActivityType {
+  const action = raw.toUpperCase().trim();
+  if (action.includes('BOUGHT') || action.includes('BUY') || action.includes('PURCHASE'))
+    return 'buy';
+  if (action.includes('SOLD') || action.includes('SELL')) return 'sell';
+  if (action.includes('REINVEST')) return 'reinvestment';
   if (
-    a.includes('DIVIDEND') ||
-    a.includes('DIV') ||
-    a.includes('CAP GAIN') ||
-    a.includes('CAPITAL GAIN')
+    action.includes('DIVIDEND') ||
+    action.includes('DIV') ||
+    action.includes('CAP GAIN') ||
+    action.includes('CAPITAL GAIN')
   )
     return 'dividend';
-  if (a.includes('SPLIT')) return 'split';
-  if (a.includes('TRANSFER') && a.includes('IN')) return 'transfer_in';
-  if (a.includes('TRANSFER') && a.includes('OUT')) return 'transfer_out';
-  if (a.includes('FEE') || a.includes('ADVISORY')) return 'fee';
-  if (a.includes('INTEREST')) return 'interest';
-  if (a.includes('RETURN OF CAPITAL') || a.includes('ROC')) return 'return_of_capital';
+  if (action.includes('SPLIT')) return 'split';
+  if (action.includes('TRANSFER') && action.includes('IN')) return 'transfer_in';
+  if (action.includes('TRANSFER') && action.includes('OUT')) return 'transfer_out';
+  if (action.includes('FEE') || action.includes('ADVISORY')) return 'fee';
+  if (action.includes('INTEREST')) return 'interest';
+  if (action.includes('RETURN OF CAPITAL') || action.includes('ROC')) return 'return_of_capital';
   return 'buy'; // fallback
 }
 
@@ -414,16 +433,22 @@ function parseVanguardTransactions(rows: Record<string, string>[]): IngestResult
   return result;
 }
 
-function mapVanguardType(type: string): ActivityType {
-  const t = type.toUpperCase();
-  if (t.includes('BUY') || t.includes('PURCHASE') || t.includes('CONTRIBUTION')) return 'buy';
-  if (t.includes('SELL') || t.includes('REDEMPTION') || t.includes('WITHDRAWAL')) return 'sell';
-  if (t.includes('REINVESTMENT') || t.includes('REINVEST')) return 'reinvestment';
-  if (t.includes('DIVIDEND') || t.includes('CAPITAL GAIN') || t.includes('DISTRIBUTION'))
+function mapVanguardType(raw: string): ActivityType {
+  const txnType = raw.toUpperCase();
+  if (txnType.includes('BUY') || txnType.includes('PURCHASE') || txnType.includes('CONTRIBUTION'))
+    return 'buy';
+  if (txnType.includes('SELL') || txnType.includes('REDEMPTION') || txnType.includes('WITHDRAWAL'))
+    return 'sell';
+  if (txnType.includes('REINVESTMENT') || txnType.includes('REINVEST')) return 'reinvestment';
+  if (
+    txnType.includes('DIVIDEND') ||
+    txnType.includes('CAPITAL GAIN') ||
+    txnType.includes('DISTRIBUTION')
+  )
     return 'dividend';
-  if (t.includes('TRANSFER IN') || t.includes('ROLLOVER')) return 'transfer_in';
-  if (t.includes('TRANSFER OUT')) return 'transfer_out';
-  if (t.includes('FEE')) return 'fee';
+  if (txnType.includes('TRANSFER IN') || txnType.includes('ROLLOVER')) return 'transfer_in';
+  if (txnType.includes('TRANSFER OUT')) return 'transfer_out';
+  if (txnType.includes('FEE')) return 'fee';
   return 'buy';
 }
 
@@ -498,16 +523,17 @@ function parseSchwabTransactions(rows: Record<string, string>[]): IngestResult {
   return result;
 }
 
-function mapSchwabAction(action: string): ActivityType {
-  const a = action.toUpperCase();
-  if (a.includes('BUY')) return 'buy';
-  if (a.includes('SELL')) return 'sell';
-  if (a.includes('REINVEST')) return 'reinvestment';
-  if (a.includes('DIVIDEND') || a.includes('QUAL DIV') || a.includes('CASH DIV')) return 'dividend';
-  if (a.includes('ADV FEE') || a.includes('FEE')) return 'fee';
-  if (a.includes('INTEREST') || a.includes('BANK INT')) return 'interest';
-  if (a.includes('JOURNAL') && a.includes('IN')) return 'transfer_in';
-  if (a.includes('JOURNAL') && a.includes('OUT')) return 'transfer_out';
+function mapSchwabAction(raw: string): ActivityType {
+  const action = raw.toUpperCase();
+  if (action.includes('BUY')) return 'buy';
+  if (action.includes('SELL')) return 'sell';
+  if (action.includes('REINVEST')) return 'reinvestment';
+  if (action.includes('DIVIDEND') || action.includes('QUAL DIV') || action.includes('CASH DIV'))
+    return 'dividend';
+  if (action.includes('ADV FEE') || action.includes('FEE')) return 'fee';
+  if (action.includes('INTEREST') || action.includes('BANK INT')) return 'interest';
+  if (action.includes('JOURNAL') && action.includes('IN')) return 'transfer_in';
+  if (action.includes('JOURNAL') && action.includes('OUT')) return 'transfer_out';
   return 'buy';
 }
 
@@ -600,15 +626,15 @@ function parseGenericBrokerage(rows: Record<string, string>[]): IngestResult {
   return result;
 }
 
-function mapGenericAction(action: string): ActivityType {
-  const a = action.toUpperCase();
-  if (a.includes('BUY') || a.includes('PURCHASE')) return 'buy';
-  if (a.includes('SELL') || a.includes('SOLD')) return 'sell';
-  if (a.includes('DIV') && a.includes('REINV')) return 'reinvestment';
-  if (a.includes('DIV')) return 'dividend';
-  if (a.includes('FEE')) return 'fee';
-  if (a.includes('INTEREST') || a.includes('INT')) return 'interest';
-  if (a.includes('SPLIT')) return 'split';
+function mapGenericAction(raw: string): ActivityType {
+  const action = raw.toUpperCase();
+  if (action.includes('BUY') || action.includes('PURCHASE')) return 'buy';
+  if (action.includes('SELL') || action.includes('SOLD')) return 'sell';
+  if (action.includes('DIV') && action.includes('REINV')) return 'reinvestment';
+  if (action.includes('DIV')) return 'dividend';
+  if (action.includes('FEE')) return 'fee';
+  if (action.includes('INTEREST') || action.includes('INT')) return 'interest';
+  if (action.includes('SPLIT')) return 'split';
   return 'buy';
 }
 

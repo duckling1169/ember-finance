@@ -31,10 +31,10 @@ import type {
   CreateCashflowItemInput,
   EnrichedAccount,
   AccountType,
-  TaxBucket,
+  TaxTreatment,
 } from '@shared/types';
 import { CASHFLOW_FREQUENCIES, ACCOUNT_TYPES } from '@shared/types';
-import { TAX_BUCKET_LABELS, TAX_BUCKET_OPTIONS } from '@/lib/constants';
+import { TAX_TREATMENT_LABELS, TAX_TREATMENT_OPTIONS } from '@/lib/constants';
 import { mutateAccounts } from '@/lib/swr';
 
 const FREQ_LABELS: Record<CashflowFrequency, string> = {
@@ -46,13 +46,13 @@ const FREQ_LABELS: Record<CashflowFrequency, string> = {
 
 // ── Bucket display labels ──
 const BUCKET_TAGS: Record<CashflowBucket, string> = {
-  saving: 'Saving',
+  savings: 'Savings',
   employer_match: 'Employer',
   expense: 'Expense',
 };
 
 const BUCKET_OPTIONS: { value: CashflowBucket; label: string }[] = [
-  { value: 'saving', label: 'Saving' },
+  { value: 'savings', label: 'Savings' },
   { value: 'employer_match', label: 'Employer match' },
   { value: 'expense', label: 'Expense' },
 ];
@@ -65,7 +65,7 @@ function bucketToDirection(bucket: CashflowBucket): 'inflow' | 'outflow' {
 const DISPLAY_GROUPS = [
   {
     label: 'Savings',
-    match: (b: string) => b === 'saving' || b === 'employer_match',
+    match: (b: string) => b === 'savings' || b === 'employer_match',
   },
   {
     label: 'Expenses',
@@ -214,7 +214,7 @@ function ItemRow({
   const linkedAccount = item.destination_account_id
     ? accounts?.find((a) => a.id === item.destination_account_id)
     : undefined;
-  const taxLabel = linkedAccount ? TAX_BUCKET_LABELS[linkedAccount.tax_bucket] : undefined;
+  const taxLabel = linkedAccount ? TAX_TREATMENT_LABELS[linkedAccount.tax_treatment] : undefined;
 
   return (
     <div className="flex items-center gap-3 rounded-md px-2 py-1.5 hover:bg-muted/50">
@@ -274,7 +274,7 @@ function InlineNewAccount({
 }) {
   const [acctName, setAcctName] = useState('');
   const [acctType, setAcctType] = useState<AccountType>('retirement');
-  const [taxBucket, setTaxBucket] = useState<TaxBucket>('pre_tax');
+  const [taxTreatment, setTaxTreatment] = useState<TaxTreatment>('pre_tax');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
 
@@ -286,7 +286,7 @@ function InlineNewAccount({
       const acct = await createAccount(hhId, {
         name: acctName.trim(),
         account_type: acctType,
-        meta: { tax_bucket: taxBucket },
+        meta: { tax_treatment: taxTreatment },
       });
       await mutateAccounts();
       onCreated(acct.id);
@@ -324,13 +324,13 @@ function InlineNewAccount({
           </Select>
         </div>
         <div className="w-[100px]">
-          <label className="text-xs text-muted-foreground">Tax Bucket</label>
+          <label className="text-xs text-muted-foreground">Tax Treatment</label>
           <Select
-            value={taxBucket}
-            onChange={(e) => setTaxBucket(e.target.value as TaxBucket)}
+            value={taxTreatment}
+            onChange={(e) => setTaxTreatment(e.target.value as TaxTreatment)}
             className="h-7 px-2 text-xs"
           >
-            {TAX_BUCKET_OPTIONS.map((o) => (
+            {TAX_TREATMENT_OPTIONS.map((o) => (
               <option key={o.value} value={o.value}>
                 {o.label}
               </option>
@@ -388,8 +388,8 @@ function ItemInlineForm({
   const [showNewAccount, setShowNewAccount] = useState(false);
 
   // Conditional fields by bucket
-  const isSaving = bucket === 'saving' || bucket === 'employer_match';
-  const showFromIncome = bucket === 'saving';
+  const isSaving = bucket === 'savings' || bucket === 'employer_match';
+  const showFromIncome = bucket === 'savings';
   const showToAccount = isSaving;
   const showCategory = bucket === 'expense';
 
