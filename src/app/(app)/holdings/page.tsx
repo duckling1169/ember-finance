@@ -562,7 +562,7 @@ function HoldingRow({
 
   return (
     <>
-      <TableRow className="cursor-pointer hover:bg-muted/50" onClick={onToggleExpand}>
+      <TableRow className="cursor-pointer hover:bg-primary/5" onClick={onToggleExpand}>
         <TableCell className="w-8 pr-0">
           <Chevron size={14} className="text-muted-foreground" />
         </TableCell>
@@ -591,7 +591,7 @@ function HoldingRow({
               <TableCell className="text-xs text-muted-foreground">
                 {lot.acquired_date}
                 <span
-                  className={`ml-1.5 px-1 py-0.5 rounded text-xs font-medium ${lot.holding_period === 'long_term' ? 'bg-primary/10 text-primary' : 'bg-muted text-muted-foreground'}`}
+                  className={`ml-1.5 px-1 py-0.5 rounded text-xs font-medium ${lot.holding_period === 'long_term' ? 'bg-primary/10 text-primary' : 'bg-warning/15 text-warning'}`}
                 >
                   {lot.holding_period === 'long_term' ? 'LT' : 'ST'}
                 </span>
@@ -739,7 +739,7 @@ function LotDetailPanel({
                         <span className="text-muted-foreground">
                           {lot.acquired_date}
                           <span
-                            className={`ml-1.5 px-1 py-0.5 rounded text-xs font-medium ${lot.holding_period === 'long_term' ? 'bg-primary/10 text-primary' : 'bg-muted text-muted-foreground'}`}
+                            className={`ml-1.5 px-1 py-0.5 rounded text-xs font-medium ${lot.holding_period === 'long_term' ? 'bg-primary/10 text-primary' : 'bg-warning/15 text-warning'}`}
                           >
                             {lot.holding_period === 'long_term' ? 'Long' : 'Short'}
                           </span>

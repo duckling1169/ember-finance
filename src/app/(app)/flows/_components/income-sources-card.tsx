@@ -155,7 +155,7 @@ function SourceRow({
   onDelete: () => void;
 }) {
   return (
-    <div className="flex items-center gap-3 rounded-md px-2 py-1.5 hover:bg-muted/50">
+    <div className="flex items-center gap-3 rounded-md px-2 py-1.5 hover:bg-primary/5">
       <div className="min-w-0 flex-1">
         <div className="flex items-center gap-2">
           <span className="truncate text-sm font-medium">{source.name}</span>

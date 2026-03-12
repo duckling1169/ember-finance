@@ -372,7 +372,7 @@ export default function ActivityPage() {
               </TableHeader>
               <TableBody>
                 {rows.map((row) => (
-                  <TableRow key={row.id} className="hover:bg-muted/50">
+                  <TableRow key={row.id} className="hover:bg-primary/5">
                     <TableCell className="text-xs text-muted-foreground truncate max-w-[120px]">
                       {accountName(row.account_id)}
                     </TableCell>
@@ -439,16 +439,16 @@ function TypeBadge({ row }: { row: ActivityRow }) {
 function getActivityColor(type: ActivityType): string {
   switch (type) {
     case 'buy':
-      return 'bg-blue-500/15 text-blue-400';
+      return 'bg-chart-5/15 text-chart-5';
     case 'sell':
-      return 'bg-orange-500/15 text-orange-400';
+      return 'bg-primary/15 text-primary';
     case 'dividend':
     case 'interest':
-      return 'bg-green-500/15 text-green-400';
+      return 'bg-gain/15 text-gain';
     case 'reinvestment':
       return 'bg-primary/15 text-primary';
     case 'fee':
-      return 'bg-red-500/15 text-red-400';
+      return 'bg-loss/15 text-loss';
     case 'transfer_in':
     case 'transfer_out':
       return 'bg-muted text-muted-foreground';
