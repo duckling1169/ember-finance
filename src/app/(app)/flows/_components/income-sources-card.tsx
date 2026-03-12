@@ -210,6 +210,11 @@ function InlineForm({
     onSave({ member_id: memberId, name: name.trim(), type, gross_amount: parsed, frequency });
   }
 
+  const selectCn = cn(
+    'flex h-7 w-full rounded-md border border-input bg-card px-2 text-xs',
+    'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50',
+  );
+
   return (
     <form
       onSubmit={handleSubmit}
@@ -229,10 +234,7 @@ function InlineForm({
         <select
           value={type}
           onChange={(e) => setType(e.target.value as IncomeSourceType)}
-          className={cn(
-            'flex h-7 w-full rounded-md border border-input bg-card px-2 text-xs',
-            'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50',
-          )}
+          className={selectCn}
         >
           {INCOME_SOURCE_TYPES.map((t) => (
             <option key={t} value={t}>
@@ -258,10 +260,7 @@ function InlineForm({
         <select
           value={frequency}
           onChange={(e) => setFrequency(e.target.value as CashflowFrequency)}
-          className={cn(
-            'flex h-7 w-full rounded-md border border-input bg-card px-2 text-xs',
-            'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50',
-          )}
+          className={selectCn}
         >
           {CASHFLOW_FREQUENCIES.map((f) => (
             <option key={f} value={f}>
@@ -270,9 +269,9 @@ function InlineForm({
           ))}
         </select>
       </div>
-      <div className="flex gap-1">
-        <Button type="submit" size="icon-xs" disabled={saving}>
-          <IconCheck size={14} stroke={1.5} />
+      <div className="flex h-7 items-center gap-1">
+        <Button type="submit" variant="ghost" size="icon-xs" disabled={saving}>
+          <IconCheck size={14} stroke={1.5} className="text-primary" />
         </Button>
         <Button type="button" variant="ghost" size="icon-xs" onClick={onCancel}>
           <IconX size={14} stroke={1.5} />

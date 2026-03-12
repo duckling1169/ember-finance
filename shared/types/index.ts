@@ -121,6 +121,11 @@ export type AssetClass =
   | 'commodity'
   | 'other';
 
+// ── Tax Bucket (canonical vocabulary) ──
+
+export const TAX_BUCKETS = ['pre_tax', 'after_tax', 'tax_free', 'none'] as const;
+export type TaxBucket = (typeof TAX_BUCKETS)[number];
+
 // ── DB Row Types ──
 
 export interface Household {
@@ -397,7 +402,7 @@ export interface EnrichedAccount extends Account {
   balance_date: string | null;
   linked: boolean;
   last_synced: string | null;
-  tax_bucket: string;
+  tax_bucket: TaxBucket;
 }
 
 export interface AccountTimelineEvent {
@@ -559,15 +564,7 @@ export type TaxMode = 'auto' | 'manual';
 
 export type CashflowDirection = 'inflow' | 'outflow';
 
-export const CASHFLOW_BUCKETS = [
-  'salary',
-  'employer_match',
-  'pre_tax_deduction',
-  'retirement_deferral',
-  'post_tax_contribution',
-  'expense',
-  'other',
-] as const;
+export const CASHFLOW_BUCKETS = ['saving', 'employer_match', 'expense'] as const;
 export type CashflowBucket = (typeof CASHFLOW_BUCKETS)[number];
 
 export const CASHFLOW_FREQUENCIES = ['monthly', 'biweekly', 'annual', 'one_time'] as const;
@@ -598,7 +595,6 @@ export interface CashflowItem {
   name: string;
   direction: CashflowDirection;
   bucket: CashflowBucket;
-  tax_treatment: string;
   amount: number;
   frequency: CashflowFrequency;
   is_recurring: boolean;
@@ -667,7 +663,6 @@ export interface CreateCashflowItemInput {
   name: string;
   direction: CashflowDirection;
   bucket: CashflowBucket;
-  tax_treatment?: string;
   amount: number;
   frequency: CashflowFrequency;
   is_recurring?: boolean;
@@ -685,7 +680,6 @@ export interface UpdateCashflowItemInput {
   name?: string;
   direction?: CashflowDirection;
   bucket?: CashflowBucket;
-  tax_treatment?: string;
   amount?: number;
   frequency?: CashflowFrequency;
   is_recurring?: boolean;

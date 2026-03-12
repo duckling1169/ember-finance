@@ -147,7 +147,7 @@ export default function HoldingsPage() {
   const fetchError = !devBypass && (acctsError || holdingsError);
 
   if (loading) {
-    return <div className="py-10 text-muted-foreground">Loading...</div>;
+    return <div className="py-10 text-center text-muted-foreground">Loading...</div>;
   }
 
   if (fetchError) {

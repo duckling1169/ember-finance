@@ -12,6 +12,7 @@ import {
   useCashflowSummary,
   useCashflowItems,
   useIncomeSources,
+  useAccounts,
   useMembers,
   useProfile,
 } from '@/lib/swr';
@@ -28,6 +29,7 @@ export default function FlowsPage() {
   const { data: summary, isLoading: summaryLoading } = useCashflowSummary(scenarioId);
   const { data: cashflowItems } = useCashflowItems();
   const { data: incomeSources } = useIncomeSources();
+  const { data: accounts } = useAccounts();
 
   // Household view by default, filterable by member for CRUD
   const [selectedMemberId, setSelectedMemberId] = useState<string | undefined>(undefined);
@@ -42,21 +44,9 @@ export default function FlowsPage() {
       return { nodes: [], links: [] };
     }
 
-    // If filtering by a specific income source, build a filtered view
-    if (filterSourceId) {
-      const filteredSources = incomeSources.filter((s) => s.id === filterSourceId);
-      const linkedItemIds = new Set(
-        cashflowItems.filter((ci) => ci.income_source_id === filterSourceId).map((ci) => ci.id),
-      );
-      // Include items linked to this source + unlinked expenses (proportional)
-      const filteredItems = cashflowItems.filter(
-        (ci) => linkedItemIds.has(ci.id) || (!ci.income_source_id && ci.bucket === 'expense'),
-      );
-      return buildSankeyData(summary.waterfall, filteredItems, filteredSources);
-    }
-
-    return buildSankeyData(summary.waterfall, cashflowItems, incomeSources);
-  }, [summary, cashflowItems, incomeSources, filterSourceId]);
+    const filterSet = filterSourceId ? new Set([filterSourceId]) : undefined;
+    return buildSankeyData(summary.waterfall, cashflowItems, incomeSources, accounts, filterSet);
+  }, [summary, cashflowItems, incomeSources, accounts, filterSourceId]);
 
   function handleScenarioChange(id: string | undefined) {
     const params = new URLSearchParams(searchParams.toString());
@@ -72,7 +62,7 @@ export default function FlowsPage() {
     <div className="space-y-3">
       {/* Header */}
       <div className="flex items-center justify-between">
-        <h1 className="text-lg font-semibold">Money Flows</h1>
+        <h1 className="text-2xl font-semibold">Money Flows</h1>
         <div className="flex items-center gap-2">
           {/* Filter by income source */}
           {incomeSources && incomeSources.length > 1 && (
@@ -80,7 +70,7 @@ export default function FlowsPage() {
               value={filterSourceId ?? ''}
               onChange={(e) => setFilterSourceId(e.target.value || undefined)}
               className={cn(
-                'rounded-md border border-border bg-card px-3 py-1.5 text-sm',
+                'h-8 rounded-md border border-input bg-card px-3 text-sm',
                 'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50',
               )}
             >
@@ -111,7 +101,7 @@ export default function FlowsPage() {
               Add income sources and cashflow items to see your money flows.
             </div>
           ) : (
-            <SankeyChart data={sankeyData} className="h-[400px]" />
+            <SankeyChart data={sankeyData} />
           )}
         </CardContent>
       </Card>
@@ -125,7 +115,7 @@ export default function FlowsPage() {
               value={selectedMemberId ?? profile?.id ?? ''}
               onChange={(e) => setSelectedMemberId(e.target.value || undefined)}
               className={cn(
-                'rounded-md border border-border bg-card px-2 py-1 text-xs',
+                'h-7 rounded-md border border-input bg-card px-2 text-xs',
                 'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50',
               )}
             >

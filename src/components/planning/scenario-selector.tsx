@@ -47,8 +47,8 @@ export function ScenarioSelector({ value, onChange, className }: ScenarioSelecto
           className="h-7 w-[140px] text-xs"
           autoFocus
         />
-        <Button type="submit" size="icon-xs" disabled={saving}>
-          <IconCheck size={14} stroke={1.5} />
+        <Button type="submit" variant="ghost" size="icon-xs" disabled={saving}>
+          <IconCheck size={14} stroke={1.5} className="text-primary" />
         </Button>
         <Button
           type="button"

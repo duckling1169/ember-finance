@@ -89,7 +89,7 @@ accountsRoute.get('/:householdId', async (c) => {
       balance_date: bal?.date ?? null,
       linked: src?.linked ?? false,
       last_synced: src?.last_synced ?? null,
-      tax_bucket: meta.tax_bucket ?? 'taxable',
+      tax_bucket: meta.tax_bucket ?? 'after_tax',
     };
   });
 

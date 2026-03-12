@@ -9,6 +9,7 @@ import type {
   PlanningScenario,
   ScenarioAssumptions,
   TaxFilingStatus,
+  TaxBucket,
   USState,
   TaxMode,
 } from '../types/index.js';
@@ -55,6 +56,8 @@ interface PlanningData {
   scenario: PlanningScenario;
   fi_portfolio_value: number;
   fi_account_ids: Set<string>;
+  /** Map from account ID → tax_bucket for determining pre-tax vs post-tax */
+  account_tax_buckets: Map<string, TaxBucket>;
 }
 
 export async function fetchPlanningData(
@@ -89,7 +92,7 @@ export async function fetchPlanningData(
             .single(),
       db
         .from('account')
-        .select('id, include_in_fi_portfolio')
+        .select('id, include_in_fi_portfolio, meta')
         .eq('household_id', householdId)
         .eq('is_active', true),
     ]);
@@ -114,8 +117,20 @@ export async function fetchPlanningData(
     updated_at: new Date().toISOString(),
   };
 
+  // Build account tax_bucket lookup
+  const allAccounts = accountsRes.data ?? [];
+  const accountTaxBuckets = new Map<string, TaxBucket>();
+  for (const a of allAccounts as {
+    id: string;
+    include_in_fi_portfolio: boolean;
+    meta: Record<string, unknown>;
+  }[]) {
+    const meta = a.meta || {};
+    accountTaxBuckets.set(a.id, (meta.tax_bucket as TaxBucket) ?? 'after_tax');
+  }
+
   // FI-flagged accounts
-  const fiAccounts = (accountsRes.data ?? []).filter(
+  const fiAccounts = allAccounts.filter(
     (a: { id: string; include_in_fi_portfolio: boolean }) => a.include_in_fi_portfolio,
   );
   const fiAccountIds = new Set(fiAccounts.map((a: { id: string }) => a.id));
@@ -161,6 +176,7 @@ export async function fetchPlanningData(
     scenario,
     fi_portfolio_value: fiPortfolioValue,
     fi_account_ids: fiAccountIds,
+    account_tax_buckets: accountTaxBuckets,
   };
 }
 
@@ -183,6 +199,7 @@ export function assembleWaterfallInput(data: PlanningData): HouseholdWaterfallIn
     cashflow_items: data.cashflow_items.filter(
       (item) => item.member_id === m.id || item.member_id === null,
     ),
+    account_tax_buckets: data.account_tax_buckets,
   }));
 
   return {
@@ -223,11 +240,10 @@ export function computeYearlyFIContributions(
   cashflowItems: CashflowItem[],
   fiAccountIds: Set<string>,
 ): number {
-  // Pre-tax deferrals + post-tax contributions that route to FI accounts
-  const fiBuckets = new Set(['retirement_deferral', 'pre_tax_deduction', 'post_tax_contribution']);
+  // Saving items that route to FI accounts
   const fiItems = cashflowItems.filter(
     (item) =>
-      fiBuckets.has(item.bucket) &&
+      item.bucket === 'saving' &&
       item.destination_account_id != null &&
       fiAccountIds.has(item.destination_account_id),
   );
@@ -240,14 +256,9 @@ export function computeYearlySavingsContributions(
   cashflowItems: CashflowItem[],
   fiAccountIds: Set<string>,
 ): number {
-  const savingsBuckets = new Set([
-    'retirement_deferral',
-    'pre_tax_deduction',
-    'post_tax_contribution',
-  ]);
   const savingsItems = cashflowItems.filter(
     (item) =>
-      savingsBuckets.has(item.bucket) &&
+      item.bucket === 'saving' &&
       item.destination_account_id != null &&
       !fiAccountIds.has(item.destination_account_id),
   );
@@ -308,12 +319,11 @@ export function assembleProjectionInput(
   );
 
   // Per-account contribution routing
-  const fiBuckets = new Set(['retirement_deferral', 'pre_tax_deduction', 'post_tax_contribution']);
   const accountMap = new Map<string, { account_id: string; name: string; total: number }>();
 
   for (const item of data.cashflow_items) {
     if (
-      fiBuckets.has(item.bucket) &&
+      item.bucket === 'saving' &&
       item.destination_account_id &&
       data.fi_account_ids.has(item.destination_account_id)
     ) {

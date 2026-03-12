@@ -2,17 +2,71 @@
 
 import { useState, useEffect } from 'react';
 import { ResponsiveSankey } from '@nivo/sankey';
-import { getNivoTheme, CHART_COLORS } from './theme';
+import { getNivoTheme } from './theme';
 import { ChartTooltip } from './chart-tooltip';
 import { fmt } from '@/lib/formatters';
 import type { SankeyData, SankeyNode } from '@/lib/sankey-transform';
+import { SANKEY_CATEGORY_COLORS } from '@/lib/sankey-transform';
 
 interface SankeyChartProps {
   data: SankeyData;
   className?: string;
+  /** Override auto-calculated height */
+  height?: number;
 }
 
-export function SankeyChart({ data, className }: SankeyChartProps) {
+/* eslint-disable @typescript-eslint/no-explicit-any */
+
+/** Custom label layer: renders name stacked over amount outside each node */
+function StackedLabels({ nodes, width }: { nodes: readonly any[]; width: number }) {
+  return (
+    <g>
+      {nodes.map((node: any) => {
+        const midX = (node.x0 + node.x1) / 2;
+        const isLeft = midX < width / 2;
+        const labelX = isLeft ? node.x0 - 12 : node.x1 + 12;
+        const anchor = isLeft ? 'end' : 'start';
+        const labelY = (node.y0 + node.y1) / 2;
+
+        return (
+          <g key={node.id} transform={`translate(${labelX}, ${labelY})`}>
+            <text
+              textAnchor={anchor}
+              dominantBaseline="auto"
+              dy={-3}
+              style={{
+                fill: node.color,
+                fontSize: 11,
+                fontWeight: 500,
+                filter: 'brightness(1.3)',
+              }}
+            >
+              {node.label}
+            </text>
+            <text
+              textAnchor={anchor}
+              dominantBaseline="hanging"
+              dy={3}
+              style={{
+                fill: node.color,
+                fontSize: 10,
+                fontFamily: 'var(--font-mono, monospace)',
+                opacity: 0.8,
+                filter: 'brightness(1.3)',
+              }}
+            >
+              {fmt(node.value)}
+            </text>
+          </g>
+        );
+      })}
+    </g>
+  );
+}
+
+/* eslint-enable @typescript-eslint/no-explicit-any */
+
+export function SankeyChart({ data, className, height }: SankeyChartProps) {
   const [theme, setTheme] = useState<ReturnType<typeof getNivoTheme> | null>(null);
 
   useEffect(() => {
@@ -21,15 +75,30 @@ export function SankeyChart({ data, className }: SankeyChartProps) {
 
   if (!theme || data.nodes.length === 0) return null;
 
+  // Build id→label lookup from our data so tooltips always resolve correctly
+  const labelById = new Map(data.nodes.map((n) => [n.id, n.label]));
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const resolveLabel = (nodeOrId: any): string => {
+    if (typeof nodeOrId === 'string') return labelById.get(nodeOrId) || nodeOrId;
+    if (!nodeOrId) return '';
+    return nodeOrId.label || labelById.get(nodeOrId.id) || nodeOrId.id || '';
+  };
+
+  // Dynamic height: scale with node count so items don't get squished
+  const autoHeight = Math.max(400, data.nodes.length * 45);
+  const chartHeight = height ?? autoHeight;
+
   return (
-    <div className={className}>
+    <div className={className} style={{ height: chartHeight }}>
       <ResponsiveSankey
         data={data}
         theme={theme}
-        colors={CHART_COLORS}
-        margin={{ top: 16, right: 100, bottom: 16, left: 100 }}
-        label={(node) => (node as unknown as SankeyNode).label ?? node.id}
-        align="justify"
+        colors={(node) => {
+          const sankeyNode = node as unknown as SankeyNode;
+          return SANKEY_CATEGORY_COLORS[sankeyNode.category] ?? '#8a3ffc';
+        }}
+        margin={{ top: 16, right: 140, bottom: 16, left: 140 }}
+        align="start"
         nodeOpacity={1}
         nodeHoverOthersOpacity={0.35}
         nodeThickness={18}
@@ -40,26 +109,25 @@ export function SankeyChart({ data, className }: SankeyChartProps) {
         linkHoverOthersOpacity={0.1}
         linkContract={2}
         enableLinkGradient
-        labelPosition="outside"
-        labelOrientation="horizontal"
-        labelPadding={12}
-        labelTextColor={{ from: 'color', modifiers: [['brighter', 0.8]] }}
+        label={(node) => (node as unknown as SankeyNode).label ?? node.id}
+        enableLabels={false}
+        layers={['links', 'nodes', StackedLabels]}
         nodeTooltip={({ node }) => (
           <ChartTooltip>
-            <span style={{ fontWeight: 500 }}>{node.label}</span>
-            <span style={{ marginLeft: 8, fontFamily: 'var(--font-mono, monospace)' }}>
+            <div style={{ fontWeight: 500, whiteSpace: 'nowrap' }}>{resolveLabel(node)}</div>
+            <div style={{ fontFamily: 'var(--font-mono, monospace)', opacity: 0.8 }}>
               {fmt(node.value)}
-            </span>
+            </div>
           </ChartTooltip>
         )}
         linkTooltip={({ link }) => (
           <ChartTooltip>
-            <span>
-              {link.source.label} → {link.target.label}
-            </span>
-            <span style={{ marginLeft: 8, fontFamily: 'var(--font-mono, monospace)' }}>
+            <div style={{ fontWeight: 500, whiteSpace: 'nowrap' }}>
+              {resolveLabel(link.source)} → {resolveLabel(link.target)}
+            </div>
+            <div style={{ fontFamily: 'var(--font-mono, monospace)', opacity: 0.8 }}>
               {fmt(link.value)}
-            </span>
+            </div>
           </ChartTooltip>
         )}
       />
