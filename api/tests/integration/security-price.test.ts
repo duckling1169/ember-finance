@@ -368,10 +368,10 @@ describe('security_price + current_positions + household_positions_summary + com
       // debt = abs(-3500) = 3500
       expect(breakdown.debt).toBe(3500);
 
-      // illiquid = 0 (no property/vehicle accounts with balances)
-      expect(breakdown.illiquid).toBe(0);
+      // assets = 0 (no assets in this test)
+      expect(breakdown.assets).toBe(0);
 
-      // total_assets = cash + investments + illiquid = 25000 + 38030 + 0 = 63030
+      // total_assets = cash + investments + assets = 25000 + 38030 + 0 = 63030
       expect(Number(snapshot!.total_assets)).toBeCloseTo(63030, 0);
       // total_liabilities = debt = 3500
       expect(Number(snapshot!.total_liabilities)).toBe(3500);

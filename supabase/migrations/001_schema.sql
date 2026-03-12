@@ -22,28 +22,34 @@ create table household (
 );
 
 create table member (
-  id                    uuid primary key default gen_random_uuid(),
-  household_id          uuid not null references household(id),
-  auth_user_id          uuid unique references auth.users(id),
-  display_name          text not null,
-  role                  text not null default 'owner',
-  birthday              date,
-  target_retirement_age int,
-  annual_income         numeric(14,2),
-  employment_type       text,
-  risk_tolerance        text,
-  created_at            timestamptz default now(),
+  id                            uuid primary key default gen_random_uuid(),
+  household_id                  uuid not null references household(id),
+  auth_user_id                  uuid unique references auth.users(id),
+  display_name                  text not null,
+  role                          text not null default 'owner',
+  birthday                      date,
+  target_retirement_age         int,
+  employment_type               text,
+  risk_tolerance                text,
+  state_of_residence            text,
+  tax_mode                      text not null default 'auto',
+  effective_tax_rate_override   numeric(5,4),
+  created_at                    timestamptz default now(),
 
   constraint chk_member_birthday
     check (birthday is null or birthday < current_date),
   constraint chk_member_retirement_age
     check (target_retirement_age is null or target_retirement_age > 0),
-  constraint chk_member_income
-    check (annual_income is null or annual_income > 0),
   constraint chk_member_employment_type
     check (employment_type is null or employment_type in ('w2', '1099', 'mixed')),
   constraint chk_member_risk_tolerance
-    check (risk_tolerance is null or risk_tolerance in ('conservative', 'moderate', 'aggressive'))
+    check (risk_tolerance is null or risk_tolerance in ('conservative', 'moderate', 'aggressive')),
+  constraint chk_member_state_of_residence
+    check (state_of_residence is null or length(state_of_residence) = 2),
+  constraint chk_member_tax_mode
+    check (tax_mode in ('auto', 'manual')),
+  constraint chk_member_tax_rate_override
+    check (effective_tax_rate_override is null or (effective_tax_rate_override >= 0 and effective_tax_rate_override <= 1))
 );
 
 create index idx_member_household_auth on member(household_id, auth_user_id);
@@ -73,17 +79,27 @@ create index idx_invite_pending on household_invite(household_id, email)
 -- ══════════════════════════════════════════════════════════════
 
 create table account (
-  id            uuid primary key default gen_random_uuid(),
-  household_id  uuid not null references household(id),
-  member_id     uuid references member(id),
-  name          text not null,
-  institution   text,
-  account_type  text not null,
-  currency      text not null default 'USD',
-  meta          jsonb default '{}',
-  is_active     boolean default true,
-  is_liability  boolean default false,
-  created_at    timestamptz default now()
+  id                      uuid primary key default gen_random_uuid(),
+  household_id            uuid not null references household(id),
+  member_id               uuid references member(id),
+  name                    text not null,
+  institution             text,
+  account_type            text not null,
+  currency                text not null default 'USD',
+  meta                    jsonb default '{}',
+  is_active               boolean default true,
+  is_liability            boolean default false,
+  include_in_fi_portfolio boolean not null default false,
+  tax_treatment           text not null default 'none',
+  created_at              timestamptz default now(),
+
+  constraint chk_account_type
+    check (account_type in (
+      'checking', 'savings', 'credit', 'brokerage', 'retirement',
+      'hsa', 'loan', 'mortgage', 'other'
+    )),
+  constraint chk_account_tax_treatment
+    check (tax_treatment in ('pre_tax', 'after_tax', 'tax_free', 'none'))
 );
 
 create index idx_account_household on account(household_id, is_active);
@@ -103,6 +119,27 @@ create table account_source (
 
 create index idx_account_source_account on account_source(account_id);
 create index idx_account_source_provider on account_source(account_id, household_id, provider);
+
+-- ══════════════════════════════════════════════════════════════
+-- Layer 2b: Assets (non-account items tracked for net worth)
+-- ══════════════════════════════════════════════════════════════
+
+create table asset (
+  id              uuid primary key default gen_random_uuid(),
+  household_id    uuid not null references household(id),
+  name            text not null,
+  category        text not null,
+  estimated_value numeric(14,2) not null default 0,
+  created_at      timestamptz default now(),
+  updated_at      timestamptz default now(),
+
+  constraint chk_asset_category
+    check (category in ('real_estate', 'vehicle', 'other')),
+  constraint chk_asset_value_non_negative
+    check (estimated_value >= 0)
+);
+
+create index idx_asset_household on asset(household_id);
 
 -- ══════════════════════════════════════════════════════════════
 -- Layer 3: Raw Ingestion (immutable audit trail)
@@ -356,11 +393,103 @@ create table net_worth_snapshot (
 create index idx_nw_household_date on net_worth_snapshot(household_id, date desc);
 
 -- ══════════════════════════════════════════════════════════════
+-- Layer 6: Planning
+-- ══════════════════════════════════════════════════════════════
+
+create table income_source (
+  id              uuid primary key default gen_random_uuid(),
+  household_id    uuid not null references household(id),
+  member_id       uuid not null references member(id),
+  name            text not null,
+  type            text not null,
+  gross_amount    numeric(14,2) not null,
+  frequency       text not null,
+  is_active       boolean not null default true,
+  created_at      timestamptz default now(),
+  updated_at      timestamptz default now(),
+
+  constraint chk_income_source_type
+    check (type in ('employment', 'self_employment', 'passive', 'other')),
+  constraint chk_income_source_amount_positive
+    check (gross_amount > 0),
+  constraint chk_income_source_frequency
+    check (frequency in ('monthly', 'biweekly', 'annual', 'one_time'))
+);
+
+create index idx_income_source_household on income_source(household_id);
+create index idx_income_source_member on income_source(member_id);
+
+create table cashflow_item (
+  id                      uuid primary key default gen_random_uuid(),
+  household_id            uuid not null references household(id),
+  member_id               uuid references member(id),
+  income_source_id        uuid references income_source(id),
+  source_account_id       uuid references account(id),
+  destination_account_id  uuid references account(id),
+  name                    text not null,
+  direction               text not null,
+  bucket                  text not null,
+  amount                  numeric(14,2) not null,
+  frequency               text not null,
+  is_recurring            boolean not null default true,
+  is_essential            boolean not null default true,
+  category                text,
+  include_in_projection   boolean not null default true,
+  start_date              date not null,
+  end_date                date,
+  created_at              timestamptz default now(),
+  updated_at              timestamptz default now(),
+
+  constraint chk_cashflow_direction
+    check (direction in ('inflow', 'outflow')),
+  constraint chk_cashflow_bucket
+    check (bucket in ('savings', 'employer_match', 'expense')),
+  constraint chk_cashflow_amount_positive
+    check (amount > 0),
+  constraint chk_cashflow_frequency
+    check (frequency in ('monthly', 'biweekly', 'annual', 'one_time')),
+  constraint chk_cashflow_date_range
+    check (end_date is null or end_date >= start_date)
+);
+
+create index idx_cashflow_item_household on cashflow_item(household_id);
+create index idx_cashflow_item_member on cashflow_item(member_id) where member_id is not null;
+create index idx_cashflow_item_income_source on cashflow_item(income_source_id)
+  where income_source_id is not null;
+create index idx_cashflow_item_source_account on cashflow_item(source_account_id)
+  where source_account_id is not null;
+create index idx_cashflow_item_destination on cashflow_item(destination_account_id)
+  where destination_account_id is not null;
+
+create table planning_scenario (
+  id              uuid primary key default gen_random_uuid(),
+  household_id    uuid not null references household(id),
+  name            text not null,
+  is_base         boolean not null default false,
+  assumptions     jsonb not null default '{}',
+  created_at      timestamptz default now(),
+  updated_at      timestamptz default now()
+);
+
+create index idx_planning_scenario_household on planning_scenario(household_id);
+
+create table expense_category (
+  id              uuid primary key default gen_random_uuid(),
+  household_id    uuid not null references household(id),
+  name            text not null,
+  is_essential    boolean not null default true,
+  created_at      timestamptz default now(),
+  updated_at      timestamptz default now(),
+
+  constraint uq_expense_category_name unique (household_id, name)
+);
+
+create index idx_expense_category_household on expense_category(household_id);
+
+-- ══════════════════════════════════════════════════════════════
 -- RLS: household isolation via security definer helper
 -- ══════════════════════════════════════════════════════════════
 
--- Resolves current user's household_id, bypassing RLS to avoid
--- infinite recursion (every policy references member).
 create or replace function get_my_household_id()
 returns uuid
 language sql
@@ -392,6 +521,10 @@ create policy "household_isolation" on account
 
 alter table account_source enable row level security;
 create policy "household_isolation" on account_source
+  for all using (household_id = get_my_household_id());
+
+alter table asset enable row level security;
+create policy "household_isolation" on asset
   for all using (household_id = get_my_household_id());
 
 alter table raw_ingest enable row level security;
@@ -428,4 +561,20 @@ create policy "household_isolation" on lot_disposition
 
 alter table net_worth_snapshot enable row level security;
 create policy "household_isolation" on net_worth_snapshot
+  for all using (household_id = get_my_household_id());
+
+alter table income_source enable row level security;
+create policy "household_isolation" on income_source
+  for all using (household_id = get_my_household_id());
+
+alter table cashflow_item enable row level security;
+create policy "household_isolation" on cashflow_item
+  for all using (household_id = get_my_household_id());
+
+alter table planning_scenario enable row level security;
+create policy "household_isolation" on planning_scenario
+  for all using (household_id = get_my_household_id());
+
+alter table expense_category enable row level security;
+create policy "household_isolation" on expense_category
   for all using (household_id = get_my_household_id());

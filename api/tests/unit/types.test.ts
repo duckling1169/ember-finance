@@ -5,11 +5,12 @@ import {
   BANKING_ACCOUNT_TYPES,
   LIABILITY_TYPES,
   NET_WORTH_GROUPS,
+  ASSET_CATEGORIES,
 } from '../../src/types/index.js';
 
 describe('type constants', () => {
-  it('ACCOUNT_TYPES has all 11 types', () => {
-    expect(ACCOUNT_TYPES).toHaveLength(11);
+  it('ACCOUNT_TYPES has all 9 types', () => {
+    expect(ACCOUNT_TYPES).toHaveLength(9);
     expect(ACCOUNT_TYPES).toContain('checking');
     expect(ACCOUNT_TYPES).toContain('savings');
     expect(ACCOUNT_TYPES).toContain('credit');
@@ -18,8 +19,6 @@ describe('type constants', () => {
     expect(ACCOUNT_TYPES).toContain('hsa');
     expect(ACCOUNT_TYPES).toContain('loan');
     expect(ACCOUNT_TYPES).toContain('mortgage');
-    expect(ACCOUNT_TYPES).toContain('property');
-    expect(ACCOUNT_TYPES).toContain('vehicle');
     expect(ACCOUNT_TYPES).toContain('other');
   });
 
@@ -35,15 +34,16 @@ describe('type constants', () => {
     expect(LIABILITY_TYPES).toEqual(['credit', 'loan', 'mortgage']);
   });
 
-  it('NET_WORTH_GROUPS cover all account types', () => {
+  it('NET_WORTH_GROUPS cover all account types except other', () => {
     const allGrouped = [
       ...NET_WORTH_GROUPS.cash,
       ...NET_WORTH_GROUPS.investments,
       ...NET_WORTH_GROUPS.debt,
-      ...NET_WORTH_GROUPS.illiquid,
     ];
 
+    // 'other' is intentionally ungrouped — it's a catch-all
     for (const type of ACCOUNT_TYPES) {
+      if (type === 'other') continue;
       expect(allGrouped).toContain(type);
     }
   });
@@ -53,9 +53,15 @@ describe('type constants', () => {
       ...NET_WORTH_GROUPS.cash,
       ...NET_WORTH_GROUPS.investments,
       ...NET_WORTH_GROUPS.debt,
-      ...NET_WORTH_GROUPS.illiquid,
     ];
     const unique = new Set(all);
     expect(unique.size).toBe(all.length);
+  });
+
+  it('ASSET_CATEGORIES has all 3 categories', () => {
+    expect(ASSET_CATEGORIES).toHaveLength(3);
+    expect(ASSET_CATEGORIES).toContain('real_estate');
+    expect(ASSET_CATEGORIES).toContain('vehicle');
+    expect(ASSET_CATEGORIES).toContain('other');
   });
 });

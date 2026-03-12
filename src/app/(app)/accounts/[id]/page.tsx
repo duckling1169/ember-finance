@@ -95,7 +95,7 @@ function mapApiDetail(
     balance: bal?.balance ?? 0,
     linked,
     last_updated: lastSynced,
-    tax_treatment: (meta.tax_treatment as string) || 'none',
+    tax_treatment: acct?.tax_treatment || 'none',
     notes: (meta.notes as string) || '',
   };
 

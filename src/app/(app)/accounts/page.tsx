@@ -120,7 +120,7 @@ function AccountsContent() {
         name: form.get('name') as string,
         institution: (form.get('institution') as string) || undefined,
         account_type: form.get('account_type') as AccountType,
-        meta: { tax_treatment: form.get('tax_treatment') as string },
+        tax_treatment: (form.get('tax_treatment') as TaxTreatment) || 'none',
       });
       setShowForm(false);
       await mutateAccounts();

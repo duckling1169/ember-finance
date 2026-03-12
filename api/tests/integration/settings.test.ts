@@ -72,7 +72,6 @@ beforeAll(async () => {
       role: 'owner',
       birthday: '1985-03-10',
       target_retirement_age: 55,
-      annual_income: 120000,
       employment_type: 'w2',
       risk_tolerance: 'moderate',
     })
@@ -168,7 +167,6 @@ describe('Member profile — DB operations', () => {
     expect(data.display_name).toBe('Owner');
     expect(data.birthday).toBe('1985-03-10');
     expect(data.target_retirement_age).toBe(55);
-    expect(data.annual_income).toBe(120000);
     expect(data.employment_type).toBe('w2');
     expect(data.risk_tolerance).toBe('moderate');
   });
@@ -179,7 +177,6 @@ describe('Member profile — DB operations', () => {
       .update({
         display_name: 'Updated Owner',
         target_retirement_age: 60,
-        annual_income: 200000,
         employment_type: 'mixed',
       })
       .eq('id', ownerId)
@@ -188,7 +185,6 @@ describe('Member profile — DB operations', () => {
     expect(error).toBeNull();
     expect(data.display_name).toBe('Updated Owner');
     expect(data.target_retirement_age).toBe(60);
-    expect(data.annual_income).toBe(200000);
     expect(data.employment_type).toBe('mixed');
   });
 
@@ -196,7 +192,6 @@ describe('Member profile — DB operations', () => {
     const { data, error } = await db
       .from('member')
       .update({
-        annual_income: null,
         employment_type: null,
         risk_tolerance: null,
       })
@@ -204,7 +199,6 @@ describe('Member profile — DB operations', () => {
       .select()
       .single();
     expect(error).toBeNull();
-    expect(data.annual_income).toBeNull();
     expect(data.employment_type).toBeNull();
     expect(data.risk_tolerance).toBeNull();
   });
@@ -222,12 +216,6 @@ describe('Member profile — DB operations', () => {
     const { error } = await db.from('member').update({ risk_tolerance: 'yolo' }).eq('id', ownerId);
     expect(error).not.toBeNull();
     expect(error!.message).toContain('chk_member_risk_tolerance');
-  });
-
-  it('rejects negative income at DB level', async () => {
-    const { error } = await db.from('member').update({ annual_income: -50000 }).eq('id', ownerId);
-    expect(error).not.toBeNull();
-    expect(error!.message).toContain('chk_member_income');
   });
 });
 

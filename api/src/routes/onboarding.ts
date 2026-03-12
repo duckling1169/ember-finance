@@ -11,7 +11,7 @@ export const onboardingRoute = new Hono<AuthEnv>();
  * Falls back to sequential inserts if RPC is unavailable.
  * Body: { householdName, taxFilingStatus?, state?, currency?,
  *         displayName, birthday, targetRetirementAge,
- *         annualIncome?, employmentType?, riskTolerance? }
+ *         employmentType?, riskTolerance? }
  */
 onboardingRoute.post('/', async (c) => {
   const authUser = c.get('authUser');
@@ -43,7 +43,6 @@ onboardingRoute.post('/', async (c) => {
     p_display_name: body.displayName.trim(),
     p_birthday: body.birthday,
     p_target_retirement_age: body.targetRetirementAge || null,
-    p_annual_income: body.annualIncome || null,
     p_employment_type: body.employmentType || null,
     p_risk_tolerance: body.riskTolerance || null,
   });
@@ -81,7 +80,6 @@ onboardingRoute.post('/', async (c) => {
       role: 'owner',
       birthday: body.birthday,
       target_retirement_age: body.targetRetirementAge || null,
-      annual_income: body.annualIncome || null,
       employment_type: body.employmentType || null,
       risk_tolerance: body.riskTolerance || null,
     })
@@ -101,7 +99,7 @@ onboardingRoute.post('/', async (c) => {
  * POST /api/onboarding/accept-invite
  * Partner accepts an invite and creates their member profile.
  * Body: { inviteId, displayName, birthday, targetRetirementAge,
- *         annualIncome?, employmentType?, riskTolerance? }
+ *         employmentType?, riskTolerance? }
  */
 onboardingRoute.post('/accept-invite', async (c) => {
   const authUser = c.get('authUser');
@@ -125,7 +123,6 @@ onboardingRoute.post('/accept-invite', async (c) => {
       displayName: body.displayName,
       birthday: body.birthday,
       targetRetirementAge: body.targetRetirementAge,
-      annualIncome: body.annualIncome,
       employmentType: body.employmentType,
       riskTolerance: body.riskTolerance,
     }),
@@ -176,7 +173,6 @@ onboardingRoute.post('/accept-invite', async (c) => {
       role: 'owner',
       birthday: body.birthday,
       target_retirement_age: body.targetRetirementAge || null,
-      annual_income: body.annualIncome || null,
       employment_type: body.employmentType || null,
       risk_tolerance: body.riskTolerance || null,
     })

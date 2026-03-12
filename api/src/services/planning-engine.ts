@@ -123,10 +123,9 @@ export async function fetchPlanningData(
   for (const a of allAccounts as {
     id: string;
     include_in_fi_portfolio: boolean;
-    meta: Record<string, unknown>;
+    tax_treatment: string;
   }[]) {
-    const meta = a.meta || {};
-    accountTaxTreatments.set(a.id, (meta.tax_treatment as TaxTreatment) ?? 'after_tax');
+    accountTaxTreatments.set(a.id, (a.tax_treatment as TaxTreatment) ?? 'none');
   }
 
   // FI-flagged accounts

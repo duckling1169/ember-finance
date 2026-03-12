@@ -204,7 +204,6 @@ create or replace function create_household_with_owner(
   p_display_name       text default null,
   p_birthday           date default null,
   p_target_retirement_age int default null,
-  p_annual_income      numeric(14,2) default null,
   p_employment_type    text default null,
   p_risk_tolerance     text default null
 )
@@ -233,12 +232,12 @@ begin
 
   insert into public.member (
     household_id, auth_user_id, display_name, role,
-    birthday, target_retirement_age, annual_income,
+    birthday, target_retirement_age,
     employment_type, risk_tolerance
   )
   values (
     v_household_id, p_auth_user_id, p_display_name, 'owner',
-    p_birthday, p_target_retirement_age, p_annual_income,
+    p_birthday, p_target_retirement_age,
     p_employment_type, p_risk_tolerance
   )
   returning id into v_member_id;
@@ -311,7 +310,7 @@ declare
   v_cash numeric(14,2) := 0;
   v_investments numeric(14,2) := 0;
   v_debt numeric(14,2) := 0;
-  v_illiquid numeric(14,2) := 0;
+  v_assets numeric(14,2) := 0;
   v_total_assets numeric(14,2);
   v_total_liabilities numeric(14,2);
   v_net_worth numeric(14,2);
@@ -357,20 +356,12 @@ begin
     order by a.id, bs.date desc
   ) b;
 
-  -- Illiquid accounts
-  select coalesce(sum(b.balance), 0) into v_illiquid
-  from (
-    select distinct on (a.id) bs.balance
-    from public.account a
-    join public.balance_snapshot bs on bs.account_id = a.id
-    where a.household_id = p_household_id
-      and a.is_active = true
-      and a.account_type in ('property', 'vehicle', 'other')
-      and bs.date <= p_date
-    order by a.id, bs.date desc
-  ) b;
+  -- Assets (real estate, vehicles, etc.)
+  select coalesce(sum(estimated_value), 0) into v_assets
+  from public.asset
+  where household_id = p_household_id;
 
-  v_total_assets := v_cash + v_investments + v_illiquid;
+  v_total_assets := v_cash + v_investments + v_assets;
   v_total_liabilities := v_debt;
   v_net_worth := v_total_assets - v_total_liabilities;
 
@@ -381,7 +372,7 @@ begin
     p_household_id, p_date, v_total_assets, v_total_liabilities, v_net_worth,
     jsonb_build_object(
       'cash', v_cash, 'investments', v_investments,
-      'debt', v_debt, 'illiquid', v_illiquid
+      'debt', v_debt, 'assets', v_assets
     )
   )
   on conflict (household_id, date)

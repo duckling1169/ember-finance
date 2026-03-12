@@ -1,6 +1,6 @@
 # Ember — Database Schema (Current)
 
-Source of truth: `supabase/migrations/*.sql`.  
+Source of truth: `supabase/migrations/*.sql`.
 This doc is an implementation summary of the current schema.
 
 ## Identity and Household
@@ -13,25 +13,34 @@ This doc is an implementation summary of the current schema.
 
 - household membership and profile fields
 - role: `owner | viewer`
+- planning fields: `state_of_residence`, `tax_mode`, `effective_tax_rate_override` (0–1 decimal)
 - constraint: one household per auth user (`auth_user_id` unique + trigger)
 
 ### `household_invite`
 
 - pending invites with `expires_at`, `accepted_at`, and invited email
 
-## Accounts and Sources
+## Accounts, Sources, and Assets
 
 ### `account`
 
-- canonical account entity (`checking`, `brokerage`, `retirement`, `credit`, etc.)
+- canonical account entity (`checking`, `savings`, `credit`, `brokerage`, `retirement`, `hsa`, `loan`, `mortgage`, `other`)
 - `meta` JSON for extensible account attributes
 - `is_active` for soft deactivation
+- `include_in_fi_portfolio` for FI portfolio tracking
+- `tax_treatment` (`pre_tax`, `after_tax`, `tax_free`, `none`)
 
 ### `account_source`
 
 - ingestion/source pipes attached to account (`teller`, `snaptrade`, `csv`, `pdf`, `manual`)
 - source credential payload in encrypted `provider_meta`
 - tracks `last_synced`
+
+### `asset`
+
+- non-account items tracked for net worth (real estate, vehicles, etc.)
+- category: `real_estate | vehicle | other`
+- `estimated_value` for current worth
 
 ## Ingest and Event Timeline
 
@@ -72,6 +81,7 @@ This doc is an implementation summary of the current schema.
 ### `net_worth_snapshot`
 
 - derived household net-worth snapshots by date
+- breakdown: `cash`, `investments`, `debt`, `assets`
 
 ## Pricing and Tax Lots
 
@@ -86,6 +96,28 @@ This doc is an implementation summary of the current schema.
 ### `lot_disposition`
 
 - sell-to-lot consumption mapping with gain/loss and short/long-term classification
+
+## Planning
+
+### `income_source`
+
+- per-member income streams (`employment`, `self_employment`, `passive`, `other`)
+- `gross_amount` with `frequency`
+
+### `cashflow_item`
+
+- income/expense entries with routing (`source_account_id`, `destination_account_id`)
+- direction: `inflow | outflow`
+- bucket: `savings | employer_match | expense`
+- linked to `income_source` and accounts
+
+### `planning_scenario`
+
+- household-level scenarios with `assumptions` JSONB
+
+### `expense_category`
+
+- household lookup table for categorizing expenses
 
 ## Portfolio and Analytics Views
 
@@ -126,7 +158,7 @@ This doc is an implementation summary of the current schema.
 ### `compute_net_worth_snapshot(p_household_id, p_date)`
 
 - computes/upserts household net worth
-- investment valuation uses holdings × security_price (with snapshot-price fallback)
+- groups: cash (checking/savings), investments (brokerage/retirement/hsa), debt (credit/loan/mortgage), assets (from asset table)
 
 ## RLS
 
