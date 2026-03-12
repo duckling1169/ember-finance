@@ -12,7 +12,7 @@ interface FIMetricsCardsProps {
 const ON_TRACK_CONFIG = {
   ahead: { label: 'Ahead', className: 'bg-gain/15 text-gain' },
   on_track: { label: 'On Track', className: 'bg-gain/15 text-gain' },
-  behind: { label: 'Behind', className: 'bg-amber-500/15 text-amber-500' },
+  behind: { label: 'Behind', className: 'bg-warning/15 text-warning' },
   unreachable: { label: 'Unreachable', className: 'bg-loss/15 text-loss' },
 };
 

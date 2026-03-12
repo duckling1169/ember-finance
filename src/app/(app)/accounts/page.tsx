@@ -217,7 +217,7 @@ function AccountsContent() {
         <CardContent>
           {accounts.length === 0 ? (
             <div className="flex flex-col items-center gap-3 py-12 text-center">
-              <IconBuildingBank size={32} className="text-muted-foreground" stroke={1.5} />
+              <IconBuildingBank size={32} className="text-primary" stroke={1.5} />
               <p className="text-sm text-muted-foreground">No accounts yet</p>
               <button
                 onClick={() => setShowForm(true)}

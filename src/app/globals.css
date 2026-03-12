@@ -27,6 +27,7 @@
 
   --color-gain: var(--gain);
   --color-loss: var(--loss);
+  --color-warning: var(--warning);
   --color-neutral: var(--neutral);
 
   --color-chart-1: var(--chart-1);
@@ -89,6 +90,7 @@
 
   --gain: #16a34a;
   --loss: #dc2626;
+  --warning: #d97706;
   --neutral: #71717a;
 
   --chart-1: #8a3ffc;
@@ -142,6 +144,7 @@
 
   --gain: #22c55e;
   --loss: #ef4444;
+  --warning: #f59e0b;
   --neutral: #a1a1aa;
 
   --chart-1: #8a3ffc;

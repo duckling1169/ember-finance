@@ -456,7 +456,7 @@ function RangeFilter({
             className={cn(
               'px-2 py-0.5 text-xs font-medium rounded transition-colors',
               value === opt.key
-                ? 'bg-background text-foreground shadow-sm'
+                ? 'bg-background text-primary shadow-sm'
                 : 'text-muted-foreground hover:text-foreground',
             )}
           >
