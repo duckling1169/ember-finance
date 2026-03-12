@@ -1,0 +1,85 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  lint-format:
+    name: Lint & Format check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install root dependencies
+        run: npm ci
+
+      - name: Install API dependencies
+        run: npm ci --prefix api
+
+      - name: Lint (frontend + API)
+        run: npm run lint
+
+      - name: Format check
+        run: npm run format:check
+
+  typecheck-build:
+    name: Type check & Build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install root dependencies
+        run: npm ci
+
+      - name: Install API dependencies
+        run: npm ci --prefix api
+
+      - name: Type check (frontend)
+        run: npx tsc --noEmit
+
+      - name: Build (Next.js)
+        run: npm run build
+
+  api-typecheck:
+    name: API type check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install root dependencies
+        run: npm ci
+
+      - name: Install API dependencies
+        run: npm ci --prefix api
+
+      - name: Type check (API)
+        run: cd api && npx tsc --noEmit
+
+      # API tests (vitest) require a Supabase test database and are
+      # skipped in CI for now. To enable them, provision a test Supabase
+      # instance and set SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY as
+      # repository secrets, then uncomment the step below.
+      #
+      # - name: API tests
+      #   run: npm test --prefix api
+      #   env:
+      #     SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+      #     SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}

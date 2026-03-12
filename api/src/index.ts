@@ -18,12 +18,19 @@ import {
   requireHouseholdMember,
   requireRecordOwnership,
 } from './middleware/auth.js';
+import { rateLimit } from './middleware/rate-limit.js';
 
 const app = new Hono();
 
 // Middleware
 app.use('*', logger());
 app.use('*', cors({ origin: env.corsOrigin }));
+
+// Rate limiting — applied before auth so brute-force attempts are blocked
+app.use('*', rateLimit({ windowSec: 60, max: 100 }));
+
+// Stricter rate limit for auth-adjacent endpoints
+app.use('/api/onboarding/*', rateLimit({ windowSec: 60, max: 10 }));
 
 // Auth on all /api/* routes
 app.use('/api/*', requireAuth);

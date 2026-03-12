@@ -1,3 +1,4 @@
+import { ErrorBoundary } from '@/components/error-boundary';
 import { Sidebar } from '@/components/layout/sidebar';
 import { RequireAuth } from '@/lib/require-auth';
 
@@ -7,7 +8,9 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
       <div className="flex min-h-screen">
         <Sidebar />
         <main className="flex-1 min-w-0">
-          <div className="mx-auto max-w-7xl px-6 py-6">{children}</div>
+          <div className="mx-auto max-w-7xl px-6 py-6">
+            <ErrorBoundary>{children}</ErrorBoundary>
+          </div>
         </main>
       </div>
     </RequireAuth>
