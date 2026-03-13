@@ -20,7 +20,7 @@ const TAX_FILING_OPTIONS: { value: TaxFilingStatus; label: string }[] = [
 
 export default function OnboardingPage() {
   return (
-    <RequireAuth>
+    <RequireAuth requireHousehold={false}>
       <OnboardingContent />
     </RequireAuth>
   );

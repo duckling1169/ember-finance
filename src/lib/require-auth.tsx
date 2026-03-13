@@ -6,7 +6,14 @@ import { useAuth } from './auth-context';
 import { useHousehold } from './swr';
 import { devBypass } from './mock-data';
 
-export function RequireAuth({ children }: { children: React.ReactNode }) {
+interface RequireAuthProps {
+  children: React.ReactNode;
+  /** When true (default), redirects to /onboarding if no household.
+   *  When false, redirects to / if household already exists (for onboarding page). */
+  requireHousehold?: boolean;
+}
+
+export function RequireAuth({ children, requireHousehold = true }: RequireAuthProps) {
   const { user, loading: authLoading } = useAuth();
   const router = useRouter();
 
@@ -21,10 +28,13 @@ export function RequireAuth({ children }: { children: React.ReactNode }) {
   }, [user, authLoading, router]);
 
   useEffect(() => {
-    if (user && noHousehold) {
+    if (!user || hhLoading) return;
+    if (requireHousehold && noHousehold) {
       router.replace('/onboarding');
+    } else if (!requireHousehold && !noHousehold) {
+      router.replace('/');
     }
-  }, [user, noHousehold, router]);
+  }, [user, hhLoading, requireHousehold, noHousehold, router]);
 
   if (authLoading || hhLoading)
     return (
@@ -32,7 +42,10 @@ export function RequireAuth({ children }: { children: React.ReactNode }) {
         Loading...
       </div>
     );
-  if (!user || noHousehold) return null;
+
+  if (!user) return null;
+  if (requireHousehold && noHousehold) return null;
+  if (!requireHousehold && !noHousehold) return null;
 
   return <>{children}</>;
 }

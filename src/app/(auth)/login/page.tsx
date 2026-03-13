@@ -174,7 +174,7 @@ export default function LoginPage() {
                     };
                     const hhRes = await fetch(`${API}/api/settings/household`, { headers });
                     if (!hhRes.ok) {
-                      await fetch(`${API}/api/onboarding`, {
+                      const onboardRes = await fetch(`${API}/api/onboarding`, {
                         method: 'POST',
                         headers,
                         body: JSON.stringify({
@@ -184,6 +184,12 @@ export default function LoginPage() {
                           targetRetirementAge: 55,
                         }),
                       });
+                      if (!onboardRes.ok && onboardRes.status !== 409) {
+                        const err = await onboardRes.json().catch(() => ({}));
+                        setError(err.error || 'Failed to create dev household');
+                        setLoading(false);
+                        return;
+                      }
                     }
                   }
 
