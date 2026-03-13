@@ -27,9 +27,13 @@ function makeStackedLabels(grossAnnual: number) {
           const labelX = isLeft ? node.x0 - 12 : node.x1 + 12;
           const anchor = isLeft ? 'end' : 'start';
           const labelY = (node.y0 + node.y1) / 2;
-          const pct = grossAnnual > 0 ? ((node.value / grossAnnual) * 100).toFixed(1) : null;
 
-          const amountLabel = pct ? `${fmt(node.value)} (${pct}%)` : fmt(node.value);
+          // Hub nodes may have a displayValue override (correct inflow amount
+          // when outflows exceed inflows, e.g. shortfall scenarios).
+          const labelValue = node.displayValue ?? node.value;
+          const pct = grossAnnual > 0 ? ((labelValue / grossAnnual) * 100).toFixed(1) : null;
+
+          const amountLabel = pct ? `${fmt(labelValue)} (${pct}%)` : fmt(labelValue);
 
           return (
             <g key={node.id} transform={`translate(${labelX}, ${labelY})`}>
@@ -105,7 +109,8 @@ export function SankeyChart({ data, className, height }: SankeyChartProps) {
           return SANKEY_CATEGORY_COLORS[sankeyNode.category] ?? '#8a3ffc';
         }}
         margin={{ top: 16, right: 140, bottom: 16, left: 140 }}
-        align="justify"
+        sort="input"
+        align="start"
         nodeOpacity={1}
         nodeHoverOthersOpacity={0.35}
         nodeThickness={18}

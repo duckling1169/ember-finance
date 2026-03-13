@@ -9,6 +9,8 @@ export interface SankeyNode {
   id: string;
   label: string;
   category: 'income' | 'savings' | 'cost' | 'hub';
+  /** Override nivo's computed value for labels (used on hub nodes where outflows can exceed inflows) */
+  displayValue?: number;
 }
 
 export interface SankeyLink {
@@ -37,11 +39,13 @@ export const SANKEY_CATEGORY_COLORS: Record<SankeyNode['category'], string> = {
  *
  * Column 0: Income Sources, Employer Matches
  * Column 1: Gross Income hub (aggregates all sources)
- * Column 2: Pre-tax deductions (savings), Taxes (cost), Net Income (hub)
- * Column 3: Post-tax contributions (savings), Expenses (cost), Surplus/Deficit
+ * Column 2: Pre-tax hub, Taxes (cost), Net Income (hub)
+ * Column 3: Savings accounts, Expenses (cost), Surplus (when positive)
  *
  * Nodes are ordered so savings items cluster together and costs cluster together.
- * Employer matches flow directly to their destination account at col 2.
+ * Employer matches route through Gross → Pre-tax hub to reduce visual crossings.
+ * Shortfall is omitted (shown in summary cards only); surplus flows out of Net Income.
+ * Hub nodes carry a displayValue for correct labels when outflows exceed inflows.
  */
 export function buildSankeyData(
   waterfall: HouseholdWaterfall,
@@ -61,7 +65,6 @@ export function buildSankeyData(
 
   if (totalGross <= 0) return { nodes: [], links, grossAnnual: 0 };
 
-  const sourceById = new Map(incomeSources.map((s) => [s.id, s]));
   const accountById = new Map((accounts ?? []).map((a) => [a.id, a]));
   const allWaterfallSources = waterfall.members.flatMap((m) => m.income_sources);
 
@@ -93,20 +96,17 @@ export function buildSankeyData(
     incomeNodes.push({ id: `inc-${src.income_source_id}`, label: src.name, category: 'income' });
   }
 
-  // ── Column 1: Gross Income hub (only when 2+ sources) ──
-  // When there's a single source, skip the hub and link directly from the source.
-  const useGrossHub = visibleSources.length > 1;
-  let incomeOrigin: string;
-
-  if (useGrossHub) {
-    hubNodes.push({ id: 'gross-income', label: 'Gross Income', category: 'hub' });
-    for (const src of visibleSources) {
-      addLink(links, `inc-${src.income_source_id}`, 'gross-income', src.gross_monthly * 12);
-    }
-    incomeOrigin = 'gross-income';
-  } else {
-    incomeOrigin = `inc-${visibleSources[0].income_source_id}`;
+  // ── Column 1: Gross Income hub (always present for proper column structure) ──
+  hubNodes.push({
+    id: 'gross-income',
+    label: 'Gross Income',
+    category: 'hub',
+    displayValue: Math.round(filteredGross),
+  });
+  for (const src of visibleSources) {
+    addLink(links, `inc-${src.income_source_id}`, 'gross-income', src.gross_monthly * 12);
   }
+  const incomeOrigin = 'gross-income';
 
   // ── Column 2: Pre-tax deductions, Taxes, Net Income hub ──
   // All branch off the Gross Income hub.
@@ -146,27 +146,27 @@ export function buildSankeyData(
     totalPreTaxHub += annual;
   }
 
-  // Employer matches → directly to destination account (long link from col 0 to col 3)
+  // Employer matches → route through Gross hub to reduce visual crossings
   for (const { item, annual } of matchAmounts) {
     incomeNodes.push({ id: `match-${item.id}`, label: item.name, category: 'savings' });
-    if (item.destination_account_id) {
-      const targetId = ensureAccountNode(item.destination_account_id);
-      addLink(links, `match-${item.id}`, targetId, annual);
-    } else {
-      addLink(links, `match-${item.id}`, 'net-income', annual);
-    }
+    addLink(links, `match-${item.id}`, 'gross-income', annual);
   }
 
-  // Create Pre-tax hub if there are any employee pre-tax deductions
-  const employeePreTaxTotal = deductionAmounts.reduce((s, d) => s + d.annual, 0);
-  if (employeePreTaxTotal > 0) {
+  // Create Pre-tax hub if there are any pre-tax deductions or employer matches
+  if (totalPreTaxHub > 0) {
     hubNodes.push({ id: 'pre-tax', label: 'Pre-tax', category: 'hub' });
-    addLink(links, incomeOrigin, 'pre-tax', employeePreTaxTotal);
+    addLink(links, incomeOrigin, 'pre-tax', totalPreTaxHub);
 
     // Pre-tax hub → individual account nodes (col 3)
     for (const { item, annual } of deductionAmounts) {
       const targetId = ensureAccountNode(item.destination_account_id!);
       addLink(links, 'pre-tax', targetId, annual);
+    }
+    for (const { item, annual } of matchAmounts) {
+      if (item.destination_account_id) {
+        const targetId = ensureAccountNode(item.destination_account_id);
+        addLink(links, 'pre-tax', targetId, annual);
+      }
     }
   }
 
@@ -181,27 +181,38 @@ export function buildSankeyData(
   const netIncomeAnnual = waterfall.total_net_income_monthly * 12 * grossShare;
 
   if (netIncomeAnnual > 0) {
-    hubNodes.push({ id: 'net-income', label: 'Net Income', category: 'hub' });
+    hubNodes.push({
+      id: 'net-income',
+      label: 'Net Income',
+      category: 'hub',
+      displayValue: Math.round(netIncomeAnnual),
+    });
     addLink(links, incomeOrigin, 'net-income', netIncomeAnnual);
   }
 
   // ── Column 3: Flows out of Net Income ──
+  // Collect planned outflows first, then cap to net income if there's a shortfall.
+
+  type PendingOutflow = {
+    targetId: string;
+    amount: number;
+    node?: SankeyNode;
+  };
+  const pendingOutflows: PendingOutflow[] = [];
 
   // Post-tax savings → contributions (saving items that are NOT pre-tax)
-  // Merge into the same account node when a destination account is set.
   const postTaxItems = visibleItems.filter((ci) => ci.bucket === 'savings' && !isPreTaxSaving(ci));
   for (const item of postTaxItems) {
     let annual = resolveAnnual(item, incomeSources);
-    // Scale unlinked items by gross share when filtered
     if (filterSourceIds && !item.income_source_id) annual *= grossShare;
     if (annual <= 0) continue;
     if (item.destination_account_id) {
       const targetId = ensureAccountNode(item.destination_account_id);
-      addLink(links, 'net-income', targetId, annual);
+      pendingOutflows.push({ targetId, amount: annual });
     } else {
-      // No destination account — use the item name as the node
-      savingsNodes.push({ id: `contrib-${item.id}`, label: item.name, category: 'savings' });
-      addLink(links, 'net-income', `contrib-${item.id}`, annual);
+      const nodeId = `contrib-${item.id}`;
+      const node: SankeyNode = { id: nodeId, label: item.name, category: 'savings' };
+      pendingOutflows.push({ targetId: nodeId, amount: annual, node });
     }
   }
 
@@ -210,30 +221,73 @@ export function buildSankeyData(
   if (expenseItems.length > 0) {
     for (const item of expenseItems) {
       let annual = resolveAnnual(item, incomeSources);
-      // Scale unlinked expenses by gross share when filtered
       if (filterSourceIds && !item.income_source_id) annual *= grossShare;
       if (annual <= 0) continue;
-      costNodes.push({ id: `exp-${item.id}`, label: item.name, category: 'cost' });
-      addLink(links, 'net-income', `exp-${item.id}`, annual);
+      const nodeId = `exp-${item.id}`;
+      const node: SankeyNode = { id: nodeId, label: item.name, category: 'cost' };
+      pendingOutflows.push({ targetId: nodeId, amount: annual, node });
     }
   } else if (waterfall.total_expenses_annual > 0) {
-    costNodes.push({ id: 'expenses', label: 'Expenses', category: 'cost' });
-    addLink(links, 'net-income', 'expenses', waterfall.total_expenses_annual * grossShare);
+    const node: SankeyNode = { id: 'expenses', label: 'Expenses', category: 'cost' };
+    pendingOutflows.push({
+      targetId: 'expenses',
+      amount: waterfall.total_expenses_annual * grossShare,
+      node,
+    });
   }
 
-  // Residual (scaled proportionally when filtered)
+  // Surplus (only when positive)
   const residual = waterfall.total_residual_annual * grossShare;
   if (residual > 0) {
-    savingsNodes.push({ id: 'surplus', label: 'Surplus', category: 'hub' });
-    addLink(links, 'net-income', 'surplus', residual);
-  } else if (residual < 0) {
-    costNodes.push({ id: 'deficit', label: 'Shortfall', category: 'cost' });
-    addLink(links, 'net-income', 'deficit', Math.abs(residual));
+    const node: SankeyNode = { id: 'surplus', label: 'Surplus', category: 'hub' };
+    pendingOutflows.push({ targetId: 'surplus', amount: residual, node });
   }
 
-  // Order: income first, then savings grouped together, hub, then costs grouped together.
-  // This makes the Sankey visually cluster savings (teal) on top and costs (red) on bottom.
-  const nodes = [...incomeNodes, ...savingsNodes, ...hubNodes, ...costNodes];
+  // Cap outflows to net income so the bar height matches the inflow.
+  // When there's a shortfall, scale all outflows proportionally.
+  const totalPlanned = pendingOutflows.reduce((s, o) => s + o.amount, 0);
+  const capRatio =
+    netIncomeAnnual > 0 && totalPlanned > netIncomeAnnual ? netIncomeAnnual / totalPlanned : 1;
+
+  for (const outflow of pendingOutflows) {
+    if (outflow.node) {
+      // When capped, preserve the real planned amount for labels
+      if (capRatio < 1) outflow.node.displayValue = Math.round(outflow.amount);
+      if (outflow.node.category === 'savings') savingsNodes.push(outflow.node);
+      else if (outflow.node.category === 'cost') costNodes.push(outflow.node);
+      else savingsNodes.push(outflow.node); // surplus
+    }
+    addLink(links, 'net-income', outflow.targetId, outflow.amount * capRatio);
+  }
+
+  // Sort links by value descending so that each source node's largest outgoing
+  // flow gets the top slot (minimises visual crossing between columns).
+  links.sort((a, b) => b.value - a.value);
+
+  // Sort nodes within each category by total link value (descending)
+  // so that the largest items are positioned at the top of each group.
+  const nodeValue = (n: SankeyNode) =>
+    links
+      .filter((l) => l.source === n.id || l.target === n.id)
+      .reduce((sum, l) => sum + l.value, 0);
+
+  const sortDesc = (a: SankeyNode, b: SankeyNode) => nodeValue(b) - nodeValue(a);
+  incomeNodes.sort(sortDesc);
+  hubNodes.sort(sortDesc);
+
+  // Terminal nodes (savings + costs) are merged and sorted by value so the
+  // rightmost column is ordered by size, not split by category.
+  const surplusNode = savingsNodes.find((n) => n.id === 'surplus');
+  const terminalNodes = [...savingsNodes, ...costNodes].filter((n) => n.id !== 'surplus');
+  terminalNodes.sort(sortDesc);
+
+  // Order: income sources, hubs (by depth), terminal nodes by value, surplus last
+  const nodes = [
+    ...incomeNodes,
+    ...hubNodes,
+    ...terminalNodes,
+    ...(surplusNode ? [surplusNode] : []),
+  ];
 
   return { nodes, links, grossAnnual: filteredGross };
 }
