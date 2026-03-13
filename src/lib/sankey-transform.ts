@@ -43,7 +43,7 @@ export const SANKEY_CATEGORY_COLORS: Record<SankeyNode['category'], string> = {
  * Column 3: Savings accounts, Expenses (cost), Surplus (when positive)
  *
  * Nodes are ordered so savings items cluster together and costs cluster together.
- * Employer matches route through Gross → Pre-tax hub to reduce visual crossings.
+ * Employer matches flow directly to destination accounts (not part of gross income).
  * Shortfall is omitted (shown in summary cards only); surplus flows out of Net Income.
  * Hub nodes carry a displayValue for correct labels when outflows exceed inflows.
  */
@@ -126,7 +126,6 @@ export function buildSankeyData(
   // Pre-tax savings → route through a "Pre-tax" hub so account nodes land at col 3
   const deductionItems = visibleItems.filter((ci) => isPreTaxSaving(ci));
   const matchItems = visibleItems.filter((ci) => ci.bucket === 'employer_match');
-  let totalPreTaxHub = 0;
 
   // Accumulate pre-tax deduction amounts
   const deductionAmounts: { item: CashflowItem; annual: number }[] = [];
@@ -134,7 +133,6 @@ export function buildSankeyData(
     const annual = resolveAnnual(item, incomeSources);
     if (annual <= 0) continue;
     deductionAmounts.push({ item, annual: annual * grossShare });
-    totalPreTaxHub += annual * grossShare;
   }
 
   // Accumulate employer match amounts
@@ -143,30 +141,26 @@ export function buildSankeyData(
     const annual = resolveAnnual(item, incomeSources);
     if (annual <= 0) continue;
     matchAmounts.push({ item, annual });
-    totalPreTaxHub += annual;
   }
 
-  // Employer matches → route through Gross hub to reduce visual crossings
-  for (const { item, annual } of matchAmounts) {
-    incomeNodes.push({ id: `match-${item.id}`, label: item.name, category: 'savings' });
-    addLink(links, `match-${item.id}`, 'gross-income', annual);
-  }
-
-  // Create Pre-tax hub if there are any pre-tax deductions or employer matches
-  if (totalPreTaxHub > 0) {
+  // Create Pre-tax hub if there are any employee pre-tax deductions
+  const employeePreTaxTotal = deductionAmounts.reduce((s, d) => s + d.annual, 0);
+  if (employeePreTaxTotal > 0) {
     hubNodes.push({ id: 'pre-tax', label: 'Pre-tax', category: 'hub' });
-    addLink(links, incomeOrigin, 'pre-tax', totalPreTaxHub);
+    addLink(links, incomeOrigin, 'pre-tax', employeePreTaxTotal);
 
-    // Pre-tax hub → individual account nodes (col 3)
     for (const { item, annual } of deductionAmounts) {
       const targetId = ensureAccountNode(item.destination_account_id!);
       addLink(links, 'pre-tax', targetId, annual);
     }
-    for (const { item, annual } of matchAmounts) {
-      if (item.destination_account_id) {
-        const targetId = ensureAccountNode(item.destination_account_id);
-        addLink(links, 'pre-tax', targetId, annual);
-      }
+  }
+
+  // Employer matches → directly to destination account (not part of gross income)
+  for (const { item, annual } of matchAmounts) {
+    incomeNodes.push({ id: `match-${item.id}`, label: item.name, category: 'savings' });
+    if (item.destination_account_id) {
+      const targetId = ensureAccountNode(item.destination_account_id);
+      addLink(links, `match-${item.id}`, targetId, annual);
     }
   }
 
