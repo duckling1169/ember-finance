@@ -224,6 +224,14 @@ Exit criteria:
 
 - Drawdown v1 spec is explicit and implemented end-to-end for one household scenario
 
+## Next Steps — Manual Holdings & Market Data
+
+- **Swap Finnhub → Tiingo** for quote endpoint (`GET /api/quotes`). Tiingo covers mutual funds (45,000+ funds) and has 1,000 calls/day free tier vs Finnhub's lack of mutual fund support. EOD pricing is sufficient since quotes are only fetched during manual holdings entry (linked accounts get prices from their provider). Free tier, no credit card, simple REST API.
+- **Pre-populate from last entry** is shipped (Phase 1). Remaining enhancements:
+  - Price auto-fetch fallback: if Tiingo returns null, allow manual price entry per row
+  - Import from CSV: parse brokerage exports (Fidelity, Schwab, Vanguard formats)
+  - Tax lot details: acquisition date per lot for short-term/long-term gain tracking
+
 ## Dependency Gates (Do Not Skip)
 
 1. No Sankey page before Phase 2 waterfall engine is in place.

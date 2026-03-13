@@ -20,6 +20,8 @@ export interface SankeyLink {
 export interface SankeyData {
   nodes: SankeyNode[];
   links: SankeyLink[];
+  /** Total gross annual income — used for computing % of gross labels */
+  grossAnnual: number;
 }
 
 /** Semantic color palette for node categories */
@@ -34,11 +36,12 @@ export const SANKEY_CATEGORY_COLORS: Record<SankeyNode['category'], string> = {
  * Transform a HouseholdWaterfall + raw data into a multi-layer nivo Sankey.
  *
  * Column 0: Income Sources, Employer Matches
- * Column 1: Pre-tax deductions (savings), Taxes (cost), Net Income (hub)
- * Column 2: Post-tax contributions (savings), Expenses (cost), Surplus/Deficit
+ * Column 1: Gross Income hub (aggregates all sources)
+ * Column 2: Pre-tax deductions (savings), Taxes (cost), Net Income (hub)
+ * Column 3: Post-tax contributions (savings), Expenses (cost), Surplus/Deficit
  *
  * Nodes are ordered so savings items cluster together and costs cluster together.
- * Employer matches flow separately as additional income.
+ * Employer matches flow directly to their destination account at col 2.
  */
 export function buildSankeyData(
   waterfall: HouseholdWaterfall,
@@ -56,7 +59,7 @@ export function buildSankeyData(
   const links: SankeyLink[] = [];
   const totalGross = waterfall.total_gross_annual;
 
-  if (totalGross <= 0) return { nodes: [], links };
+  if (totalGross <= 0) return { nodes: [], links, grossAnnual: 0 };
 
   const sourceById = new Map(incomeSources.map((s) => [s.id, s]));
   const accountById = new Map((accounts ?? []).map((a) => [a.id, a]));
@@ -90,28 +93,80 @@ export function buildSankeyData(
     incomeNodes.push({ id: `inc-${src.income_source_id}`, label: src.name, category: 'income' });
   }
 
-  // ── Column 1: Pre-tax deductions, Taxes, Net Income hub ──
+  // ── Column 1: Gross Income hub (only when 2+ sources) ──
+  // When there's a single source, skip the hub and link directly from the source.
+  const useGrossHub = visibleSources.length > 1;
+  let incomeOrigin: string;
 
-  // Pre-tax savings → deductions
+  if (useGrossHub) {
+    hubNodes.push({ id: 'gross-income', label: 'Gross Income', category: 'hub' });
+    for (const src of visibleSources) {
+      addLink(links, `inc-${src.income_source_id}`, 'gross-income', src.gross_monthly * 12);
+    }
+    incomeOrigin = 'gross-income';
+  } else {
+    incomeOrigin = `inc-${visibleSources[0].income_source_id}`;
+  }
+
+  // ── Column 2: Pre-tax deductions, Taxes, Net Income hub ──
+  // All branch off the Gross Income hub.
+
+  // Helper: get or create a single account node (used by both pre-tax deductions and employer matches)
+  const accountNodeIds = new Set<string>();
+  function ensureAccountNode(accountId: string): string {
+    const nodeId = `acct-${accountId}`;
+    if (!accountNodeIds.has(nodeId)) {
+      accountNodeIds.add(nodeId);
+      const acct = accountById.get(accountId);
+      savingsNodes.push({ id: nodeId, label: acct?.name ?? 'Account', category: 'savings' });
+    }
+    return nodeId;
+  }
+
+  // Pre-tax savings → route through a "Pre-tax" hub so account nodes land at col 3
   const deductionItems = visibleItems.filter((ci) => isPreTaxSaving(ci));
-  for (const item of deductionItems) {
-    const annual = normalizeToAnnual(item.amount, item.frequency);
-    if (annual <= 0) continue;
-    savingsNodes.push({ id: `ded-${item.id}`, label: item.name, category: 'savings' });
+  const matchItems = visibleItems.filter((ci) => ci.bucket === 'employer_match');
+  let totalPreTaxHub = 0;
 
-    if (item.income_source_id && sourceById.has(item.income_source_id)) {
-      addLink(links, `inc-${item.income_source_id}`, `ded-${item.id}`, annual);
+  // Accumulate pre-tax deduction amounts
+  const deductionAmounts: { item: CashflowItem; annual: number }[] = [];
+  for (const item of deductionItems) {
+    const annual = resolveAnnual(item, incomeSources);
+    if (annual <= 0) continue;
+    deductionAmounts.push({ item, annual: annual * grossShare });
+    totalPreTaxHub += annual * grossShare;
+  }
+
+  // Accumulate employer match amounts
+  const matchAmounts: { item: CashflowItem; annual: number }[] = [];
+  for (const item of matchItems) {
+    const annual = resolveAnnual(item, incomeSources);
+    if (annual <= 0) continue;
+    matchAmounts.push({ item, annual });
+    totalPreTaxHub += annual;
+  }
+
+  // Employer matches → directly to destination account (long link from col 0 to col 3)
+  for (const { item, annual } of matchAmounts) {
+    incomeNodes.push({ id: `match-${item.id}`, label: item.name, category: 'savings' });
+    if (item.destination_account_id) {
+      const targetId = ensureAccountNode(item.destination_account_id);
+      addLink(links, `match-${item.id}`, targetId, annual);
     } else {
-      // Unlinked: spread across visible sources proportionally
-      for (const src of visibleSources) {
-        const share = filteredGross > 0 ? (src.gross_monthly * 12) / filteredGross : 0;
-        addLink(
-          links,
-          `inc-${src.income_source_id}`,
-          `ded-${item.id}`,
-          annual * grossShare * share,
-        );
-      }
+      addLink(links, `match-${item.id}`, 'net-income', annual);
+    }
+  }
+
+  // Create Pre-tax hub if there are any employee pre-tax deductions
+  const employeePreTaxTotal = deductionAmounts.reduce((s, d) => s + d.annual, 0);
+  if (employeePreTaxTotal > 0) {
+    hubNodes.push({ id: 'pre-tax', label: 'Pre-tax', category: 'hub' });
+    addLink(links, incomeOrigin, 'pre-tax', employeePreTaxTotal);
+
+    // Pre-tax hub → individual account nodes (col 3)
+    for (const { item, annual } of deductionAmounts) {
+      const targetId = ensureAccountNode(item.destination_account_id!);
+      addLink(links, 'pre-tax', targetId, annual);
     }
   }
 
@@ -119,51 +174,42 @@ export function buildSankeyData(
   const taxAnnual = waterfall.total_tax_monthly * 12 * grossShare;
   if (taxAnnual > 0) {
     costNodes.push({ id: 'taxes', label: 'Taxes', category: 'cost' });
-    for (const src of visibleSources) {
-      const share = filteredGross > 0 ? (src.gross_monthly * 12) / filteredGross : 0;
-      addLink(links, `inc-${src.income_source_id}`, 'taxes', taxAnnual * share);
-    }
+    addLink(links, incomeOrigin, 'taxes', taxAnnual);
   }
 
   // Net Income hub (scaled proportionally when filtered)
   const netIncomeAnnual = waterfall.total_net_income_monthly * 12 * grossShare;
 
-  // Employer matches → free money, shown as separate source flowing into Net Income
-  const matchItems = visibleItems.filter((ci) => ci.bucket === 'employer_match');
-  for (const item of matchItems) {
-    const annual = normalizeToAnnual(item.amount, item.frequency);
-    if (annual <= 0) continue;
-    incomeNodes.push({ id: `match-${item.id}`, label: item.name, category: 'savings' });
-    if (netIncomeAnnual > 0) {
-      addLink(links, `match-${item.id}`, 'net-income', annual);
-    }
-  }
   if (netIncomeAnnual > 0) {
     hubNodes.push({ id: 'net-income', label: 'Net Income', category: 'hub' });
-    for (const src of visibleSources) {
-      const share = filteredGross > 0 ? (src.gross_monthly * 12) / filteredGross : 0;
-      addLink(links, `inc-${src.income_source_id}`, 'net-income', netIncomeAnnual * share);
-    }
+    addLink(links, incomeOrigin, 'net-income', netIncomeAnnual);
   }
 
-  // ── Column 2: Flows out of Net Income ──
+  // ── Column 3: Flows out of Net Income ──
 
   // Post-tax savings → contributions (saving items that are NOT pre-tax)
+  // Merge into the same account node when a destination account is set.
   const postTaxItems = visibleItems.filter((ci) => ci.bucket === 'savings' && !isPreTaxSaving(ci));
   for (const item of postTaxItems) {
-    let annual = normalizeToAnnual(item.amount, item.frequency);
+    let annual = resolveAnnual(item, incomeSources);
     // Scale unlinked items by gross share when filtered
     if (filterSourceIds && !item.income_source_id) annual *= grossShare;
     if (annual <= 0) continue;
-    savingsNodes.push({ id: `contrib-${item.id}`, label: item.name, category: 'savings' });
-    addLink(links, 'net-income', `contrib-${item.id}`, annual);
+    if (item.destination_account_id) {
+      const targetId = ensureAccountNode(item.destination_account_id);
+      addLink(links, 'net-income', targetId, annual);
+    } else {
+      // No destination account — use the item name as the node
+      savingsNodes.push({ id: `contrib-${item.id}`, label: item.name, category: 'savings' });
+      addLink(links, 'net-income', `contrib-${item.id}`, annual);
+    }
   }
 
   // Expenses → cost
   const expenseItems = visibleItems.filter((ci) => ci.bucket === 'expense');
   if (expenseItems.length > 0) {
     for (const item of expenseItems) {
-      let annual = normalizeToAnnual(item.amount, item.frequency);
+      let annual = resolveAnnual(item, incomeSources);
       // Scale unlinked expenses by gross share when filtered
       if (filterSourceIds && !item.income_source_id) annual *= grossShare;
       if (annual <= 0) continue;
@@ -189,7 +235,7 @@ export function buildSankeyData(
   // This makes the Sankey visually cluster savings (teal) on top and costs (red) on bottom.
   const nodes = [...incomeNodes, ...savingsNodes, ...hubNodes, ...costNodes];
 
-  return { nodes, links };
+  return { nodes, links, grossAnnual: filteredGross };
 }
 
 function addLink(links: SankeyLink[], source: string, target: string, value: number) {
@@ -214,4 +260,14 @@ function normalizeToAnnual(amount: number, frequency: string): number {
     default:
       return amount * 12;
   }
+}
+
+function resolveAnnual(item: CashflowItem, incomeSources: IncomeSource[]): number {
+  if (item.amount_type === 'percent' && item.income_source_id) {
+    const source = incomeSources.find((s) => s.id === item.income_source_id);
+    if (!source) return 0;
+    const sourceAnnual = normalizeToAnnual(source.gross_amount, source.frequency);
+    return sourceAnnual * (item.amount / 100);
+  }
+  return normalizeToAnnual(item.amount, item.frequency);
 }

@@ -16,7 +16,7 @@ export interface WaterfallMemberInput {
   display_name: string;
   birthday: string | null;
   target_retirement_age: number | null;
-  state_of_residence: USState | null;
+  state: USState | null;
   tax_mode: TaxMode;
   effective_tax_rate_override: number | null;
   income_sources: IncomeSource[];

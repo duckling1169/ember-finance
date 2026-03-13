@@ -14,7 +14,8 @@ interface WaterfallStep {
   label: string;
   tip: string;
   getValue: (w: HouseholdWaterfall) => number;
-  negative?: boolean;
+  /** Dimmed text — deduction steps that reduce a total */
+  subdued?: boolean;
   highlight?: boolean;
 }
 
@@ -30,14 +31,14 @@ const steps: WaterfallStep[] = [
     label: 'Pre-tax Deductions',
     tip: 'Contributions deducted before taxes, like 401(k), traditional IRA, and HSA deferrals.',
     getValue: (w) => w.total_pre_tax_deductions_monthly * 12,
-    negative: true,
+    subdued: true,
   },
   {
     key: 'taxes',
     label: 'Taxes',
     tip: 'Estimated federal, state, and FICA taxes based on your taxable income after pre-tax deductions.',
     getValue: (w) => w.total_tax_monthly * 12,
-    negative: true,
+    subdued: true,
   },
   {
     key: 'net',
@@ -50,14 +51,14 @@ const steps: WaterfallStep[] = [
     label: 'Post-tax Savings',
     tip: 'Money saved or invested after taxes, such as Roth IRA, brokerage, or savings account contributions.',
     getValue: (w) => w.total_post_tax_contributions_monthly * 12,
-    negative: true,
+    subdued: true,
   },
   {
     key: 'expenses',
     label: 'Expenses',
     tip: 'Annual spending on living expenses, bills, and discretionary costs.',
     getValue: (w) => w.total_expenses_annual,
-    negative: true,
+    subdued: true,
   },
   {
     key: 'residual',
@@ -90,12 +91,12 @@ export function WaterfallSummary({ waterfall }: WaterfallSummaryProps) {
             <div
               className={cn(
                 'font-mono text-sm tabular-nums',
-                step.negative && 'text-muted-foreground',
+                step.subdued && 'text-muted-foreground',
                 step.highlight && value >= 0 && 'text-gain',
                 isDeficit && 'text-loss',
               )}
             >
-              {step.negative && value > 0 ? `−${fmt(value)}` : fmt(value)}
+              {fmt(Math.abs(value))}
             </div>
           </div>
         );

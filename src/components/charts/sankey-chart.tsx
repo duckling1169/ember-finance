@@ -16,51 +16,56 @@ interface SankeyChartProps {
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
-/** Custom label layer: renders name stacked over amount outside each node */
-function StackedLabels({ nodes, width }: { nodes: readonly any[]; width: number }) {
-  return (
-    <g>
-      {nodes.map((node: any) => {
-        const midX = (node.x0 + node.x1) / 2;
-        const isLeft = midX < width / 2;
-        const labelX = isLeft ? node.x0 - 12 : node.x1 + 12;
-        const anchor = isLeft ? 'end' : 'start';
-        const labelY = (node.y0 + node.y1) / 2;
+/** Custom label layer: renders name + amount + % of gross outside each node */
+function makeStackedLabels(grossAnnual: number) {
+  return function StackedLabels({ nodes, width }: { nodes: readonly any[]; width: number }) {
+    return (
+      <g>
+        {nodes.map((node: any) => {
+          const midX = (node.x0 + node.x1) / 2;
+          const isLeft = midX < width / 2;
+          const labelX = isLeft ? node.x0 - 12 : node.x1 + 12;
+          const anchor = isLeft ? 'end' : 'start';
+          const labelY = (node.y0 + node.y1) / 2;
+          const pct = grossAnnual > 0 ? ((node.value / grossAnnual) * 100).toFixed(1) : null;
 
-        return (
-          <g key={node.id} transform={`translate(${labelX}, ${labelY})`}>
-            <text
-              textAnchor={anchor}
-              dominantBaseline="auto"
-              dy={-3}
-              style={{
-                fill: node.color,
-                fontSize: 11,
-                fontWeight: 500,
-                filter: 'brightness(1.3)',
-              }}
-            >
-              {node.label}
-            </text>
-            <text
-              textAnchor={anchor}
-              dominantBaseline="hanging"
-              dy={3}
-              style={{
-                fill: node.color,
-                fontSize: 10,
-                fontFamily: 'var(--font-mono, monospace)',
-                opacity: 0.8,
-                filter: 'brightness(1.3)',
-              }}
-            >
-              {fmt(node.value)}
-            </text>
-          </g>
-        );
-      })}
-    </g>
-  );
+          const amountLabel = pct ? `${fmt(node.value)} (${pct}%)` : fmt(node.value);
+
+          return (
+            <g key={node.id} transform={`translate(${labelX}, ${labelY})`}>
+              <text
+                textAnchor={anchor}
+                dominantBaseline="auto"
+                dy={-3}
+                style={{
+                  fill: node.color,
+                  fontSize: 11,
+                  fontWeight: 500,
+                  filter: 'brightness(1.3)',
+                }}
+              >
+                {node.label}
+              </text>
+              <text
+                textAnchor={anchor}
+                dominantBaseline="hanging"
+                dy={3}
+                style={{
+                  fill: node.color,
+                  fontSize: 10,
+                  fontFamily: 'var(--font-mono, monospace)',
+                  opacity: 0.8,
+                  filter: 'brightness(1.3)',
+                }}
+              >
+                {amountLabel}
+              </text>
+            </g>
+          );
+        })}
+      </g>
+    );
+  };
 }
 
 /* eslint-enable @typescript-eslint/no-explicit-any */
@@ -80,8 +85,10 @@ export function SankeyChart({ data, className, height }: SankeyChartProps) {
   };
 
   // Dynamic height: scale with node count so items don't get squished
-  const autoHeight = Math.max(400, data.nodes.length * 45);
+  const autoHeight = Math.max(550, data.nodes.length * 55);
   const chartHeight = height ?? autoHeight;
+
+  const StackedLabels = makeStackedLabels(data.grossAnnual);
 
   return (
     <div
@@ -98,7 +105,7 @@ export function SankeyChart({ data, className, height }: SankeyChartProps) {
           return SANKEY_CATEGORY_COLORS[sankeyNode.category] ?? '#8a3ffc';
         }}
         margin={{ top: 16, right: 140, bottom: 16, left: 140 }}
-        align="start"
+        align="justify"
         nodeOpacity={1}
         nodeHoverOthersOpacity={0.35}
         nodeThickness={18}

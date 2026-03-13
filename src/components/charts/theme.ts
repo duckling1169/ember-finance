@@ -21,18 +21,33 @@ export const CHART_COLORS = [
 
 /**
  * Build a nivo theme that reads from CSS custom properties at call time.
- * Must be called inside a component (or effect) so getComputedStyle works.
+ * Cached so useSyncExternalStore gets a stable reference.
  */
-const noop = () => () => {};
+let cachedTheme: PartialTheme | null = null;
+
 const serverSnapshot = () => null as PartialTheme | null;
-const clientSnapshot = () => getNivoTheme() as PartialTheme | null;
+const clientSnapshot = () => {
+  if (!cachedTheme) cachedTheme = getNivoTheme();
+  return cachedTheme;
+};
+
+const subscribe = (cb: () => void) => {
+  // Invalidate cache when color scheme changes
+  const mq = window.matchMedia('(prefers-color-scheme: dark)');
+  const handler = () => {
+    cachedTheme = null;
+    cb();
+  };
+  mq.addEventListener('change', handler);
+  return () => mq.removeEventListener('change', handler);
+};
 
 /**
  * Hook that safely provides the Nivo theme on the client.
  * Returns null during SSR; resolves after hydration.
  */
 export function useNivoTheme(): PartialTheme | null {
-  return useSyncExternalStore(noop, clientSnapshot, serverSnapshot);
+  return useSyncExternalStore(subscribe, clientSnapshot, serverSnapshot);
 }
 
 export function getNivoTheme(): PartialTheme {

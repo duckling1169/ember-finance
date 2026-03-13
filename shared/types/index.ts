@@ -134,7 +134,6 @@ export interface Household {
   id: string;
   name: string;
   tax_filing_status: TaxFilingStatus | null;
-  state: USState | null;
   currency: string;
   created_at: string;
 }
@@ -149,7 +148,7 @@ export interface Member {
   target_retirement_age: number | null;
   employment_type: EmploymentType | null;
   risk_tolerance: RiskTolerance | null;
-  state_of_residence: string | null;
+  state: USState | null;
   tax_mode: TaxMode;
   effective_tax_rate_override: number | null;
   created_at: string;
@@ -472,7 +471,6 @@ export interface AcceptInviteInput {
 export interface UpdateHouseholdInput {
   name?: string;
   taxFilingStatus?: TaxFilingStatus | null;
-  state?: USState | null;
   currency?: string;
 }
 
@@ -482,7 +480,7 @@ export interface UpdateProfileInput {
   targetRetirementAge?: number | null;
   employmentType?: EmploymentType | null;
   riskTolerance?: RiskTolerance | null;
-  stateOfResidence?: string | null;
+  state?: USState | null;
   taxMode?: TaxMode;
   effectiveTaxRateOverride?: number | null;
 }
@@ -506,6 +504,7 @@ export interface UpdateAccountInput {
   meta?: Record<string, unknown>;
   is_active?: boolean;
   include_in_fi_portfolio?: boolean;
+  tax_treatment?: TaxTreatment;
 }
 
 export interface ManualIngestInput {
@@ -577,6 +576,9 @@ export type CashflowDirection = 'inflow' | 'outflow';
 export const CASHFLOW_BUCKETS = ['savings', 'employer_match', 'expense'] as const;
 export type CashflowBucket = (typeof CASHFLOW_BUCKETS)[number];
 
+export const AMOUNT_TYPES = ['fixed', 'percent'] as const;
+export type AmountType = (typeof AMOUNT_TYPES)[number];
+
 export const CASHFLOW_FREQUENCIES = ['monthly', 'biweekly', 'annual', 'one_time'] as const;
 export type CashflowFrequency = (typeof CASHFLOW_FREQUENCIES)[number];
 
@@ -606,6 +608,7 @@ export interface CashflowItem {
   direction: CashflowDirection;
   bucket: CashflowBucket;
   amount: number;
+  amount_type: AmountType;
   frequency: CashflowFrequency;
   is_recurring: boolean;
   include_in_projection: boolean;
@@ -674,6 +677,7 @@ export interface CreateCashflowItemInput {
   direction: CashflowDirection;
   bucket: CashflowBucket;
   amount: number;
+  amount_type?: AmountType;
   frequency: CashflowFrequency;
   is_recurring?: boolean;
   include_in_projection?: boolean;
@@ -691,6 +695,7 @@ export interface UpdateCashflowItemInput {
   direction?: CashflowDirection;
   bucket?: CashflowBucket;
   amount?: number;
+  amount_type?: AmountType;
   frequency?: CashflowFrequency;
   is_recurring?: boolean;
   include_in_projection?: boolean;

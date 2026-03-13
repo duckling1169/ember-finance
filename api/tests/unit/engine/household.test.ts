@@ -50,7 +50,7 @@ function makeMember(overrides: Partial<WaterfallMemberInput> = {}): WaterfallMem
     display_name: 'Member A',
     birthday: '1990-01-01',
     target_retirement_age: 65,
-    state_of_residence: 'CA',
+    state: 'CA',
     tax_mode: 'auto',
     effective_tax_rate_override: null,
     income_sources: [makeIncomeSource()],

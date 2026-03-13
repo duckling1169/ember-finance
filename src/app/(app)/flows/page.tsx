@@ -52,7 +52,7 @@ export default function FlowsPage() {
 
   const sankeyData = useMemo(() => {
     if (!summary?.waterfall || !cashflowItems || !incomeSources) {
-      return { nodes: [], links: [] };
+      return { nodes: [], links: [], grossAnnual: 0 };
     }
 
     const filterSet = filterSourceId ? new Set([filterSourceId]) : undefined;
@@ -149,7 +149,7 @@ export default function FlowsPage() {
       </div>
 
       {crudMemberId && (
-        <div className="grid gap-3 lg:grid-cols-2">
+        <div className="grid gap-3">
           <IncomeSourcesCard memberId={crudMemberId} />
           <CashflowItemsCard memberId={crudMemberId} />
         </div>

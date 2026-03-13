@@ -23,6 +23,7 @@ import type { ProjectionInput, AccountContribution } from '../engine/projections
 import type { SavingsRateInput } from '../engine/savings.js';
 import { computeHouseholdWaterfall } from '../engine/household.js';
 import { toAnnual } from '../engine/normalize.js';
+import { resolveItemAnnual } from '../engine/resolve-amount.js';
 
 // ── Default Assumptions ──
 
@@ -44,7 +45,7 @@ interface PlanningData {
     display_name: string;
     birthday: string | null;
     target_retirement_age: number | null;
-    state_of_residence: string | null;
+    state: string | null;
     tax_mode: string;
     effective_tax_rate_override: number | null;
   }>;
@@ -71,7 +72,7 @@ export async function fetchPlanningData(
       db
         .from('member')
         .select(
-          'id, display_name, birthday, target_retirement_age, state_of_residence, tax_mode, effective_tax_rate_override',
+          'id, display_name, birthday, target_retirement_age, state, tax_mode, effective_tax_rate_override',
         )
         .eq('household_id', householdId),
       db.from('household').select('tax_filing_status').eq('id', householdId).single(),
@@ -92,7 +93,7 @@ export async function fetchPlanningData(
             .single(),
       db
         .from('account')
-        .select('id, include_in_fi_portfolio, meta')
+        .select('id, include_in_fi_portfolio, tax_treatment')
         .eq('household_id', householdId)
         .eq('is_active', true),
     ]);
@@ -106,16 +107,27 @@ export async function fetchPlanningData(
   if (itemsRes.error) throw new Error(`Failed to fetch cashflow items: ${itemsRes.error.message}`);
   if (accountsRes.error) throw new Error(`Failed to fetch accounts: ${accountsRes.error.message}`);
 
-  // Scenario: fall back to empty assumptions if none exists
-  const scenario: PlanningScenario = scenarioRes.data ?? {
-    id: 'default',
-    household_id: householdId,
-    name: 'Base',
-    is_base: true,
-    assumptions: {},
-    created_at: new Date().toISOString(),
-    updated_at: new Date().toISOString(),
-  };
+  // Scenario: auto-create a base scenario if none exists
+  let scenario: PlanningScenario;
+  if (scenarioRes.data) {
+    scenario = scenarioRes.data;
+  } else {
+    const { data: created, error: createErr } = await db
+      .from('planning_scenario')
+      .insert({
+        household_id: householdId,
+        name: 'Base',
+        is_base: true,
+        assumptions: {},
+      })
+      .select()
+      .single();
+
+    if (createErr || !created) {
+      throw new Error(`Failed to create base scenario: ${createErr?.message ?? 'unknown'}`);
+    }
+    scenario = created;
+  }
 
   // Build account tax_treatment lookup
   const allAccounts = accountsRes.data ?? [];
@@ -191,7 +203,7 @@ export function assembleWaterfallInput(data: PlanningData): HouseholdWaterfallIn
     display_name: m.display_name,
     birthday: m.birthday,
     target_retirement_age: m.target_retirement_age,
-    state_of_residence: (m.state_of_residence as USState) ?? null,
+    state: (m.state as USState) ?? null,
     tax_mode: (m.tax_mode as TaxMode) ?? 'auto',
     effective_tax_rate_override: m.effective_tax_rate_override,
     income_sources: data.income_sources.filter((s) => s.member_id === m.id),
@@ -238,6 +250,7 @@ export function computeYearlyFIContributions(
   waterfall: HouseholdWaterfall,
   cashflowItems: CashflowItem[],
   fiAccountIds: Set<string>,
+  incomeSources: IncomeSource[],
 ): number {
   // Saving items that route to FI accounts
   const fiItems = cashflowItems.filter(
@@ -247,13 +260,14 @@ export function computeYearlyFIContributions(
       fiAccountIds.has(item.destination_account_id),
   );
 
-  return fiItems.reduce((sum, item) => sum + toAnnual(item.amount, item.frequency), 0);
+  return fiItems.reduce((sum, item) => sum + resolveItemAnnual(item, incomeSources), 0);
 }
 
 /** Sum yearly contributions to non-FI savings accounts. */
 export function computeYearlySavingsContributions(
   cashflowItems: CashflowItem[],
   fiAccountIds: Set<string>,
+  incomeSources: IncomeSource[],
 ): number {
   const savingsItems = cashflowItems.filter(
     (item) =>
@@ -262,7 +276,7 @@ export function computeYearlySavingsContributions(
       !fiAccountIds.has(item.destination_account_id),
   );
 
-  return savingsItems.reduce((sum, item) => sum + toAnnual(item.amount, item.frequency), 0);
+  return savingsItems.reduce((sum, item) => sum + resolveItemAnnual(item, incomeSources), 0);
 }
 
 /** Build FI metrics input from waterfall + planning data. */
@@ -283,6 +297,7 @@ export function assembleFIMetricsInput(
     waterfall,
     data.cashflow_items,
     data.fi_account_ids,
+    data.income_sources,
   );
   const retirementSpend =
     assumptions.retirement_annual_spend_override ?? waterfall.total_expenses_annual;
@@ -315,6 +330,7 @@ export function assembleProjectionInput(
     waterfall,
     data.cashflow_items,
     data.fi_account_ids,
+    data.income_sources,
   );
 
   // Per-account contribution routing
@@ -327,7 +343,7 @@ export function assembleProjectionInput(
       data.fi_account_ids.has(item.destination_account_id)
     ) {
       const existing = accountMap.get(item.destination_account_id);
-      const annual = toAnnual(item.amount, item.frequency);
+      const annual = resolveItemAnnual(item, data.income_sources);
       if (existing) {
         existing.total += annual;
       } else {
@@ -369,10 +385,12 @@ export function assembleSavingsRateInput(
       waterfall,
       data.cashflow_items,
       data.fi_account_ids,
+      data.income_sources,
     ),
     yearly_savings_contributions: computeYearlySavingsContributions(
       data.cashflow_items,
       data.fi_account_ids,
+      data.income_sources,
     ),
   };
 }

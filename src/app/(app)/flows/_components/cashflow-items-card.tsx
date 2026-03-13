@@ -3,11 +3,20 @@
 import { useState } from 'react';
 import { useFlash } from '@/lib/use-flash';
 import { Card, CardHeader, CardTitle, CardAction, CardContent } from '@/components/ui/card';
+import {
+  Table,
+  TableHeader,
+  TableBody,
+  TableRow,
+  TableHead,
+  TableCell,
+} from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select } from '@/components/ui/select';
 import { Alert } from '@/components/ui/alert';
 import { IconPlus, IconPencil, IconTrash, IconCheck, IconX } from '@tabler/icons-react';
+import { SortIcon, type SortDir } from '@/components/common/sort-icon';
 
 import { fmt } from '@/lib/formatters';
 import {
@@ -28,6 +37,7 @@ import type {
   CashflowItem,
   CashflowBucket,
   CashflowFrequency,
+  AmountType,
   CreateCashflowItemInput,
   EnrichedAccount,
   AccountType,
@@ -73,6 +83,8 @@ const DISPLAY_GROUPS = [
   },
 ];
 
+type CashflowSortKey = 'name' | 'bucket' | 'amount' | 'frequency';
+
 interface CashflowItemsCardProps {
   memberId: string;
 }
@@ -83,7 +95,47 @@ export function CashflowItemsCard({ memberId }: CashflowItemsCardProps) {
   const [adding, setAdding] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  const [sortKey, setSortKey] = useState<CashflowSortKey>('name');
+  const [sortDir, setSortDir] = useState<SortDir>('asc');
   const { flash, show: showFlash } = useFlash();
+
+  function toggleSort(key: CashflowSortKey) {
+    if (sortKey === key) {
+      setSortDir((d) => (d === 'asc' ? 'desc' : 'asc'));
+    } else {
+      setSortKey(key);
+      setSortDir(key === 'amount' ? 'desc' : 'asc');
+    }
+  }
+
+  function sortItems(list: CashflowItem[]): CashflowItem[] {
+    return [...list].sort((a, b) => {
+      let aVal: string | number;
+      let bVal: string | number;
+      switch (sortKey) {
+        case 'name':
+          aVal = a.name.toLowerCase();
+          bVal = b.name.toLowerCase();
+          break;
+        case 'bucket':
+          aVal = a.bucket;
+          bVal = b.bucket;
+          break;
+        case 'amount':
+          aVal = a.amount;
+          bVal = b.amount;
+          break;
+        case 'frequency':
+          aVal = a.amount_type === 'percent' ? 'of income' : a.frequency;
+          bVal = b.amount_type === 'percent' ? 'of income' : b.frequency;
+          break;
+      }
+      if (typeof aVal === 'string' && typeof bVal === 'string') {
+        return sortDir === 'asc' ? aVal.localeCompare(bVal) : bVal.localeCompare(aVal);
+      }
+      return sortDir === 'asc' ? Number(aVal) - Number(bVal) : Number(bVal) - Number(aVal);
+    });
+  }
 
   const memberItems = (items ?? []).filter((i) => i.member_id === memberId || i.member_id === null);
 
@@ -161,32 +213,66 @@ export function CashflowItemsCard({ memberId }: CashflowItemsCardProps) {
           const groupItems = memberItems.filter((i) => group.match(i.bucket));
           if (groupItems.length === 0) return null;
 
+          // Separate items being edited (shown as inline forms) from table rows
+          const editingItem = editingId ? groupItems.find((i) => i.id === editingId) : undefined;
+          const tableItems = sortItems(groupItems.filter((i) => i.id !== editingId));
+          const showAccount = group.label === 'Savings';
+
+          const groupColumns: { key: CashflowSortKey; label: string; align?: 'right' }[] = [
+            { key: 'name', label: 'Name' },
+            { key: 'bucket', label: 'Type' },
+            { key: 'amount', label: 'Amount', align: 'right' },
+            { key: 'frequency', label: 'Freq' },
+          ];
+
           return (
             <div key={group.label}>
               <h4 className="mb-1 text-xs font-medium text-muted-foreground">{group.label}</h4>
-              <div className="space-y-1">
-                {groupItems.map((item) =>
-                  editingId === item.id ? (
-                    <ItemInlineForm
-                      key={item.id}
-                      memberId={memberId}
-                      householdId={householdId}
-                      initial={item}
-                      saving={saving}
-                      onSave={(data) => handleUpdate(item.id, data)}
-                      onCancel={() => setEditingId(null)}
-                    />
-                  ) : (
-                    <ItemRow
-                      key={item.id}
-                      item={item}
-                      accounts={accounts}
-                      onEdit={() => setEditingId(item.id)}
-                      onDelete={() => handleDelete(item.id)}
-                    />
-                  ),
-                )}
-              </div>
+              {tableItems.length > 0 && (
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      {groupColumns.map((col) => (
+                        <TableHead
+                          key={col.key}
+                          className={`cursor-pointer select-none hover:text-foreground transition-colors ${col.align === 'right' ? 'text-right' : ''}`}
+                          onClick={() => toggleSort(col.key)}
+                        >
+                          <span className="inline-flex items-center gap-1">
+                            {col.label}
+                            <SortIcon field={col.key} sortKey={sortKey} sortDir={sortDir} />
+                          </span>
+                        </TableHead>
+                      ))}
+                      {showAccount && <TableHead>Account</TableHead>}
+                      <TableHead className="w-16" />
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {tableItems.map((item) => (
+                      <ItemTableRow
+                        key={item.id}
+                        item={item}
+                        accounts={accounts}
+                        showAccount={showAccount}
+                        onEdit={() => setEditingId(item.id)}
+                        onDelete={() => handleDelete(item.id)}
+                      />
+                    ))}
+                  </TableBody>
+                </Table>
+              )}
+              {editingItem && (
+                <ItemInlineForm
+                  key={editingItem.id}
+                  memberId={memberId}
+                  householdId={householdId}
+                  initial={editingItem}
+                  saving={saving}
+                  onSave={(data) => handleUpdate(editingItem.id, data)}
+                  onCancel={() => setEditingId(null)}
+                />
+              )}
             </div>
           );
         })}
@@ -205,62 +291,53 @@ export function CashflowItemsCard({ memberId }: CashflowItemsCardProps) {
   );
 }
 
-function ItemRow({
+function ItemTableRow({
   item,
   accounts,
+  showAccount,
   onEdit,
   onDelete,
 }: {
   item: CashflowItem;
   accounts?: EnrichedAccount[];
+  showAccount: boolean;
   onEdit: () => void;
   onDelete: () => void;
 }) {
-  const tag = BUCKET_TAGS[item.bucket] ?? item.bucket;
-  // Derive tax label from linked account
+  const bucketLabel = BUCKET_TAGS[item.bucket] ?? item.bucket;
   const linkedAccount = item.destination_account_id
     ? accounts?.find((a) => a.id === item.destination_account_id)
     : undefined;
-  const taxLabel = linkedAccount ? TAX_TREATMENT_LABELS[linkedAccount.tax_treatment] : undefined;
 
   return (
-    <div className="flex items-center gap-3 rounded-md px-2 py-1.5 hover:bg-muted/50">
-      <div className="min-w-0 flex-1">
-        <div className="flex items-center gap-2">
-          <span className="truncate text-sm font-medium">{item.name}</span>
-          <span className="shrink-0 rounded bg-muted px-1.5 py-0.5 text-xs text-muted-foreground">
-            {tag}
-          </span>
-          {taxLabel && (
-            <span className="shrink-0 rounded bg-muted px-1.5 py-0.5 text-xs text-muted-foreground">
-              {taxLabel}
-            </span>
-          )}
-          {item.bucket === 'expense' && item.category && (
-            <span className="shrink-0 rounded bg-muted px-1.5 py-0.5 text-xs text-muted-foreground">
-              {item.category}
-            </span>
-          )}
+    <TableRow>
+      <TableCell className="font-medium">{item.name}</TableCell>
+      <TableCell>{bucketLabel}</TableCell>
+      <TableCell className="text-right font-mono tabular-nums">
+        {item.amount_type === 'percent' ? `${item.amount}%` : fmt(item.amount)}
+      </TableCell>
+      <TableCell>
+        {item.amount_type === 'percent' ? 'of income' : FREQ_LABELS[item.frequency]}
+      </TableCell>
+      {showAccount && (
+        <TableCell className="truncate max-w-[120px]">{linkedAccount?.name ?? '\u2014'}</TableCell>
+      )}
+      <TableCell className="text-right">
+        <div className="flex justify-end gap-1">
+          <Button variant="ghost" size="icon-xs" onClick={onEdit} aria-label={`Edit ${item.name}`}>
+            <IconPencil size={14} stroke={1.5} />
+          </Button>
+          <Button
+            variant="ghost"
+            size="icon-xs"
+            onClick={onDelete}
+            aria-label={`Delete ${item.name}`}
+          >
+            <IconTrash size={14} stroke={1.5} />
+          </Button>
         </div>
-        <div className="text-xs text-muted-foreground">
-          <span className="font-mono tabular-nums">{fmt(item.amount)}</span>{' '}
-          {FREQ_LABELS[item.frequency].toLowerCase()}
-        </div>
-      </div>
-      <div className="flex shrink-0 gap-1">
-        <Button variant="ghost" size="icon-xs" onClick={onEdit} aria-label={`Edit ${item.name}`}>
-          <IconPencil size={14} stroke={1.5} />
-        </Button>
-        <Button
-          variant="ghost"
-          size="icon-xs"
-          onClick={onDelete}
-          aria-label={`Delete ${item.name}`}
-        >
-          <IconTrash size={14} stroke={1.5} />
-        </Button>
-      </div>
-    </div>
+      </TableCell>
+    </TableRow>
   );
 }
 
@@ -400,6 +477,7 @@ function ItemInlineForm({
   const [name, setName] = useState(initial?.name ?? '');
   const [bucket, setBucket] = useState<CashflowBucket>(initial?.bucket ?? 'expense');
   const [amount, setAmount] = useState(initial?.amount?.toString() ?? '');
+  const [amountType, setAmountType] = useState<AmountType>(initial?.amount_type ?? 'fixed');
   const [frequency, setFrequency] = useState<CashflowFrequency>(initial?.frequency ?? 'monthly');
   const [incomeSourceId, setIncomeSourceId] = useState(initial?.income_source_id ?? '');
   const [destAccountId, setDestAccountId] = useState(initial?.destination_account_id ?? '');
@@ -408,7 +486,7 @@ function ItemInlineForm({
 
   // Conditional fields by bucket
   const isSaving = bucket === 'savings' || bucket === 'employer_match';
-  const showFromIncome = bucket === 'savings';
+  const showFromIncome = bucket === 'savings' || amountType === 'percent';
   const showToAccount = isSaving;
   const showCategory = bucket === 'expense';
 
@@ -416,6 +494,8 @@ function ItemInlineForm({
     e.preventDefault();
     const parsed = parseFloat(amount);
     if (!name.trim() || isNaN(parsed) || parsed <= 0) return;
+    if (amountType === 'percent' && parsed > 100) return;
+    if (amountType === 'percent' && !incomeSourceId) return;
 
     const today = new Date().toISOString().split('T')[0];
 
@@ -425,9 +505,10 @@ function ItemInlineForm({
       direction: bucketToDirection(bucket),
       bucket,
       amount: parsed,
-      frequency,
+      amount_type: amountType,
+      frequency: amountType === 'percent' ? 'monthly' : frequency,
       start_date: initial?.start_date ?? today,
-      income_source_id: showFromIncome && incomeSourceId ? incomeSourceId : undefined,
+      income_source_id: incomeSourceId || undefined,
       destination_account_id: showToAccount && destAccountId ? destAccountId : undefined,
       category: showCategory && category ? category : undefined,
     });
@@ -462,32 +543,44 @@ function ItemInlineForm({
             ))}
           </Select>
         </div>
-        <div className="w-[100px]">
+        <div className="w-[140px]">
           <label className="text-xs text-muted-foreground">Amount</label>
-          <Input
-            type="number"
-            step="0.01"
-            min="0"
-            value={amount}
-            onChange={(e) => setAmount(e.target.value)}
-            placeholder="0.00"
-            className="h-7 text-xs font-mono"
-          />
+          <div className="flex h-7 items-stretch">
+            <button
+              type="button"
+              onClick={() => setAmountType(amountType === 'fixed' ? 'percent' : 'fixed')}
+              className="flex w-7 shrink-0 items-center justify-center rounded-l-md border border-r-0 border-border bg-muted text-xs font-medium text-muted-foreground hover:text-foreground"
+            >
+              {amountType === 'percent' ? '%' : '$'}
+            </button>
+            <Input
+              type="number"
+              step={amountType === 'percent' ? '1' : '0.01'}
+              min="0"
+              max={amountType === 'percent' ? '100' : undefined}
+              value={amount}
+              onChange={(e) => setAmount(e.target.value)}
+              placeholder={amountType === 'percent' ? '25' : '0.00'}
+              className="h-7 rounded-l-none text-xs font-mono"
+            />
+          </div>
         </div>
-        <div className="w-[100px]">
-          <label className="text-xs text-muted-foreground">Frequency</label>
-          <Select
-            value={frequency}
-            onChange={(e) => setFrequency(e.target.value as CashflowFrequency)}
-            className={compactSelect}
-          >
-            {CASHFLOW_FREQUENCIES.map((f) => (
-              <option key={f} value={f}>
-                {FREQ_LABELS[f]}
-              </option>
-            ))}
-          </Select>
-        </div>
+        {amountType === 'fixed' && (
+          <div className="w-[100px]">
+            <label className="text-xs text-muted-foreground">Frequency</label>
+            <Select
+              value={frequency}
+              onChange={(e) => setFrequency(e.target.value as CashflowFrequency)}
+              className={compactSelect}
+            >
+              {CASHFLOW_FREQUENCIES.map((f) => (
+                <option key={f} value={f}>
+                  {FREQ_LABELS[f]}
+                </option>
+              ))}
+            </Select>
+          </div>
+        )}
       </div>
 
       {/* Row 2: conditional fields + actions */}

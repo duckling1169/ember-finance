@@ -20,7 +20,11 @@ import {
 import { AccountFlows } from './_components/account-flows';
 import { ingestManual, ingestCsv } from '@/lib/api';
 import { fmt, fmtDateTime } from '@/lib/formatters';
-import { TAX_TREATMENT_LABELS, API_PROVIDERS } from '@/lib/constants';
+import { TAX_TREATMENT_LABELS, TAX_TREATMENT_OPTIONS, API_PROVIDERS } from '@/lib/constants';
+import { ACCOUNT_TYPES, INVESTMENT_ACCOUNT_TYPES } from '@shared/types';
+import type { UpdateAccountInput, AccountType, TaxTreatment, CurrentPosition } from '@shared/types';
+import { updateAccount } from '@/lib/api';
+import { HoldingsEntryForm } from './_components/holdings-entry-form';
 import dynamic from 'next/dynamic';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 
@@ -48,7 +52,7 @@ import {
   IconPlayerPlay,
 } from '@tabler/icons-react';
 
-type Tab = 'overview' | 'history';
+type Tab = 'overview' | 'history' | 'settings';
 
 interface AccountView {
   id: string;
@@ -201,6 +205,7 @@ export default function AccountDetailPage({ params }: { params: Promise<{ id: st
   const tabs: { key: Tab; label: string; count?: number }[] = [
     { key: 'overview', label: 'Overview' },
     { key: 'history', label: 'History', count: history.length },
+    { key: 'settings', label: 'Settings' },
   ];
 
   return (
@@ -271,7 +276,16 @@ export default function AccountDetailPage({ params }: { params: Promise<{ id: st
         <OverviewTab account={account} balanceHistory={balanceHistory} accountId={id} />
       )}
       {activeTab === 'history' && (
-        <HistoryTab history={history} accountId={id} householdId={householdId} />
+        <HistoryTab
+          history={history}
+          accountId={id}
+          householdId={householdId}
+          accountType={account.account_type as AccountType}
+          holdings={apiDetail?.holdings ?? []}
+        />
+      )}
+      {activeTab === 'settings' && (
+        <SettingsTab account={account} accountId={id} householdId={householdId} />
       )}
     </div>
   );
@@ -432,11 +446,16 @@ function HistoryTab({
   history: initialHistory,
   accountId,
   householdId,
+  accountType,
+  holdings,
 }: {
   history: AccountHistoryEvent[];
   accountId: string;
   householdId: string | undefined;
+  accountType: AccountType;
+  holdings: CurrentPosition[];
 }) {
+  const isInvestmentAccount = INVESTMENT_ACCOUNT_TYPES.includes(accountType);
   const [history, setHistory] = useState(initialHistory);
   const [showManualForm, setShowManualForm] = useState(false);
   const [showUpload, setShowUpload] = useState(false);
@@ -619,7 +638,20 @@ function HistoryTab({
       )}
 
       {/* Manual entry form */}
-      {showManualForm && (
+      {showManualForm && isInvestmentAccount && householdId && (
+        <HoldingsEntryForm
+          accountId={accountId}
+          householdId={householdId}
+          existingPositions={holdings}
+          onSuccess={() => setShowManualForm(false)}
+          onCancel={() => {
+            setShowManualForm(false);
+            setFormError('');
+          }}
+        />
+      )}
+
+      {showManualForm && !isInvestmentAccount && (
         <Card>
           <CardContent>
             <form onSubmit={handleManualEntry} className="space-y-4">
@@ -710,6 +742,127 @@ function HistoryTab({
               })}
             </div>
           )}
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
+// -- Settings Tab --
+
+function SettingsTab({
+  account,
+  accountId,
+  householdId,
+}: {
+  account: AccountView;
+  accountId: string;
+  householdId: string | undefined;
+}) {
+  const [name, setName] = useState(account.name);
+  const [institution, setInstitution] = useState(account.institution || '');
+  const [accountType, setAccountType] = useState(account.account_type);
+  const [taxTreatment, setTaxTreatment] = useState(account.tax_treatment);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState('');
+  const [success, setSuccess] = useState(false);
+
+  async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    const data: UpdateAccountInput = {
+      name: name.trim(),
+      institution: institution.trim() || undefined,
+      account_type: accountType as AccountType,
+      tax_treatment: taxTreatment as TaxTreatment,
+    };
+
+    if (!data.name) {
+      setError('Name is required');
+      return;
+    }
+
+    if (!householdId || devBypass) return;
+
+    try {
+      setSaving(true);
+      setError('');
+      setSuccess(false);
+      await updateAccount(householdId, accountId, data);
+      await Promise.all([mutateAccountDetail(accountId), mutateAccounts()]);
+      setSuccess(true);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to save');
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <div className="space-y-3">
+      {error && <Alert variant="error">{error}</Alert>}
+      {success && <Alert variant="success">Account updated.</Alert>}
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Account Settings</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div>
+                <label className="mb-1.5 block text-sm font-medium">Name</label>
+                <Input
+                  name="name"
+                  required
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                />
+              </div>
+              <div>
+                <label className="mb-1.5 block text-sm font-medium">Institution</label>
+                <Input
+                  name="institution"
+                  value={institution}
+                  onChange={(e) => setInstitution(e.target.value)}
+                  placeholder="e.g. Fidelity, Vanguard"
+                />
+              </div>
+              <div>
+                <label className="mb-1.5 block text-sm font-medium">Account Type</label>
+                <Select
+                  name="account_type"
+                  value={accountType}
+                  onChange={(e) => setAccountType(e.target.value)}
+                >
+                  {ACCOUNT_TYPES.map((t) => (
+                    <option key={t} value={t}>
+                      {t.charAt(0).toUpperCase() + t.slice(1)}
+                    </option>
+                  ))}
+                </Select>
+              </div>
+              <div>
+                <label className="mb-1.5 block text-sm font-medium">Tax Treatment</label>
+                <Select
+                  name="tax_treatment"
+                  value={taxTreatment}
+                  onChange={(e) => setTaxTreatment(e.target.value)}
+                >
+                  {TAX_TREATMENT_OPTIONS.map((o) => (
+                    <option key={o.value} value={o.value}>
+                      {o.label}
+                    </option>
+                  ))}
+                </Select>
+              </div>
+            </div>
+            <div className="flex justify-end">
+              <Button type="submit" variant="primary-outline" disabled={saving}>
+                <IconCheck size={16} />
+                {saving ? 'Saving...' : 'Save'}
+              </Button>
+            </div>
+          </form>
         </CardContent>
       </Card>
     </div>

@@ -50,8 +50,11 @@ export async function persistIngest(ctx: IngestContext, ingestData: IngestResult
       await upsertInvestmentActivity(ctx, rawIngestId, ingestData);
     }
 
-    // 4. Upsert holdings
+    // 4. Upsert holdings (with deletion semantics for removed positions)
     if (ingestData.holdings.length > 0) {
+      if (ctx.sourceType.includes('manual')) {
+        await insertZeroHoldingsForRemovedPositions(ctx, ingestData);
+      }
       await upsertHoldings(ctx, rawIngestId, ingestData);
     }
 
@@ -183,6 +186,46 @@ async function upsertHoldings(ctx: IngestContext, rawIngestId: string, result: I
   });
 
   if (error) throw new Error(`holding upsert failed: ${error.message}`);
+}
+
+/**
+ * For manual ingest: detect positions that exist in current_positions but are
+ * absent from the new submission. Insert a zero-quantity holding row for each
+ * so the position is recorded as closed in history.
+ */
+async function insertZeroHoldingsForRemovedPositions(ctx: IngestContext, result: IngestResult) {
+  // Get the as_of date from the submitted holdings (all should share the same date)
+  const asOf = result.holdings[0]?.asOf;
+  if (!asOf) return;
+
+  const submittedSymbols = new Set(result.holdings.map((h) => h.symbol));
+
+  // Query current_positions for this account to find existing symbols
+  const { data: existingPositions, error } = await supabase
+    .from('current_positions')
+    .select('symbol, name, asset_class, currency')
+    .eq('account_id', ctx.accountId)
+    .gt('quantity', 0);
+
+  if (error || !existingPositions) return;
+
+  // Find symbols that exist but are NOT in the new submission
+  const removedPositions = existingPositions.filter((p) => !submittedSymbols.has(p.symbol));
+
+  if (removedPositions.length === 0) return;
+
+  // Append zero-quantity holdings to the result so they get upserted normally
+  for (const pos of removedPositions) {
+    result.holdings.push({
+      asOf,
+      symbol: pos.symbol,
+      name: pos.name || undefined,
+      quantity: 0,
+      price: 0,
+      marketValue: 0,
+      assetClass: pos.asset_class || undefined,
+    });
+  }
 }
 
 async function upsertBalances(ctx: IngestContext, rawIngestId: string, result: IngestResult) {

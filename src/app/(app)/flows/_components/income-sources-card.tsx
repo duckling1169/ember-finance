@@ -3,11 +3,20 @@
 import { useState } from 'react';
 import { useFlash } from '@/lib/use-flash';
 import { Card, CardHeader, CardTitle, CardAction, CardContent } from '@/components/ui/card';
+import {
+  Table,
+  TableHeader,
+  TableBody,
+  TableRow,
+  TableHead,
+  TableCell,
+} from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select } from '@/components/ui/select';
 import { Alert } from '@/components/ui/alert';
 import { IconPlus, IconPencil, IconTrash, IconCheck, IconX } from '@tabler/icons-react';
+import { SortIcon, type SortDir } from '@/components/common/sort-icon';
 
 import { fmt } from '@/lib/formatters';
 import { useIncomeSources, mutateIncomeSources, mutatePlanningComputed } from '@/lib/swr';
@@ -34,6 +43,15 @@ const FREQ_LABELS: Record<CashflowFrequency, string> = {
   one_time: 'One-time',
 };
 
+type SortKey = 'name' | 'type' | 'gross_amount' | 'frequency';
+
+const columns: { key: SortKey; label: string; align?: 'right' }[] = [
+  { key: 'name', label: 'Name' },
+  { key: 'type', label: 'Type' },
+  { key: 'gross_amount', label: 'Amount', align: 'right' },
+  { key: 'frequency', label: 'Frequency' },
+];
+
 interface IncomeSourcesCardProps {
   memberId: string;
 }
@@ -43,9 +61,51 @@ export function IncomeSourcesCard({ memberId }: IncomeSourcesCardProps) {
   const [adding, setAdding] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  const [sortKey, setSortKey] = useState<SortKey>('name');
+  const [sortDir, setSortDir] = useState<SortDir>('asc');
   const { flash, show: showFlash } = useFlash();
 
   const memberSources = (sources ?? []).filter((s) => s.member_id === memberId);
+
+  function toggleSort(key: SortKey) {
+    if (sortKey === key) {
+      setSortDir((d) => (d === 'asc' ? 'desc' : 'asc'));
+    } else {
+      setSortKey(key);
+      setSortDir(key === 'gross_amount' ? 'desc' : 'asc');
+    }
+  }
+
+  const sorted = [...memberSources].sort((a, b) => {
+    let aVal: string | number;
+    let bVal: string | number;
+    switch (sortKey) {
+      case 'name':
+        aVal = a.name.toLowerCase();
+        bVal = b.name.toLowerCase();
+        break;
+      case 'type':
+        aVal = a.type;
+        bVal = b.type;
+        break;
+      case 'gross_amount':
+        aVal = a.gross_amount;
+        bVal = b.gross_amount;
+        break;
+      case 'frequency':
+        aVal = a.frequency;
+        bVal = b.frequency;
+        break;
+    }
+    if (typeof aVal === 'string' && typeof bVal === 'string') {
+      return sortDir === 'asc' ? aVal.localeCompare(bVal) : bVal.localeCompare(aVal);
+    }
+    return sortDir === 'asc' ? Number(aVal) - Number(bVal) : Number(bVal) - Number(aVal);
+  });
+
+  // Separate editing item from table rows
+  const editingSource = editingId ? sorted.find((s) => s.id === editingId) : undefined;
+  const tableRows = sorted.filter((s) => s.id !== editingId);
 
   async function handleCreate(data: CreateIncomeSourceInput) {
     setSaving(true);
@@ -117,24 +177,69 @@ export function IncomeSourcesCard({ memberId }: IncomeSourcesCardProps) {
           </p>
         )}
 
-        {memberSources.map((src) =>
-          editingId === src.id ? (
-            <InlineForm
-              key={src.id}
-              memberId={memberId}
-              initial={src}
-              saving={saving}
-              onSave={(data) => handleUpdate(src.id, data)}
-              onCancel={() => setEditingId(null)}
-            />
-          ) : (
-            <SourceRow
-              key={src.id}
-              source={src}
-              onEdit={() => setEditingId(src.id)}
-              onDelete={() => handleDelete(src.id)}
-            />
-          ),
+        {tableRows.length > 0 && (
+          <Table>
+            <TableHeader>
+              <TableRow>
+                {columns.map((col) => (
+                  <TableHead
+                    key={col.key}
+                    className={`cursor-pointer select-none hover:text-foreground transition-colors ${col.align === 'right' ? 'text-right' : ''}`}
+                    onClick={() => toggleSort(col.key)}
+                  >
+                    <span className="inline-flex items-center gap-1">
+                      {col.label}
+                      <SortIcon field={col.key} sortKey={sortKey} sortDir={sortDir} />
+                    </span>
+                  </TableHead>
+                ))}
+                <TableHead className="w-16" />
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {tableRows.map((src) => (
+                <TableRow key={src.id}>
+                  <TableCell className="font-medium">{src.name}</TableCell>
+                  <TableCell>{TYPE_LABELS[src.type]}</TableCell>
+                  <TableCell className="text-right font-mono tabular-nums">
+                    {fmt(src.gross_amount)}
+                  </TableCell>
+                  <TableCell>{FREQ_LABELS[src.frequency]}</TableCell>
+                  <TableCell className="text-right">
+                    <div className="flex justify-end gap-1">
+                      <Button
+                        variant="ghost"
+                        size="icon-xs"
+                        onClick={() => setEditingId(src.id)}
+                        aria-label={`Edit ${src.name}`}
+                      >
+                        <IconPencil size={14} stroke={1.5} />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon-xs"
+                        onClick={() => handleDelete(src.id)}
+                        aria-label={`Delete ${src.name}`}
+                      >
+                        <IconTrash size={14} stroke={1.5} />
+                      </Button>
+                    </div>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        )}
+
+        {editingSource && (
+          <InlineForm
+            key={editingSource.id}
+            memberId={memberId}
+            initial={editingSource}
+            saving={saving}
+            onSave={(data) => handleUpdate(editingSource.id, data)}
+            onCancel={() => setEditingId(null)}
+          />
         )}
 
         {adding && (
@@ -147,46 +252,6 @@ export function IncomeSourcesCard({ memberId }: IncomeSourcesCardProps) {
         )}
       </CardContent>
     </Card>
-  );
-}
-
-function SourceRow({
-  source,
-  onEdit,
-  onDelete,
-}: {
-  source: IncomeSource;
-  onEdit: () => void;
-  onDelete: () => void;
-}) {
-  return (
-    <div className="flex items-center gap-3 rounded-md px-2 py-1.5 hover:bg-primary/5">
-      <div className="min-w-0 flex-1">
-        <div className="flex items-center gap-2">
-          <span className="truncate text-sm font-medium">{source.name}</span>
-          <span className="shrink-0 rounded bg-muted px-1.5 py-0.5 text-xs text-muted-foreground">
-            {TYPE_LABELS[source.type]}
-          </span>
-        </div>
-        <div className="text-xs text-muted-foreground">
-          <span className="font-mono tabular-nums">{fmt(source.gross_amount)}</span>{' '}
-          {FREQ_LABELS[source.frequency].toLowerCase()}
-        </div>
-      </div>
-      <div className="flex shrink-0 gap-1">
-        <Button variant="ghost" size="icon-xs" onClick={onEdit} aria-label={`Edit ${source.name}`}>
-          <IconPencil size={14} stroke={1.5} />
-        </Button>
-        <Button
-          variant="ghost"
-          size="icon-xs"
-          onClick={onDelete}
-          aria-label={`Delete ${source.name}`}
-        >
-          <IconTrash size={14} stroke={1.5} />
-        </Button>
-      </div>
-    </div>
   );
 }
 

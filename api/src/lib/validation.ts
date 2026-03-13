@@ -24,12 +24,6 @@ export function validateOnboarding(body: Record<string, unknown>): ValidationErr
     }
   }
 
-  if (body.state != null) {
-    if (!US_STATES.includes(body.state as never)) {
-      errors.push({ field: 'state', message: 'Must be a valid US state abbreviation' });
-    }
-  }
-
   if (body.currency != null && typeof body.currency !== 'string') {
     errors.push({ field: 'currency', message: 'Must be a string' });
   }
@@ -132,12 +126,6 @@ export function validateHouseholdSettings(body: Record<string, unknown>): Valida
     }
   }
 
-  if (body.state != null) {
-    if (!US_STATES.includes(body.state as never)) {
-      errors.push({ field: 'state', message: 'Must be a valid US state abbreviation' });
-    }
-  }
-
   if (body.currency != null && typeof body.currency !== 'string') {
     errors.push({ field: 'currency', message: 'Must be a string' });
   }
@@ -166,9 +154,9 @@ function validateOptionalMemberFields(body: Record<string, unknown>): Validation
     }
   }
 
-  if (body.stateOfResidence != null) {
-    if (!US_STATES.includes(body.stateOfResidence as never)) {
-      errors.push({ field: 'stateOfResidence', message: 'Must be a valid US state abbreviation' });
+  if (body.state != null) {
+    if (!US_STATES.includes(body.state as never)) {
+      errors.push({ field: 'state', message: 'Must be a valid US state abbreviation' });
     }
   }
 

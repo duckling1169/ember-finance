@@ -112,7 +112,7 @@ export function FIMetricsCards({ metrics }: FIMetricsCardsProps) {
   );
 }
 
-function MetricCard({
+export function MetricCard({
   label,
   tip,
   value,

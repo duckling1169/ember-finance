@@ -7,6 +7,7 @@ export {
   computeFICA,
   estimateTaxes,
 } from './tax.js';
+export { resolveItemMonthly, resolveItemAnnual } from './resolve-amount.js';
 export { computeMemberWaterfall } from './waterfall.js';
 export { computeHouseholdWaterfall } from './household.js';
 export {

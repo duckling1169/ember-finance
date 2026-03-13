@@ -36,7 +36,7 @@ export function computeHouseholdWaterfall(input: HouseholdWaterfallInput): House
       taxable_income: combinedTaxableAnnual,
       gross_earned_income: combinedGrossAnnual,
       filing_status: 'married_jointly',
-      state: input.members[0]?.state_of_residence ?? null,
+      state: input.members[0]?.state ?? null,
       is_self_employed: anySelfEmployed,
     });
 

@@ -31,10 +31,11 @@ const FIELD_TIPS: Record<string, string> = {
 
 interface AssumptionsPanelProps {
   scenario: ResolvedScenario;
+  defaultOpen?: boolean;
 }
 
-export function AssumptionsPanel({ scenario }: AssumptionsPanelProps) {
-  const [open, setOpen] = useState(false);
+export function AssumptionsPanel({ scenario, defaultOpen = false }: AssumptionsPanelProps) {
+  const [open, setOpen] = useState(defaultOpen);
   const [saving, setSaving] = useState(false);
   const { flash, show: showFlash } = useFlash();
 
@@ -85,12 +86,12 @@ export function AssumptionsPanel({ scenario }: AssumptionsPanelProps) {
     <Card size="sm">
       <button
         type="button"
-        className="flex w-full cursor-pointer items-center justify-between"
+        className="w-full cursor-pointer text-left"
         onClick={() => setOpen(!open)}
         aria-expanded={open}
         aria-controls={panelId}
       >
-        <CardHeader className="flex-1 pointer-events-none">
+        <CardHeader>
           <CardTitle>
             Assumptions
             <span className="ml-2 text-xs font-normal text-muted-foreground">
@@ -118,85 +119,85 @@ export function AssumptionsPanel({ scenario }: AssumptionsPanelProps) {
               {flash.message}
             </Alert>
           )}
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
-            <Field
-              label="Gross Return (%)"
-              tip={FIELD_TIPS.gross_return}
-              value={grossReturn}
-              onChange={setGrossReturn}
-            />
-            <Field
-              label="Inflation (%)"
-              tip={FIELD_TIPS.inflation}
-              value={inflation}
-              onChange={setInflation}
-            />
-            <Field
-              label="Real Return (%)"
-              tip={FIELD_TIPS.real_return}
-              value={realReturn}
-              onChange={setRealReturn}
-            />
-            <Field
-              label="Withdrawal Rate (%)"
-              tip={FIELD_TIPS.withdrawal_rate}
-              value={withdrawalRate}
-              onChange={setWithdrawalRate}
-            />
-
-            <div>
-              <label
-                htmlFor="retirement-spend"
-                className="flex items-center gap-1 text-xs text-muted-foreground"
-              >
-                Retirement Spend Override
-                <InfoTip content={FIELD_TIPS.retirement_spend} size={13} />
-              </label>
-              <Input
-                id="retirement-spend"
-                type="number"
-                step="1000"
-                min="0"
-                value={retirementSpend}
-                onChange={(e) => setRetirementSpend(e.target.value)}
-                placeholder="From budget"
-                className="h-7 text-xs font-mono"
-              />
-            </div>
-
-            <div>
-              <label
-                htmlFor="contribution-growth"
-                className="flex items-center gap-1 text-xs text-muted-foreground"
-              >
-                Contribution Growth
-                <InfoTip content={FIELD_TIPS.contribution_growth} size={13} />
-              </label>
-              <Select
-                id="contribution-growth"
-                value={growthMode}
-                onChange={(e) => setGrowthMode(e.target.value as ContributionGrowthMode)}
-                className="h-7 px-2 text-xs"
-              >
-                <option value="none">None</option>
-                <option value="inflation">Match Inflation</option>
-                <option value="fixed_rate">Fixed Rate</option>
-              </Select>
-            </div>
-
-            {growthMode === 'fixed_rate' && (
+          <div className="flex items-end gap-3">
+            <div className="flex min-w-0 flex-1 flex-wrap items-end gap-3">
               <Field
-                label="Growth Rate (%)"
-                tip={FIELD_TIPS.growth_rate}
-                value={growthRate}
-                onChange={setGrowthRate}
+                label="Gross Return (%)"
+                tip={FIELD_TIPS.gross_return}
+                value={grossReturn}
+                onChange={setGrossReturn}
               />
-            )}
-          </div>
+              <Field
+                label="Inflation (%)"
+                tip={FIELD_TIPS.inflation}
+                value={inflation}
+                onChange={setInflation}
+              />
+              <Field
+                label="Real Return (%)"
+                tip={FIELD_TIPS.real_return}
+                value={realReturn}
+                onChange={setRealReturn}
+              />
+              <Field
+                label="Withdrawal (%)"
+                tip={FIELD_TIPS.withdrawal_rate}
+                value={withdrawalRate}
+                onChange={setWithdrawalRate}
+              />
 
-          <div className="mt-3 flex justify-end">
+              <div className="flex-1">
+                <label
+                  htmlFor="retirement-spend"
+                  className="flex items-center gap-1 text-xs text-muted-foreground"
+                >
+                  Retire Spend
+                  <InfoTip content={FIELD_TIPS.retirement_spend} size={13} />
+                </label>
+                <Input
+                  id="retirement-spend"
+                  type="number"
+                  step="1000"
+                  min="0"
+                  value={retirementSpend}
+                  onChange={(e) => setRetirementSpend(e.target.value)}
+                  placeholder="From budget"
+                  className="h-7 text-xs font-mono"
+                />
+              </div>
+
+              <div className="flex-1">
+                <label
+                  htmlFor="contribution-growth"
+                  className="flex items-center gap-1 text-xs text-muted-foreground"
+                >
+                  Contrib. Growth
+                  <InfoTip content={FIELD_TIPS.contribution_growth} size={13} />
+                </label>
+                <Select
+                  id="contribution-growth"
+                  value={growthMode}
+                  onChange={(e) => setGrowthMode(e.target.value as ContributionGrowthMode)}
+                  className="h-7 px-2 text-xs"
+                >
+                  <option value="none">None</option>
+                  <option value="inflation">Match Inflation</option>
+                  <option value="fixed_rate">Fixed Rate</option>
+                </Select>
+              </div>
+
+              {growthMode === 'fixed_rate' && (
+                <Field
+                  label="Growth Rate (%)"
+                  tip={FIELD_TIPS.growth_rate}
+                  value={growthRate}
+                  onChange={setGrowthRate}
+                />
+              )}
+            </div>
+
             <Button size="sm" onClick={handleSave} disabled={saving}>
-              {saving ? 'Saving...' : 'Save assumptions'}
+              {saving ? 'Saving...' : 'Save'}
             </Button>
           </div>
         </CardContent>
@@ -221,7 +222,7 @@ function Field({
   const [id] = useState(() => `assumption-field-${++fieldCounter}`);
 
   return (
-    <div>
+    <div className="flex-1">
       <label htmlFor={id} className="flex items-center gap-1 text-xs text-muted-foreground">
         {label}
         {tip && <InfoTip content={tip} size={13} />}

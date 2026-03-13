@@ -24,7 +24,7 @@ export function SavingsRatesCard({ rates }: SavingsRatesCardProps) {
         <CardTitle>Savings Rates</CardTitle>
       </CardHeader>
       <CardContent>
-        <div className="flex flex-wrap gap-6">
+        <div className="flex flex-wrap gap-6 *:flex-1">
           <RateDisplay
             label="Investment Rate"
             tip={RATE_DESCRIPTIONS.investment}
@@ -65,7 +65,7 @@ function RateDisplay({
         {tip && <InfoTip content={tip} size={13} />}
       </div>
       <div
-        className={`font-mono text-lg tabular-nums ${highlight ? 'font-semibold text-primary' : ''}`}
+        className={`font-mono text-xl tabular-nums ${highlight ? 'font-semibold text-primary' : ''}`}
       >
         {fmtPct(value)}
       </div>

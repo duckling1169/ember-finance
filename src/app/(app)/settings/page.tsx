@@ -118,7 +118,6 @@ export default function SettingsPage() {
   // Household form state
   const [hhName, setHhName] = useState('');
   const [hhTaxStatus, setHhTaxStatus] = useState('');
-  const [hhState, setHhState] = useState('');
   const [hhInitialized, setHhInitialized] = useState(false);
 
   // Profile form state
@@ -127,6 +126,7 @@ export default function SettingsPage() {
   const [retirementAge, setRetirementAge] = useState('');
   const [employmentType, setEmploymentType] = useState('');
   const [riskTolerance, setRiskTolerance] = useState('');
+  const [memberState, setMemberState] = useState('');
   const [profInitialized, setProfInitialized] = useState(false);
 
   const [inviteEmail, setInviteEmail] = useState('');
@@ -137,7 +137,6 @@ export default function SettingsPage() {
   if (household && !hhInitialized) {
     setHhName(household.name || '');
     setHhTaxStatus(household.tax_filing_status || '');
-    setHhState(household.state || '');
     setHhInitialized(true);
   }
   if (profile && !profInitialized) {
@@ -146,6 +145,7 @@ export default function SettingsPage() {
     setRetirementAge(profile.target_retirement_age?.toString() || '');
     setEmploymentType(profile.employment_type || '');
     setRiskTolerance(profile.risk_tolerance || '');
+    setMemberState(profile.state || '');
     setProfInitialized(true);
   }
 
@@ -165,6 +165,7 @@ export default function SettingsPage() {
         targetRetirementAge: retirementAge ? parseInt(retirementAge) : null,
         employmentType: (employmentType as EmploymentType) || null,
         riskTolerance: (riskTolerance as RiskTolerance) || null,
+        state: (memberState as USState) || null,
       });
       await mutateProfile();
       flash('Profile updated');
@@ -182,7 +183,6 @@ export default function SettingsPage() {
       await updateHousehold({
         name: hhName,
         taxFilingStatus: (hhTaxStatus as TaxFilingStatus) || null,
-        state: (hhState as USState) || null,
       });
       await mutateHousehold();
       flash('Household updated');
@@ -290,6 +290,15 @@ export default function SettingsPage() {
               onChange={setRiskTolerance}
               options={RISK_OPTIONS}
             />
+            <div>
+              <label className="mb-1.5 block text-sm font-medium">State</label>
+              <Input
+                value={memberState}
+                onChange={(e) => setMemberState(e.target.value.toUpperCase())}
+                placeholder="CA"
+                maxLength={2}
+              />
+            </div>
           </div>
           <div className="mt-4 flex justify-end">
             <Button variant="primary-outline" disabled={saving === 'profile'} onClick={saveProfile}>
@@ -317,15 +326,6 @@ export default function SettingsPage() {
                 <div>
                   <label className="mb-1.5 block text-sm font-medium">Household Name</label>
                   <Input value={hhName} onChange={(e) => setHhName(e.target.value)} />
-                </div>
-                <div>
-                  <label className="mb-1.5 block text-sm font-medium">State</label>
-                  <Input
-                    value={hhState}
-                    onChange={(e) => setHhState(e.target.value.toUpperCase())}
-                    placeholder="CA"
-                    maxLength={2}
-                  />
                 </div>
                 <SelectField
                   label="Tax Filing Status"

@@ -7,6 +7,7 @@ import type {
   TaxBreakdown,
 } from './types.js';
 import { toMonthly, monthlyToAnnual } from './normalize.js';
+import { resolveItemMonthly } from './resolve-amount.js';
 import { estimateTaxes } from './tax.js';
 
 /**
@@ -39,7 +40,7 @@ export function computeMemberWaterfall(member: WaterfallMemberInput): MemberWate
     const grossMonthly = toMonthly(source.gross_amount, source.frequency);
     const deductions = preTaxItems
       .filter((item) => item.income_source_id === source.id)
-      .reduce((sum, item) => sum + toMonthly(item.amount, item.frequency), 0);
+      .reduce((sum, item) => sum + resolveItemMonthly(item, incomeSources), 0);
 
     return {
       income_source_id: source.id,
@@ -58,7 +59,7 @@ export function computeMemberWaterfall(member: WaterfallMemberInput): MemberWate
   // Also include pre-tax items NOT linked to a specific income source
   const unlinkedPreTaxMonthly = member.cashflow_items
     .filter((item) => isPreTaxSaving(item) && item.income_source_id == null)
-    .reduce((sum, item) => sum + toMonthly(item.amount, item.frequency), 0);
+    .reduce((sum, item) => sum + resolveItemMonthly(item, incomeSources), 0);
 
   const allPreTaxDeductionsMonthly = totalPreTaxDeductionsMonthly + unlinkedPreTaxMonthly;
 
@@ -92,7 +93,7 @@ export function computeMemberWaterfall(member: WaterfallMemberInput): MemberWate
       taxable_income: taxableIncomeAnnual,
       gross_earned_income: grossEarnedIncomeAnnual,
       filing_status: 'single', // per-member is always single; household handles joint
-      state: member.state_of_residence,
+      state: member.state,
       is_self_employed: isSelfEmployed,
     });
     taxMonthly = taxBreakdown.total / 12;
@@ -108,7 +109,7 @@ export function computeMemberWaterfall(member: WaterfallMemberInput): MemberWate
   const postTaxContributions: ContributionSummary[] = postTaxItems.map((item) => ({
     cashflow_item_id: item.id,
     name: item.name,
-    monthly: toMonthly(item.amount, item.frequency),
+    monthly: resolveItemMonthly(item, incomeSources),
     destination_account_id: item.destination_account_id,
   }));
   const totalPostTaxContributionsMonthly = postTaxContributions.reduce(
@@ -122,7 +123,7 @@ export function computeMemberWaterfall(member: WaterfallMemberInput): MemberWate
   // 8. Expenses
   const expenseItems = member.cashflow_items.filter((item) => item.bucket === 'expense');
   const totalExpensesMonthly = expenseItems.reduce(
-    (sum, item) => sum + toMonthly(item.amount, item.frequency),
+    (sum, item) => sum + resolveItemMonthly(item, incomeSources),
     0,
   );
 

@@ -116,13 +116,7 @@ describe('validateHouseholdSettings', () => {
     expect(errors).toContainEqual(expect.objectContaining({ field: 'name' }));
   });
 
-  it('fails with invalid state', () => {
-    const errors = validateHouseholdSettings({ state: 'ZZ' });
-    expect(errors).toContainEqual(expect.objectContaining({ field: 'state' }));
-  });
-
   it('allows clearing optional fields with null', () => {
-    // taxFilingStatus and state can be set to null values
     const errors = validateHouseholdSettings({});
     expect(errors).toEqual([]);
   });

@@ -263,8 +263,12 @@ function FlowRow({
           </span>
         </div>
         <div className="text-xs text-muted-foreground">
-          <span className="font-mono tabular-nums">{fmt(item.amount)}</span>{' '}
-          {FREQ_LABELS[item.frequency]?.toLowerCase()}
+          <span className="font-mono tabular-nums">
+            {item.amount_type === 'percent' ? `${item.amount}%` : fmt(item.amount)}
+          </span>{' '}
+          {item.amount_type === 'percent'
+            ? 'of income'
+            : FREQ_LABELS[item.frequency]?.toLowerCase()}
           {sourceLabel && (
             <span>
               {' '}

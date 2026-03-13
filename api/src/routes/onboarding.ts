@@ -37,7 +37,6 @@ onboardingRoute.post('/', async (c) => {
   const { data: rpcData, error: rpcError } = await supabase.rpc('create_household_with_owner', {
     p_household_name: body.householdName.trim(),
     p_tax_filing_status: body.taxFilingStatus || null,
-    p_state: body.state || null,
     p_currency: body.currency || 'USD',
     p_auth_user_id: authUser.id,
     p_display_name: body.displayName.trim(),
@@ -45,6 +44,7 @@ onboardingRoute.post('/', async (c) => {
     p_target_retirement_age: body.targetRetirementAge || null,
     p_employment_type: body.employmentType || null,
     p_risk_tolerance: body.riskTolerance || null,
+    p_state: body.state || null,
   });
 
   if (!rpcError && rpcData) {
@@ -61,7 +61,6 @@ onboardingRoute.post('/', async (c) => {
     .insert({
       name: body.householdName.trim(),
       tax_filing_status: body.taxFilingStatus || null,
-      state: body.state || null,
       currency: body.currency || 'USD',
     })
     .select()
@@ -82,6 +81,7 @@ onboardingRoute.post('/', async (c) => {
       target_retirement_age: body.targetRetirementAge || null,
       employment_type: body.employmentType || null,
       risk_tolerance: body.riskTolerance || null,
+      state: body.state || null,
     })
     .select()
     .single();

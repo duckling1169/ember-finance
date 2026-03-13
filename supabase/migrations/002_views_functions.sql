@@ -198,14 +198,14 @@ create trigger trg_prevent_last_owner_removal
 create or replace function create_household_with_owner(
   p_household_name     text,
   p_tax_filing_status  text default null,
-  p_state              text default null,
   p_currency           text default 'USD',
   p_auth_user_id       uuid default null,
   p_display_name       text default null,
   p_birthday           date default null,
   p_target_retirement_age int default null,
   p_employment_type    text default null,
-  p_risk_tolerance     text default null
+  p_risk_tolerance     text default null,
+  p_state              text default null
 )
 returns jsonb
 language plpgsql
@@ -223,8 +223,8 @@ begin
       using errcode = '23505';
   end if;
 
-  insert into public.household (name, tax_filing_status, state, currency)
-  values (p_household_name, p_tax_filing_status, p_state, p_currency)
+  insert into public.household (name, tax_filing_status, currency)
+  values (p_household_name, p_tax_filing_status, p_currency)
   returning id into v_household_id;
 
   select to_jsonb(h) into v_household
@@ -233,12 +233,12 @@ begin
   insert into public.member (
     household_id, auth_user_id, display_name, role,
     birthday, target_retirement_age,
-    employment_type, risk_tolerance
+    employment_type, risk_tolerance, state
   )
   values (
     v_household_id, p_auth_user_id, p_display_name, 'owner',
     p_birthday, p_target_retirement_age,
-    p_employment_type, p_risk_tolerance
+    p_employment_type, p_risk_tolerance, p_state
   )
   returning id into v_member_id;
 

@@ -190,6 +190,26 @@ export function deleteAccount(householdId: string, accountId: string) {
   return apiFetch(`/api/accounts/${householdId}/${accountId}`, { method: 'DELETE' });
 }
 
+// ── Quotes ──
+
+export async function fetchQuotes(
+  symbols: string[],
+): Promise<
+  Record<
+    string,
+    { price: number; previousClose: number; change: number; changePercent: number } | null
+  >
+> {
+  const qs = symbols.map((s) => s.toUpperCase()).join(',');
+  const res = await apiFetch<{
+    quotes: Record<
+      string,
+      { price: number; previousClose: number; change: number; changePercent: number } | null
+    >;
+  }>(`/api/quotes?symbols=${qs}`);
+  return res.quotes;
+}
+
 // ── Ingest ──
 
 export function ingestManual(householdId: string, accountId: string, data: ManualIngestInput) {

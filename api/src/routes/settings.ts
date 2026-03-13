@@ -46,7 +46,6 @@ settingsRoute.patch('/household', async (c) => {
   const update: Record<string, unknown> = {};
   if (body.name != null) update.name = body.name.trim();
   if (body.taxFilingStatus !== undefined) update.tax_filing_status = body.taxFilingStatus || null;
-  if (body.state !== undefined) update.state = body.state || null;
   if (body.currency != null) update.currency = body.currency;
 
   if (Object.keys(update).length === 0) {
@@ -106,8 +105,7 @@ settingsRoute.patch('/profile', async (c) => {
   if (body.targetRetirementAge != null) update.target_retirement_age = body.targetRetirementAge;
   if (body.employmentType !== undefined) update.employment_type = body.employmentType || null;
   if (body.riskTolerance !== undefined) update.risk_tolerance = body.riskTolerance || null;
-  if (body.stateOfResidence !== undefined)
-    update.state_of_residence = body.stateOfResidence || null;
+  if (body.state !== undefined) update.state = body.state || null;
   if (body.taxMode !== undefined) update.tax_mode = body.taxMode;
   if (body.effectiveTaxRateOverride !== undefined)
     update.effective_tax_rate_override = body.effectiveTaxRateOverride ?? null;

@@ -8,6 +8,7 @@ import { onboardingRoute } from './routes/onboarding.js';
 import { settingsRoute } from './routes/settings.js';
 import { planningRoute } from './routes/planning.js';
 import { syncRoute } from './routes/sync.js';
+import { quotesRoute } from './routes/quotes.js';
 import {
   requireAuth,
   requireMember,
@@ -71,6 +72,7 @@ export function createApiRouter() {
   api.route('/ingest', ingestRoute);
   api.route('/duplicates', duplicatesRoute);
   api.route('/planning', planningRoute);
+  api.route('/quotes', quotesRoute);
   api.route('/sync', syncRoute);
 
   return api;

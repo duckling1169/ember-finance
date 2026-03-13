@@ -9,29 +9,26 @@ create table household (
   id                  uuid primary key default gen_random_uuid(),
   name                text not null,
   tax_filing_status   text,
-  state               text,
   currency            text not null default 'USD',
   created_at          timestamptz default now(),
 
   constraint chk_household_tax_filing_status
     check (tax_filing_status is null or tax_filing_status in (
       'single', 'married_jointly', 'married_separately', 'head_of_household'
-    )),
-  constraint chk_household_state
-    check (state is null or length(state) = 2)
+    ))
 );
 
 create table member (
   id                            uuid primary key default gen_random_uuid(),
-  household_id                  uuid not null references household(id),
-  auth_user_id                  uuid unique references auth.users(id),
+  household_id                  uuid not null references household(id) on delete cascade,
+  auth_user_id                  uuid unique references auth.users(id) on delete cascade,
   display_name                  text not null,
   role                          text not null default 'owner',
   birthday                      date,
   target_retirement_age         int,
   employment_type               text,
   risk_tolerance                text,
-  state_of_residence            text,
+  state                         text,
   tax_mode                      text not null default 'auto',
   effective_tax_rate_override   numeric(5,4),
   created_at                    timestamptz default now(),
@@ -44,8 +41,8 @@ create table member (
     check (employment_type is null or employment_type in ('w2', '1099', 'mixed')),
   constraint chk_member_risk_tolerance
     check (risk_tolerance is null or risk_tolerance in ('conservative', 'moderate', 'aggressive')),
-  constraint chk_member_state_of_residence
-    check (state_of_residence is null or length(state_of_residence) = 2),
+  constraint chk_member_state
+    check (state is null or length(state) = 2),
   constraint chk_member_tax_mode
     check (tax_mode in ('auto', 'manual')),
   constraint chk_member_tax_rate_override
@@ -60,9 +57,9 @@ create index idx_member_household_auth on member(household_id, auth_user_id);
 
 create table household_invite (
   id            uuid primary key default gen_random_uuid(),
-  household_id  uuid not null references household(id),
+  household_id  uuid not null references household(id) on delete cascade,
   email         text not null,
-  invited_by    uuid not null references member(id),
+  invited_by    uuid not null references member(id) on delete cascade,
   role          text not null default 'owner',
   expires_at    timestamptz not null default (now() + interval '24 hours'),
   accepted_at   timestamptz,
@@ -80,8 +77,8 @@ create index idx_invite_pending on household_invite(household_id, email)
 
 create table account (
   id                      uuid primary key default gen_random_uuid(),
-  household_id            uuid not null references household(id),
-  member_id               uuid references member(id),
+  household_id            uuid not null references household(id) on delete cascade,
+  member_id               uuid references member(id) on delete set null,
   name                    text not null,
   institution             text,
   account_type            text not null,
@@ -106,8 +103,8 @@ create index idx_account_household on account(household_id, is_active);
 
 create table account_source (
   id                  uuid primary key default gen_random_uuid(),
-  account_id          uuid not null references account(id),
-  household_id        uuid not null references household(id),
+  account_id          uuid not null references account(id) on delete cascade,
+  household_id        uuid not null references household(id) on delete cascade,
   provider            text not null,
   provider_account_id text,
   provider_meta       bytea,
@@ -126,7 +123,7 @@ create index idx_account_source_provider on account_source(account_id, household
 
 create table asset (
   id              uuid primary key default gen_random_uuid(),
-  household_id    uuid not null references household(id),
+  household_id    uuid not null references household(id) on delete cascade,
   name            text not null,
   category        text not null,
   estimated_value numeric(14,2) not null default 0,
@@ -147,16 +144,16 @@ create index idx_asset_household on asset(household_id);
 
 create table raw_ingest (
   id            uuid primary key default gen_random_uuid(),
-  household_id  uuid not null references household(id),
-  account_id    uuid references account(id),
-  source_id     uuid references account_source(id),
+  household_id  uuid not null references household(id) on delete cascade,
+  account_id    uuid references account(id) on delete set null,
+  source_id     uuid references account_source(id) on delete set null,
   source_type   text not null,
   source_ref    text,
   payload       jsonb not null,
   record_count  int,
   status        text not null default 'pending',
   error         text,
-  triggered_by  uuid references member(id),
+  triggered_by  uuid references member(id) on delete set null,
   processed_at  timestamptz,
   created_at    timestamptz default now()
 );
@@ -172,10 +169,10 @@ create index idx_raw_ingest_account_created on raw_ingest(household_id, account_
 
 create table account_event (
   id            uuid primary key default gen_random_uuid(),
-  household_id  uuid not null references household(id),
-  account_id    uuid not null references account(id),
+  household_id  uuid not null references household(id) on delete cascade,
+  account_id    uuid not null references account(id) on delete cascade,
   event_type    text not null,
-  triggered_by  uuid references member(id),
+  triggered_by  uuid references member(id) on delete set null,
   detail        jsonb default '{}',
   created_at    timestamptz default now()
 );
@@ -189,9 +186,9 @@ create index idx_account_event_household on account_event(household_id, created_
 
 create table transaction (
   id              uuid primary key default gen_random_uuid(),
-  household_id    uuid not null references household(id),
-  account_id      uuid not null references account(id),
-  raw_ingest_id   uuid references raw_ingest(id),
+  household_id    uuid not null references household(id) on delete cascade,
+  account_id      uuid not null references account(id) on delete cascade,
+  raw_ingest_id   uuid references raw_ingest(id) on delete set null,
   date            date not null,
   amount          numeric(14,2) not null,
   description     text not null,
@@ -217,9 +214,9 @@ create index idx_txn_dedup_lookup on transaction(account_id, date, amount);
 
 create table investment_activity (
   id              uuid primary key default gen_random_uuid(),
-  household_id    uuid not null references household(id),
-  account_id      uuid not null references account(id),
-  raw_ingest_id   uuid references raw_ingest(id),
+  household_id    uuid not null references household(id) on delete cascade,
+  account_id      uuid not null references account(id) on delete cascade,
+  raw_ingest_id   uuid references raw_ingest(id) on delete set null,
   date            date not null,
   activity_type   text not null,
   symbol          text,
@@ -251,9 +248,9 @@ create index idx_inv_activity_dedup_lookup on investment_activity(account_id, da
 
 create table holding (
   id              uuid primary key default gen_random_uuid(),
-  household_id    uuid not null references household(id),
-  account_id      uuid not null references account(id),
-  raw_ingest_id   uuid references raw_ingest(id),
+  household_id    uuid not null references household(id) on delete cascade,
+  account_id      uuid not null references account(id) on delete cascade,
+  raw_ingest_id   uuid references raw_ingest(id) on delete set null,
   as_of           date not null,
   symbol          text not null,
   name            text,
@@ -276,9 +273,9 @@ create index idx_holding_symbol on holding(symbol, as_of desc);
 
 create table balance_snapshot (
   id              uuid primary key default gen_random_uuid(),
-  household_id    uuid not null references household(id),
-  account_id      uuid not null references account(id),
-  raw_ingest_id   uuid references raw_ingest(id),
+  household_id    uuid not null references household(id) on delete cascade,
+  account_id      uuid not null references account(id) on delete cascade,
+  raw_ingest_id   uuid references raw_ingest(id) on delete set null,
   date            date not null,
   balance         numeric(14,2) not null,
   available       numeric(14,2),
@@ -314,8 +311,8 @@ comment on table security_price is 'Global price cache. No RLS — public market
 
 create table tax_lot (
   id                    uuid primary key default gen_random_uuid(),
-  household_id          uuid not null references household(id),
-  account_id            uuid not null references account(id),
+  household_id          uuid not null references household(id) on delete cascade,
+  account_id            uuid not null references account(id) on delete cascade,
   symbol                text not null,
   acquired_date         date not null,
   quantity              numeric(16,6) not null,
@@ -324,7 +321,7 @@ create table tax_lot (
   cost_basis_total      numeric(14,2) not null,
   source                text not null,
   provider_lot_id       text,
-  origin_activity_id    uuid references investment_activity(id),
+  origin_activity_id    uuid references investment_activity(id) on delete set null,
   is_closed             boolean not null default false,
   closed_date           date,
   realized_gain_loss    numeric(14,2),
@@ -355,9 +352,9 @@ create index idx_tax_lot_symbol on tax_lot(symbol);
 
 create table lot_disposition (
   id                uuid primary key default gen_random_uuid(),
-  household_id      uuid not null references household(id),
-  tax_lot_id        uuid not null references tax_lot(id),
-  sell_activity_id  uuid not null references investment_activity(id),
+  household_id      uuid not null references household(id) on delete cascade,
+  tax_lot_id        uuid not null references tax_lot(id) on delete cascade,
+  sell_activity_id  uuid not null references investment_activity(id) on delete cascade,
   quantity          numeric(16,6) not null,
   proceeds          numeric(14,2) not null,
   cost_basis        numeric(14,2) not null,
@@ -380,7 +377,7 @@ create index idx_lot_disp_household on lot_disposition(household_id);
 
 create table net_worth_snapshot (
   id                uuid primary key default gen_random_uuid(),
-  household_id      uuid not null references household(id),
+  household_id      uuid not null references household(id) on delete cascade,
   date              date not null,
   total_assets      numeric(14,2) not null,
   total_liabilities numeric(14,2) not null,
@@ -398,8 +395,8 @@ create index idx_nw_household_date on net_worth_snapshot(household_id, date desc
 
 create table income_source (
   id              uuid primary key default gen_random_uuid(),
-  household_id    uuid not null references household(id),
-  member_id       uuid not null references member(id),
+  household_id    uuid not null references household(id) on delete cascade,
+  member_id       uuid not null references member(id) on delete cascade,
   name            text not null,
   type            text not null,
   gross_amount    numeric(14,2) not null,
@@ -421,15 +418,16 @@ create index idx_income_source_member on income_source(member_id);
 
 create table cashflow_item (
   id                      uuid primary key default gen_random_uuid(),
-  household_id            uuid not null references household(id),
-  member_id               uuid references member(id),
-  income_source_id        uuid references income_source(id),
-  source_account_id       uuid references account(id),
-  destination_account_id  uuid references account(id),
+  household_id            uuid not null references household(id) on delete cascade,
+  member_id               uuid references member(id) on delete set null,
+  income_source_id        uuid references income_source(id) on delete set null,
+  source_account_id       uuid references account(id) on delete set null,
+  destination_account_id  uuid references account(id) on delete set null,
   name                    text not null,
   direction               text not null,
   bucket                  text not null,
   amount                  numeric(14,2) not null,
+  amount_type             text not null default 'fixed',
   frequency               text not null,
   is_recurring            boolean not null default true,
   is_essential            boolean not null default true,
@@ -448,6 +446,12 @@ create table cashflow_item (
     check (amount > 0),
   constraint chk_cashflow_frequency
     check (frequency in ('monthly', 'biweekly', 'annual', 'one_time')),
+  constraint chk_cashflow_amount_type
+    check (amount_type in ('fixed', 'percent')),
+  constraint chk_cashflow_percent_requires_income
+    check (amount_type != 'percent' or income_source_id is not null),
+  constraint chk_cashflow_percent_range
+    check (amount_type != 'percent' or amount <= 100),
   constraint chk_cashflow_date_range
     check (end_date is null or end_date >= start_date)
 );
@@ -463,7 +467,7 @@ create index idx_cashflow_item_destination on cashflow_item(destination_account_
 
 create table planning_scenario (
   id              uuid primary key default gen_random_uuid(),
-  household_id    uuid not null references household(id),
+  household_id    uuid not null references household(id) on delete cascade,
   name            text not null,
   is_base         boolean not null default false,
   assumptions     jsonb not null default '{}',
@@ -475,7 +479,7 @@ create index idx_planning_scenario_household on planning_scenario(household_id);
 
 create table expense_category (
   id              uuid primary key default gen_random_uuid(),
-  household_id    uuid not null references household(id),
+  household_id    uuid not null references household(id) on delete cascade,
   name            text not null,
   is_essential    boolean not null default true,
   created_at      timestamptz default now(),

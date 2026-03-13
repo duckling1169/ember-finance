@@ -1,5 +1,6 @@
 import { Hono } from 'hono';
 import {
+  AMOUNT_TYPES,
   CASHFLOW_BUCKETS,
   CASHFLOW_FREQUENCIES,
   INCOME_SOURCE_TYPES,
@@ -166,6 +167,7 @@ const CASHFLOW_UPDATABLE_FIELDS = new Set([
   'direction',
   'bucket',
   'amount',
+  'amount_type',
   'frequency',
   'is_recurring',
   'include_in_projection',
@@ -218,6 +220,18 @@ planningRoute.post('/flows', async (c) => {
   if (body.amount === undefined || body.amount <= 0) {
     return c.json({ error: 'amount must be positive' }, 400);
   }
+  const amountType = body.amount_type ?? 'fixed';
+  if (!AMOUNT_TYPES.includes(amountType as never)) {
+    return c.json({ error: `Invalid amount_type: ${amountType}` }, 400);
+  }
+  if (amountType === 'percent') {
+    if (!body.income_source_id) {
+      return c.json({ error: 'income_source_id is required when amount_type is percent' }, 400);
+    }
+    if (body.amount > 100) {
+      return c.json({ error: 'percent amount must be between 0 and 100' }, 400);
+    }
+  }
   if (!body.start_date) return c.json({ error: 'start_date is required' }, 400);
 
   // Default: one-time items have include_in_projection=false
@@ -233,6 +247,7 @@ planningRoute.post('/flows', async (c) => {
       direction: body.direction,
       bucket: body.bucket,
       amount: body.amount,
+      amount_type: amountType,
       frequency: body.frequency,
       is_recurring: isRecurring,
       include_in_projection: includeInProjection,
@@ -280,6 +295,14 @@ planningRoute.patch('/flows/:flowId', async (c) => {
   }
   if (update.amount !== undefined && (update.amount as number) <= 0) {
     return c.json({ error: 'amount must be positive' }, 400);
+  }
+  if (update.amount_type !== undefined && !AMOUNT_TYPES.includes(update.amount_type as never)) {
+    return c.json({ error: `Invalid amount_type: ${update.amount_type}` }, 400);
+  }
+  if (update.amount_type === 'percent') {
+    if (update.amount !== undefined && (update.amount as number) > 100) {
+      return c.json({ error: 'percent amount must be between 0 and 100' }, 400);
+    }
   }
 
   const { data, error } = await db
