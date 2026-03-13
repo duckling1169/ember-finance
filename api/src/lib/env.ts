@@ -13,8 +13,8 @@ const projectRoot = resolve(__dirname, '../../..');
 export const env = {
   // Supabase
   supabaseUrl: process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  supabaseAnonKey: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-  supabaseServiceRoleKey: process.env.SUPABASE_SERVICE_ROLE_KEY!,
+  supabasePublishableKey: process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY!,
+  supabaseSecretKey: process.env.SUPABASE_SECRET_KEY!,
 
   // Teller
   tellerAppId: process.env.TELLER_APP_ID!,

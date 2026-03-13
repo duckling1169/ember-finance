@@ -75,11 +75,11 @@ jobs:
 
       # API tests (vitest) require a Supabase test database and are
       # skipped in CI for now. To enable them, provision a test Supabase
-      # instance and set SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY as
+      # instance and set SUPABASE_URL / SUPABASE_SECRET_KEY as
       # repository secrets, then uncomment the step below.
       #
       # - name: API tests
       #   run: npm test --prefix api
       #   env:
       #     SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
-      #     SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+      #     SUPABASE_SECRET_KEY: ${{ secrets.SUPABASE_SECRET_KEY }}

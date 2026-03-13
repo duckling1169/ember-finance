@@ -76,7 +76,7 @@ let supabase = SupabaseClient(
 )
 ```
 
-The `supabaseURL` and `supabaseKey` values match the `SUPABASE_URL` and `SUPABASE_ANON_KEY` environment variables used by the API server.
+The `supabaseURL` and `supabaseKey` values match the `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` environment variables used by the API server.
 
 ### 2.2 Token flow
 
@@ -805,17 +805,17 @@ No CORS changes are needed for iOS.
 
 The iOS app needs these values (store in a config file or Xcode build settings, never hardcode in source):
 
-| Variable            | Description                   | Example                       |
-| ------------------- | ----------------------------- | ----------------------------- |
-| `SUPABASE_URL`      | Supabase project URL          | `https://xxxxx.supabase.co`   |
-| `SUPABASE_ANON_KEY` | Supabase anonymous/public key | `eyJhbGciOi...`               |
-| `API_BASE_URL`      | Ember API server URL          | `http://localhost:3001` (dev) |
+| Variable                   | Description              | Example                       |
+| -------------------------- | ------------------------ | ----------------------------- |
+| `SUPABASE_URL`             | Supabase project URL     | `https://xxxxx.supabase.co`   |
+| `SUPABASE_PUBLISHABLE_KEY` | Supabase publishable key | `eyJhbGciOi...`               |
+| `API_BASE_URL`             | Ember API server URL     | `http://localhost:3001` (dev) |
 
 Create a `Secrets.xcconfig` file (git-ignored):
 
 ```
 SUPABASE_URL = https:$()/$()/xxxxx.supabase.co
-SUPABASE_ANON_KEY = eyJhbGciOi...
+SUPABASE_PUBLISHABLE_KEY = eyJhbGciOi...
 API_BASE_URL = http:$()/$()/localhost:3001
 ```
 
@@ -824,7 +824,7 @@ Access in code:
 ```swift
 enum Config {
     static let supabaseURL = Bundle.main.infoDictionary!["SUPABASE_URL"] as! String
-    static let supabaseAnonKey = Bundle.main.infoDictionary!["SUPABASE_ANON_KEY"] as! String
+    static let supabasePublishableKey = Bundle.main.infoDictionary!["SUPABASE_PUBLISHABLE_KEY"] as! String
     static let apiBaseURL = Bundle.main.infoDictionary!["API_BASE_URL"] as! String
 }
 ```
