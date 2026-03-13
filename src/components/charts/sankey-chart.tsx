@@ -110,7 +110,7 @@ export function SankeyChart({ data, className, height }: SankeyChartProps) {
         }}
         margin={{ top: 16, right: 140, bottom: 16, left: 140 }}
         sort="input"
-        align="start"
+        align="justify"
         nodeOpacity={1}
         nodeHoverOthersOpacity={0.35}
         nodeThickness={18}
