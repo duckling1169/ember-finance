@@ -272,22 +272,27 @@ export function buildSankeyData(
       .reduce((sum, l) => sum + l.value, 0);
 
   const sortDesc = (a: SankeyNode, b: SankeyNode) => nodeValue(b) - nodeValue(a);
-  incomeNodes.sort(sortDesc);
-  hubNodes.sort(sortDesc);
 
-  // Terminal nodes (savings + costs) are merged and sorted by value so the
-  // rightmost column is ordered by size, not split by category.
-  const surplusNode = savingsNodes.find((n) => n.id === 'surplus');
-  const terminalNodes = [...savingsNodes, ...costNodes].filter((n) => n.id !== 'surplus');
-  terminalNodes.sort(sortDesc);
+  // Category priority: income/savings/hub on top, costs on bottom.
+  // Within each group, sort by value descending. Surplus always last.
+  const categoryOrder: Record<SankeyNode['category'], number> = {
+    income: 0,
+    savings: 1,
+    hub: 2,
+    cost: 3,
+  };
 
-  // Order: income sources, hubs (by depth), terminal nodes by value, surplus last
-  const nodes = [
-    ...incomeNodes,
-    ...hubNodes,
-    ...terminalNodes,
-    ...(surplusNode ? [surplusNode] : []),
-  ];
+  const allNodes = [...incomeNodes, ...savingsNodes, ...hubNodes, ...costNodes];
+  const surplusNode = allNodes.find((n) => n.id === 'surplus');
+  const sortableNodes = allNodes.filter((n) => n.id !== 'surplus');
+
+  sortableNodes.sort((a, b) => {
+    const catDiff = categoryOrder[a.category] - categoryOrder[b.category];
+    if (catDiff !== 0) return catDiff;
+    return nodeValue(b) - nodeValue(a);
+  });
+
+  const nodes = [...sortableNodes, ...(surplusNode ? [surplusNode] : [])];
 
   return { nodes, links, grossAnnual: filteredGross };
 }
