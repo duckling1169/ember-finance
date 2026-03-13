@@ -143,24 +143,43 @@ export function buildSankeyData(
     matchAmounts.push({ item, annual });
   }
 
-  // Create Pre-tax hub if there are any employee pre-tax deductions
+  // Create Pre-tax hub when there are employee deductions or employer matches.
+  // Employer matches route through the hub (not Gross Income) so destination
+  // accounts land in the rightmost column at the correct depth.
   const employeePreTaxTotal = deductionAmounts.reduce((s, d) => s + d.annual, 0);
-  if (employeePreTaxTotal > 0) {
+  const matchTotal = matchAmounts.reduce((s, m) => s + m.annual, 0);
+  const hasPreTaxFlow = employeePreTaxTotal > 0 || matchTotal > 0;
+
+  if (hasPreTaxFlow) {
     hubNodes.push({ id: 'pre-tax', label: 'Pre-tax', category: 'hub' });
-    addLink(links, incomeOrigin, 'pre-tax', employeePreTaxTotal);
+
+    // Employee deductions: Gross Income → Pre-tax hub
+    if (employeePreTaxTotal > 0) {
+      addLink(links, incomeOrigin, 'pre-tax', employeePreTaxTotal);
+    }
 
     for (const { item, annual } of deductionAmounts) {
       const targetId = ensureAccountNode(item.destination_account_id!);
       addLink(links, 'pre-tax', targetId, annual);
     }
-  }
 
-  // Employer matches → directly to destination account (not part of gross income)
-  for (const { item, annual } of matchAmounts) {
-    incomeNodes.push({ id: `match-${item.id}`, label: item.name, category: 'savings' });
-    if (item.destination_account_id) {
-      const targetId = ensureAccountNode(item.destination_account_id);
-      addLink(links, `match-${item.id}`, targetId, annual);
+    // Employer matches: Match node → Pre-tax hub → destination account
+    for (const { item, annual } of matchAmounts) {
+      incomeNodes.push({ id: `match-${item.id}`, label: item.name, category: 'savings' });
+      addLink(links, `match-${item.id}`, 'pre-tax', annual);
+      if (item.destination_account_id) {
+        const targetId = ensureAccountNode(item.destination_account_id);
+        addLink(links, 'pre-tax', targetId, annual);
+      }
+    }
+  } else {
+    // No pre-tax flow — just create match source nodes with direct links
+    for (const { item, annual } of matchAmounts) {
+      incomeNodes.push({ id: `match-${item.id}`, label: item.name, category: 'savings' });
+      if (item.destination_account_id) {
+        const targetId = ensureAccountNode(item.destination_account_id);
+        addLink(links, `match-${item.id}`, targetId, annual);
+      }
     }
   }
 
