@@ -260,21 +260,12 @@ export function buildSankeyData(
     addLink(links, 'net-income', outflow.targetId, outflow.amount * capRatio);
   }
 
-  // Sort links by value descending so that each source node's largest outgoing
-  // flow gets the top slot (minimises visual crossing between columns).
-  links.sort((a, b) => b.value - a.value);
-
-  // Sort nodes within each category by total link value (descending)
-  // so that the largest items are positioned at the top of each group.
+  // Sort nodes: category first (savings top, costs bottom), then value descending.
   const nodeValue = (n: SankeyNode) =>
     links
       .filter((l) => l.source === n.id || l.target === n.id)
       .reduce((sum, l) => sum + l.value, 0);
 
-  const sortDesc = (a: SankeyNode, b: SankeyNode) => nodeValue(b) - nodeValue(a);
-
-  // Category priority: income/savings/hub on top, costs on bottom.
-  // Within each group, sort by value descending. Surplus always last.
   const categoryOrder: Record<SankeyNode['category'], number> = {
     income: 0,
     savings: 1,
@@ -293,6 +284,17 @@ export function buildSankeyData(
   });
 
   const nodes = [...sortableNodes, ...(surplusNode ? [surplusNode] : [])];
+
+  // Sort links so each source node's outgoing links match the vertical order
+  // of their target nodes. This prevents crossings between columns.
+  const nodePos = new Map(nodes.map((n, i) => [n.id, i]));
+  links.sort((a, b) => {
+    // Group by source node position first
+    const srcDiff = (nodePos.get(a.source) ?? 0) - (nodePos.get(b.source) ?? 0);
+    if (srcDiff !== 0) return srcDiff;
+    // Within same source, order by target node position
+    return (nodePos.get(a.target) ?? 0) - (nodePos.get(b.target) ?? 0);
+  });
 
   return { nodes, links, grossAnnual: filteredGross };
 }
