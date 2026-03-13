@@ -252,7 +252,7 @@ settingsRoute.post('/invites', async (c) => {
 
   // Admin email operation — requires service-role
   const { error: emailError } = await supabase.auth.admin.inviteUserByEmail(email, {
-    redirectTo: `${c.req.header('origin') || env.corsOrigin}/onboarding/accept-invite?inviteId=${invite.id}`,
+    redirectTo: `${c.req.header('origin') || env.corsOrigins[0]}/onboarding/accept-invite?inviteId=${invite.id}`,
   });
 
   if (emailError) {
