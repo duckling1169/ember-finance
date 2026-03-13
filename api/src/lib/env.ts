@@ -32,5 +32,8 @@ export const env = {
 
   // Server
   port: parseInt(process.env.API_PORT || '3001', 10),
-  corsOrigin: process.env.CORS_ORIGIN || 'http://localhost:3000',
+  corsOrigins: (process.env.CORS_ORIGIN || 'http://localhost:3000')
+    .split(',')
+    .map((o) => o.trim())
+    .filter(Boolean),
 } as const;

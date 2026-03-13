@@ -859,3 +859,19 @@ export interface ProjectionResponse {
   fi_portfolio_value: number;
   projection: ProjectionResult;
 }
+
+// ── Sync API Response Types ──
+
+export interface DeltaSyncResponse {
+  synced_at: string;
+  changes: {
+    accounts: Account[];
+    transactions: Transaction[];
+    investment_activity: InvestmentActivity[];
+    holdings: Holding[];
+    balance_snapshots: BalanceSnapshot[];
+    income_sources: IncomeSource[];
+    cashflow_items: CashflowItem[];
+    planning_scenarios: PlanningScenario[];
+  };
+}
