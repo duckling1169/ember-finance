@@ -1,7 +1,6 @@
 'use client';
 
 import { useState, useMemo, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import {
   useHousehold,
@@ -115,7 +114,6 @@ function rangeToFromTo(
 }
 
 export default function DashboardPage() {
-  const router = useRouter();
   const { data: household, isLoading: hhLoading, error: hhError } = useHousehold();
   const { data: apiAccounts, isLoading: acctsLoading, error: acctsError } = useAccounts();
   const { data: apiHoldings } = useHouseholdHoldings();
@@ -134,11 +132,7 @@ export default function DashboardPage() {
   const { data: apiNwHistory } = useNetWorthHistory(from, to);
   const { data: apiInvHistory } = useInvestmentHistory(from, to);
 
-  // Redirect to onboarding if no household (but not on fetch errors)
-  const needsOnboarding = !devBypass && !hhLoading && !hhError && !household;
-  useEffect(() => {
-    if (needsOnboarding) router.replace('/onboarding');
-  }, [needsOnboarding, router]);
+  // Onboarding redirect is handled by RequireAuth in the layout
 
   const nwData = useMemo(
     () =>
@@ -171,7 +165,7 @@ export default function DashboardPage() {
 
   const fetchError = !devBypass && (hhError || acctsError);
 
-  if (loading || needsOnboarding) {
+  if (loading) {
     return <div className="py-10 text-muted-foreground">Loading...</div>;
   }
 

@@ -6,8 +6,17 @@ import { createHousehold, acceptInvite } from '@/lib/api';
 import { RequireAuth } from '@/lib/require-auth';
 import { Card, CardHeader, CardDescription, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
+import { Select } from '@/components/ui/select';
 import { Button } from '@/components/ui/button';
 import { IconFlame } from '@tabler/icons-react';
+import type { TaxFilingStatus, USState } from '@shared/types';
+
+const TAX_FILING_OPTIONS: { value: TaxFilingStatus; label: string }[] = [
+  { value: 'single', label: 'Single' },
+  { value: 'married_jointly', label: 'Married Filing Jointly' },
+  { value: 'married_separately', label: 'Married Filing Separately' },
+  { value: 'head_of_household', label: 'Head of Household' },
+];
 
 export default function OnboardingPage() {
   return (
@@ -44,6 +53,8 @@ function OnboardingContent() {
           householdName: form.get('householdName') as string,
           displayName: form.get('displayName') as string,
           birthday: (form.get('birthday') as string) || null,
+          taxFilingStatus: (form.get('taxFilingStatus') as TaxFilingStatus) || null,
+          state: (form.get('state') as USState) || null,
         });
       }
       router.push('/');
@@ -82,6 +93,33 @@ function OnboardingContent() {
               <label className="mb-1.5 block text-sm font-medium">Your Birthday</label>
               <Input name="birthday" type="date" required />
             </div>
+
+            {!inviteId && (
+              <>
+                <div>
+                  <label className="mb-1.5 block text-sm font-medium">Tax Filing Status</label>
+                  <Select name="taxFilingStatus">
+                    <option value="">Select...</option>
+                    {TAX_FILING_OPTIONS.map((o) => (
+                      <option key={o.value} value={o.value}>
+                        {o.label}
+                      </option>
+                    ))}
+                  </Select>
+                </div>
+                <div>
+                  <label className="mb-1.5 block text-sm font-medium">State</label>
+                  <Input
+                    name="state"
+                    placeholder="CA"
+                    maxLength={2}
+                    onChange={(e) => {
+                      e.target.value = e.target.value.toUpperCase();
+                    }}
+                  />
+                </div>
+              </>
+            )}
 
             {error && <p className="text-sm text-destructive">{error}</p>}
 
