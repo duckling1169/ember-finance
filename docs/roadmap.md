@@ -226,7 +226,7 @@ Exit criteria:
 
 ## Next Steps — Manual Holdings & Market Data
 
-- **Swap Finnhub → Tiingo** for quote endpoint (`GET /api/quotes`). Tiingo covers mutual funds (45,000+ funds) and has 1,000 calls/day free tier vs Finnhub's lack of mutual fund support. EOD pricing is sufficient since quotes are only fetched during manual holdings entry (linked accounts get prices from their provider). Free tier, no credit card, simple REST API.
+- ~~**Swap Finnhub → Tiingo**~~ [DONE] — quote endpoint now uses Tiingo EOD API with mutual fund support and 2-day lookback for real previous close.
 - **Pre-populate from last entry** is shipped (Phase 1). Remaining enhancements:
   - Price auto-fetch fallback: if Tiingo returns null, allow manual price entry per row
   - Import from CSV: parse brokerage exports (Fidelity, Schwab, Vanguard formats)

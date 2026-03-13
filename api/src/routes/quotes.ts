@@ -2,13 +2,20 @@ import { Hono } from 'hono';
 import { supabase } from '../lib/supabase.js';
 import type { AuthEnv } from '../middleware/auth.js';
 
-interface FinnhubQuote {
-  c: number; // current price
-  h: number; // high
-  l: number; // low
-  o: number; // open
-  pc: number; // previous close
-  t: number; // timestamp
+interface TiingoEOD {
+  adjClose: number;
+  adjHigh: number;
+  adjLow: number;
+  adjOpen: number;
+  adjVolume: number;
+  close: number;
+  date: string;
+  divCash: number;
+  high: number;
+  low: number;
+  open: number;
+  splitFactor: number;
+  volume: number;
 }
 
 interface QuoteResult {
@@ -18,34 +25,47 @@ interface QuoteResult {
   changePercent: number;
 }
 
-const FINNHUB_BASE = 'https://finnhub.io/api/v1';
+const TIINGO_BASE = 'https://api.tiingo.com/tiingo/daily';
 const MAX_SYMBOLS = 50;
 
-async function fetchFinnhubQuote(symbol: string, apiKey: string): Promise<QuoteResult | null> {
+async function fetchTiingoQuote(symbol: string, apiKey: string): Promise<QuoteResult | null> {
   try {
-    const res = await fetch(
-      `${FINNHUB_BASE}/quote?symbol=${encodeURIComponent(symbol)}&token=${apiKey}`,
-    );
+    // Request last 2 trading days so we get a real previous close
+    const url = `${TIINGO_BASE}/${encodeURIComponent(symbol)}/prices?startDate=${twoDaysAgo()}&sort=date`;
+    const res = await fetch(url, {
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Token ${apiKey}`,
+      },
+    });
 
     if (!res.ok) return null;
 
-    const data = (await res.json()) as FinnhubQuote;
+    const data = (await res.json()) as TiingoEOD[];
 
-    // Finnhub returns all zeros for unknown symbols
-    if (!data.c && !data.pc) return null;
+    if (!data || data.length === 0 || !data[data.length - 1].close) return null;
 
-    const change = data.c - data.pc;
-    const changePercent = data.pc !== 0 ? (change / data.pc) * 100 : 0;
+    const latest = data[data.length - 1];
+    const prevClose = data.length >= 2 ? data[data.length - 2].close : latest.open;
+    const change = latest.close - prevClose;
+    const changePercent = prevClose !== 0 ? (change / prevClose) * 100 : 0;
 
     return {
-      price: data.c,
-      previousClose: data.pc,
+      price: latest.close,
+      previousClose: prevClose,
       change: Math.round(change * 100) / 100,
       changePercent: Math.round(changePercent * 100) / 100,
     };
   } catch {
     return null;
   }
+}
+
+/** Returns a date string ~5 calendar days ago to ensure we capture 2 trading days */
+function twoDaysAgo(): string {
+  const d = new Date();
+  d.setDate(d.getDate() - 5);
+  return d.toISOString().slice(0, 10);
 }
 
 export const quotesRoute = new Hono<AuthEnv>();
@@ -56,7 +76,7 @@ quotesRoute.get('/', async (c) => {
     return c.json({ error: 'Missing required query parameter: symbols' }, 400);
   }
 
-  const apiKey = process.env.FINNHUB_API_KEY;
+  const apiKey = process.env.TIINGO_API_KEY;
   if (!apiKey) {
     return c.json({ error: 'Quote service not configured' }, 503);
   }
@@ -77,7 +97,7 @@ quotesRoute.get('/', async (c) => {
   // Fetch all quotes in parallel
   const results = await Promise.all(
     symbols.map(async (symbol) => {
-      const quote = await fetchFinnhubQuote(symbol, apiKey);
+      const quote = await fetchTiingoQuote(symbol, apiKey);
       return { symbol, quote };
     }),
   );
@@ -102,7 +122,7 @@ quotesRoute.get('/', async (c) => {
         price: quote.price,
         prev_close: quote.previousClose,
         day_change_pct: quote.changePercent,
-        source: 'finnhub',
+        source: 'tiingo',
         updated_at: new Date().toISOString(),
       });
     }
