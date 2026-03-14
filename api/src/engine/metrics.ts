@@ -73,6 +73,9 @@ export function progressToFI(fiPortfolioValue: number, fireNum: number): number 
  * Solve for n:
  *   n = ln((FV * r + C) / (PV * r + C)) / ln(1 + r)
  *
+ * When currentAge is fractional, the first partial year is simulated with
+ * prorated contributions and growth, then the standard formula runs from there.
+ *
  * Returns null if FIRE is unreachable (contributions + growth can't reach target).
  */
 export function yearsToFI(
@@ -80,24 +83,43 @@ export function yearsToFI(
   yearlyContributions: number,
   fireNum: number,
   realReturnRate: number,
+  currentAge?: number,
 ): number | null {
   if (currentPortfolio >= fireNum) return 0;
+
+  let portfolio = currentPortfolio;
+  let partialYears = 0;
+
+  // If fractional age, simulate the first partial year
+  if (currentAge != null) {
+    const frac = currentAge - Math.floor(currentAge);
+    if (frac > 0) {
+      const remaining = 1 - frac;
+      const partialContrib = yearlyContributions * remaining;
+      const partialGrowth = (portfolio + partialContrib / 2) * realReturnRate * remaining;
+      portfolio += partialContrib + partialGrowth;
+      partialYears = remaining;
+      if (portfolio >= fireNum) return partialYears;
+    }
+  }
+
   if (realReturnRate <= 0) {
     // No growth — only contributions count
     if (yearlyContributions <= 0) return null;
-    const remaining = fireNum - currentPortfolio;
-    return remaining / yearlyContributions;
+    const remaining = fireNum - portfolio;
+    return partialYears + remaining / yearlyContributions;
   }
 
   const r = realReturnRate;
   const numerator = fireNum * r + yearlyContributions;
-  const denominator = currentPortfolio * r + yearlyContributions;
+  const denominator = portfolio * r + yearlyContributions;
 
   if (denominator <= 0) return null;
   if (numerator / denominator <= 0) return null;
 
   const n = Math.log(numerator / denominator) / Math.log(1 + r);
-  return isFinite(n) && n > 0 ? n : null;
+  if (!isFinite(n) || n <= 0) return null;
+  return partialYears + n;
 }
 
 /** Compute all FI metrics from a single input object. */
@@ -124,6 +146,7 @@ export function computeFIMetrics(input: FIMetricsInput): FIMetrics {
     yearly_contributions,
     fireNum,
     real_return_rate,
+    current_age,
   );
 
   const projectedAge = yearsToFire != null ? current_age + yearsToFire : null;

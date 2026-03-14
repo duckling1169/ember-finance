@@ -23,7 +23,7 @@ export function fmtPct(n: number, decimals = 1): string {
 }
 
 export function fmtYears(n: number | null): string {
-  if (n == null) return '--';
+  if (n == null || !isFinite(n)) return '--';
   if (n < 1) return '< 1 year';
   return `${n.toFixed(1)} years`;
 }

@@ -11,7 +11,7 @@ import {
   stubHouseholdMember,
 } from '../helpers.js';
 import type { AuthEnv } from '../../src/middleware/auth.js';
-import { processIngest } from '../../src/services/ingest.js';
+import { persistIngest } from '../../src/services/ingest.js';
 import { createTestSource } from '../helpers.js';
 
 // Build test app
@@ -181,7 +181,7 @@ describe('Account history, timeline, and enrichment', () => {
       const creditSrc = await createTestSource(creditAccountId, householdId);
 
       // Ingest balance snapshots for checking
-      await processIngest(
+      await persistIngest(
         {
           householdId,
           accountId: checkingAccountId,
@@ -201,7 +201,7 @@ describe('Account history, timeline, and enrichment', () => {
       );
 
       // Ingest balance snapshots for brokerage (investment account)
-      await processIngest(
+      await persistIngest(
         {
           householdId,
           accountId: brokerageAccountId,
@@ -221,7 +221,7 @@ describe('Account history, timeline, and enrichment', () => {
       );
 
       // Ingest balance snapshots for credit card (liability)
-      await processIngest(
+      await persistIngest(
         {
           householdId,
           accountId: creditAccountId,

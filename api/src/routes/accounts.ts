@@ -471,5 +471,20 @@ accountsRoute.delete('/:householdId/:accountId', async (c) => {
     detail: { name: data.name },
   });
 
+  // Clear orphaned references on cashflow items
+  const now = new Date().toISOString();
+  await Promise.all([
+    db
+      .from('cashflow_item')
+      .update({ destination_account_id: null, updated_at: now })
+      .eq('household_id', householdId)
+      .eq('destination_account_id', accountId),
+    db
+      .from('cashflow_item')
+      .update({ source_account_id: null, updated_at: now })
+      .eq('household_id', householdId)
+      .eq('source_account_id', accountId),
+  ]);
+
   return c.json({ success: true });
 });

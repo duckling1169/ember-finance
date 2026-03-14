@@ -63,6 +63,11 @@ export async function persistIngest(ctx: IngestContext, ingestData: IngestResult
       await upsertBalances(ctx, rawIngestId, ingestData);
     }
 
+    // 5b. Derive balance_snapshot from holdings if no explicit balances provided
+    if (ingestData.holdings.length > 0 && ingestData.balances.length === 0) {
+      await deriveBalanceFromHoldings(ctx, rawIngestId, ingestData);
+    }
+
     // 6. Run cross-source duplicate detection
     const txnDates = ingestData.transactions.map((t) => t.date);
     const actDates = ingestData.investmentActivity.map((a) => a.date);
@@ -226,6 +231,38 @@ async function insertZeroHoldingsForRemovedPositions(ctx: IngestContext, result:
       assetClass: pos.asset_class || undefined,
     });
   }
+}
+
+/**
+ * When holdings are ingested without explicit balances, derive a balance_snapshot
+ * from the total market value of the holdings so the planning engine can see it.
+ */
+async function deriveBalanceFromHoldings(
+  ctx: IngestContext,
+  rawIngestId: string,
+  result: IngestResult,
+) {
+  // Group holdings by as_of date and sum market values
+  const byDate = new Map<string, number>();
+  for (const h of result.holdings) {
+    byDate.set(h.asOf, (byDate.get(h.asOf) ?? 0) + (h.marketValue ?? 0));
+  }
+
+  const rows = Array.from(byDate.entries()).map(([date, balance]) => ({
+    household_id: ctx.householdId,
+    account_id: ctx.accountId,
+    raw_ingest_id: rawIngestId,
+    date,
+    balance,
+    available: null,
+    source: 'holdings_derived' as const,
+  }));
+
+  const { error } = await supabase.from('balance_snapshot').upsert(rows, {
+    onConflict: 'account_id,date,source',
+  });
+
+  if (error) throw new Error(`holdings-derived balance_snapshot upsert failed: ${error.message}`);
 }
 
 async function upsertBalances(ctx: IngestContext, rawIngestId: string, result: IngestResult) {

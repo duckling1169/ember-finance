@@ -149,8 +149,9 @@ export async function fetchPlanningData(
   // Sum latest balance for FI accounts
   let fiPortfolioValue = 0;
   if (fiAccountIds.size > 0) {
+    const fiAccountIdArr = Array.from(fiAccountIds);
     const { data: balances } = await db.rpc('latest_balances_for_accounts', {
-      p_account_ids: Array.from(fiAccountIds),
+      p_account_ids: fiAccountIdArr,
     });
 
     if (balances) {
@@ -163,7 +164,7 @@ export async function fetchPlanningData(
       const { data: snapshots } = await db
         .from('balance_snapshot')
         .select('account_id, balance')
-        .in('account_id', Array.from(fiAccountIds))
+        .in('account_id', fiAccountIdArr)
         .order('date', { ascending: false });
 
       if (snapshots) {
@@ -175,6 +176,23 @@ export async function fetchPlanningData(
             seen.add(s.account_id);
           }
         }
+      }
+    }
+
+    // Final fallback: if still zero, try summing current holdings market values
+    // (covers accounts with holdings but no balance_snapshot yet)
+    if (fiPortfolioValue === 0) {
+      const { data: positions } = await db
+        .from('current_positions')
+        .select('account_id, live_market_value')
+        .in('account_id', fiAccountIdArr)
+        .gt('quantity', 0);
+
+      if (positions) {
+        fiPortfolioValue = positions.reduce(
+          (sum: number, p: { live_market_value: number }) => sum + (p.live_market_value ?? 0),
+          0,
+        );
       }
     }
   }
@@ -245,6 +263,9 @@ export function computeCurrentAge(birthday: string | null): number | null {
   }
 }
 
+/** Buckets that count as investment contributions for FI projections. */
+const FI_CONTRIBUTION_BUCKETS = new Set(['savings', 'employer_match']);
+
 /** Sum yearly contributions that route to FI-flagged accounts. */
 export function computeYearlyFIContributions(
   waterfall: HouseholdWaterfall,
@@ -252,10 +273,10 @@ export function computeYearlyFIContributions(
   fiAccountIds: Set<string>,
   incomeSources: IncomeSource[],
 ): number {
-  // Saving items that route to FI accounts
+  // Saving / employer-match items that route to FI accounts
   const fiItems = cashflowItems.filter(
     (item) =>
-      item.bucket === 'savings' &&
+      FI_CONTRIBUTION_BUCKETS.has(item.bucket) &&
       item.destination_account_id != null &&
       fiAccountIds.has(item.destination_account_id),
   );
@@ -338,7 +359,7 @@ export function assembleProjectionInput(
 
   for (const item of data.cashflow_items) {
     if (
-      item.bucket === 'savings' &&
+      FI_CONTRIBUTION_BUCKETS.has(item.bucket) &&
       item.destination_account_id &&
       data.fi_account_ids.has(item.destination_account_id)
     ) {

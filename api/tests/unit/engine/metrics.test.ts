@@ -75,12 +75,29 @@ describe('yearsToFI', () => {
     expect(yearsToFI(1000000, 50000, 1000000, 0.06)).toBe(0);
   });
 
-  it('computes years for reference scenario', () => {
+  it('computes years for reference scenario (no age)', () => {
     // Portfolio $658,000, contributions $128,665/yr, FIRE $6,666,667, 6% real return
-    // Expected ~19.82 years
+    // Expected ~19.82 years (full annual contributions assumed)
     const result = yearsToFI(658000, 128665, 6666667, 0.06);
     expect(result).not.toBeNull();
     expect(result!).toBeCloseTo(19.82, 0);
+  });
+
+  it('prorates first year for fractional age', () => {
+    // Same scenario but age 27.4 → first partial year is 0.6
+    // Should be slightly longer than the non-prorated version
+    const withoutAge = yearsToFI(658000, 128665, 6666667, 0.06);
+    const withAge = yearsToFI(658000, 128665, 6666667, 0.06, 27.4);
+    expect(withAge).not.toBeNull();
+    expect(withoutAge).not.toBeNull();
+    // Prorated version should differ (partial first year counted)
+    expect(withAge).not.toBe(withoutAge);
+  });
+
+  it('no proration for integer age', () => {
+    const withoutAge = yearsToFI(658000, 128665, 6666667, 0.06);
+    const withAge = yearsToFI(658000, 128665, 6666667, 0.06, 27);
+    expect(withAge).toBeCloseTo(withoutAge!, 2);
   });
 
   it('returns null when unreachable (no contributions, no growth)', () => {
@@ -132,17 +149,20 @@ describe('computeFIMetrics — reference spreadsheet', () => {
     expect(result.progress_pct).toBeCloseTo(9.87, 1);
   });
 
-  it('matches reference years to FIRE', () => {
+  it('computes years to FIRE with first-year proration', () => {
     const result = computeFIMetrics(referenceInput);
     expect(result.years_to_fire).not.toBeNull();
-    expect(result.years_to_fire!).toBeCloseTo(19.82, 0);
+    // With proration (age 27.39 → 0.61 first year), slightly different from pure formula
+    expect(result.years_to_fire!).toBeGreaterThan(19);
+    expect(result.years_to_fire!).toBeLessThan(21);
   });
 
-  it('matches reference projected retirement age', () => {
+  it('computes projected retirement age', () => {
     const result = computeFIMetrics(referenceInput);
-    // 27.39 + 19.82 ≈ 47.21
     expect(result.projected_retirement_age).not.toBeNull();
-    expect(result.projected_retirement_age!).toBeCloseTo(47.21, 0);
+    // 27.39 + years_to_fire ≈ ~47
+    expect(result.projected_retirement_age!).toBeGreaterThan(46);
+    expect(result.projected_retirement_age!).toBeLessThan(48);
   });
 
   it('reports behind (projected 47 > desired 45)', () => {

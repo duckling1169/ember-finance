@@ -6,7 +6,7 @@ import {
   cleanupTestHousehold,
   getTestClient,
 } from '../helpers.js';
-import { processIngest } from '../../src/services/ingest.js';
+import { persistIngest } from '../../src/services/ingest.js';
 import type { IngestResult } from '../../src/types/index.js';
 
 describe('ingest pipeline (DB integration)', () => {
@@ -56,7 +56,7 @@ describe('ingest pipeline (DB integration)', () => {
         holdings: [],
       };
 
-      const ingest = await processIngest(
+      const ingest = await persistIngest(
         {
           householdId,
           accountId: checkingAccountId,
@@ -94,7 +94,7 @@ describe('ingest pipeline (DB integration)', () => {
       };
 
       // Ingest same transaction again
-      await processIngest(
+      await persistIngest(
         {
           householdId,
           accountId: checkingAccountId,
@@ -123,7 +123,7 @@ describe('ingest pipeline (DB integration)', () => {
         holdings: [],
       };
 
-      await processIngest(
+      await persistIngest(
         {
           householdId,
           accountId: checkingAccountId,
@@ -180,7 +180,7 @@ describe('ingest pipeline (DB integration)', () => {
         holdings: [],
       };
 
-      const ingest = await processIngest(
+      const ingest = await persistIngest(
         {
           householdId,
           accountId: brokerageAccountId,
@@ -225,7 +225,7 @@ describe('ingest pipeline (DB integration)', () => {
         holdings: [],
       };
 
-      await processIngest(
+      await persistIngest(
         {
           householdId,
           accountId: brokerageAccountId,
@@ -277,7 +277,7 @@ describe('ingest pipeline (DB integration)', () => {
         ],
       };
 
-      await processIngest(
+      await persistIngest(
         {
           householdId,
           accountId: brokerageAccountId,
@@ -321,7 +321,7 @@ describe('ingest pipeline (DB integration)', () => {
         ],
       };
 
-      await processIngest(
+      await persistIngest(
         {
           householdId,
           accountId: brokerageAccountId,
@@ -355,7 +355,7 @@ describe('ingest pipeline (DB integration)', () => {
         holdings: [],
       };
 
-      await processIngest(
+      await persistIngest(
         {
           householdId,
           accountId: checkingAccountId,
@@ -388,7 +388,7 @@ describe('ingest pipeline (DB integration)', () => {
         holdings: [],
       };
 
-      const ingest = await processIngest(
+      const ingest = await persistIngest(
         {
           householdId,
           accountId: checkingAccountId,
@@ -460,7 +460,7 @@ describe('ingest pipeline (DB integration)', () => {
         holdings: [{ asOf: '2025-03-01', symbol: 'VXUS', quantity: 5, marketValue: 500 }],
       };
 
-      const ingest = await processIngest(
+      const ingest = await persistIngest(
         {
           householdId,
           accountId: brokerageAccountId,

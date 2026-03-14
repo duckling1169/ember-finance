@@ -6,7 +6,7 @@ import {
   cleanupTestHousehold,
   getTestClient,
 } from '../helpers.js';
-import { processIngest } from '../../src/services/ingest.js';
+import { persistIngest } from '../../src/services/ingest.js';
 import type { IngestResult } from '../../src/types/index.js';
 
 /**
@@ -48,13 +48,13 @@ describe('cross-source duplicate detection', () => {
   const db = () => getTestClient();
 
   const ingestCsv = (result: IngestResult) =>
-    processIngest(
+    persistIngest(
       { householdId, accountId, sourceId: csvSourceId, sourceType: 'csv_upload' },
       result,
     );
 
   const ingestTeller = (result: IngestResult) =>
-    processIngest(
+    persistIngest(
       { householdId, accountId, sourceId: tellerSourceId, sourceType: 'teller_sync' },
       result,
     );
@@ -262,7 +262,7 @@ describe('user manual duplicate management', () => {
     sourceId = source.id;
 
     // Insert some transactions
-    await processIngest(
+    await persistIngest(
       { householdId, accountId, sourceId, sourceType: 'manual_entry' },
       {
         transactions: [
@@ -385,7 +385,7 @@ describe('cross-source investment activity dedup', () => {
 
   it('CSV historical activity + SnapTrade live activity deduplicates', async () => {
     // CSV: historical trades
-    await processIngest(
+    await persistIngest(
       { householdId, accountId, sourceId: csvSourceId, sourceType: 'csv_upload' },
       {
         transactions: [],
@@ -414,7 +414,7 @@ describe('cross-source investment activity dedup', () => {
     );
 
     // SnapTrade: overlaps from ~Sep 2024
-    const result = await processIngest(
+    const result = await persistIngest(
       { householdId, accountId, sourceId: snaptradeSourceId, sourceType: 'snaptrade_sync' },
       {
         transactions: [],

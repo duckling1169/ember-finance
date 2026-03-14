@@ -81,25 +81,45 @@ export function computeProjection(input: ProjectionInput, currentAge?: number): 
     inflation_rate,
   );
 
+  // Year 0: snapshot of current state (today's fractional age)
+  if (years > 0) {
+    projectionYears.push({
+      year: 0,
+      age: currentAge != null ? Math.round(currentAge * 100) / 100 : null,
+      starting_portfolio: fi_portfolio_value,
+      contributions: 0,
+      growth: 0,
+      ending_portfolio: fi_portfolio_value,
+    });
+  }
+
+  // Fraction of the first year remaining (e.g. age 27.4 → 0.6 of the year left)
+  const firstYearFraction = currentAge != null ? 1 - (currentAge - Math.floor(currentAge)) : 1;
+
   // Track account-level contribution scaling
   let accountContribs = account_contributions?.map((a) => ({ ...a }));
 
   for (let y = 1; y <= years; y++) {
     const startingPortfolio = portfolio;
 
-    // Contributions for this year
-    const yearContributions = contributions;
+    // Prorate contributions for the first year
+    const prorata = y === 1 ? firstYearFraction : 1;
+    const yearContributions = contributions * prorata;
     totalContributions += yearContributions;
 
     // Growth on starting portfolio + half-year contributions (mid-year approximation)
-    const growth = (startingPortfolio + yearContributions / 2) * real_return_rate;
+    // Prorate growth for partial first year
+    const growth = (startingPortfolio + yearContributions / 2) * real_return_rate * prorata;
     totalGrowth += growth;
 
     portfolio = startingPortfolio + yearContributions + growth;
 
+    // Each subsequent year is the next birthday (integer age)
+    const yearAge = currentAge != null ? Math.floor(currentAge) + y : null;
+
     const yearRecord: ProjectionYear = {
       year: y,
-      age: currentAge != null ? currentAge + y : null,
+      age: yearAge,
       starting_portfolio: startingPortfolio,
       contributions: yearContributions,
       growth,
@@ -111,7 +131,7 @@ export function computeProjection(input: ProjectionInput, currentAge?: number): 
       yearRecord.account_detail = accountContribs.map((a) => ({
         account_id: a.account_id,
         name: a.name,
-        contribution: a.yearly_amount,
+        contribution: a.yearly_amount * prorata,
       }));
     }
 

@@ -508,9 +508,9 @@ function ItemInlineForm({
       amount_type: amountType,
       frequency: amountType === 'percent' ? 'monthly' : frequency,
       start_date: initial?.start_date ?? today,
-      income_source_id: incomeSourceId || undefined,
-      destination_account_id: showToAccount && destAccountId ? destAccountId : undefined,
-      category: showCategory && category ? category : undefined,
+      income_source_id: incomeSourceId || null,
+      destination_account_id: showToAccount && destAccountId ? destAccountId : null,
+      category: showCategory && category ? category : null,
     });
   }
 
@@ -518,22 +518,31 @@ function ItemInlineForm({
 
   return (
     <form onSubmit={handleSubmit} className="space-y-2 rounded-md bg-muted/30 p-2">
-      {/* Row 1: core fields */}
-      <div className="flex flex-wrap items-end gap-2">
-        <div className="min-w-[120px] flex-1">
+      <div className="flex items-end gap-1.5">
+        <div className="min-w-0 flex-1">
           <label className="text-xs text-muted-foreground">Name</label>
           <Input
             value={name}
             onChange={(e) => setName(e.target.value)}
-            placeholder="e.g. 401k, Rent, Roth IRA"
+            placeholder="e.g. 401k, Rent"
             className="h-7 text-xs"
           />
         </div>
-        <div className="w-[150px]">
+        <div className="w-[110px] shrink-0">
           <label className="text-xs text-muted-foreground">Type</label>
           <Select
             value={bucket}
-            onChange={(e) => setBucket(e.target.value as CashflowBucket)}
+            onChange={(e) => {
+              const newBucket = e.target.value as CashflowBucket;
+              setBucket(newBucket);
+              // Clear relational fields that don't apply to the new bucket
+              const nowSaving = newBucket === 'savings' || newBucket === 'employer_match';
+              if (!nowSaving) {
+                setDestAccountId('');
+                setIncomeSourceId('');
+              }
+              if (newBucket === 'expense') setCategory('');
+            }}
             className={compactSelect}
           >
             {BUCKET_OPTIONS.map((o) => (
@@ -543,7 +552,7 @@ function ItemInlineForm({
             ))}
           </Select>
         </div>
-        <div className="w-[140px]">
+        <div className="w-[110px] shrink-0">
           <label className="text-xs text-muted-foreground">Amount</label>
           <div className="flex h-7 items-stretch">
             <button
@@ -566,8 +575,8 @@ function ItemInlineForm({
           </div>
         </div>
         {amountType === 'fixed' && (
-          <div className="w-[100px]">
-            <label className="text-xs text-muted-foreground">Frequency</label>
+          <div className="w-[90px] shrink-0">
+            <label className="text-xs text-muted-foreground">Freq</label>
             <Select
               value={frequency}
               onChange={(e) => setFrequency(e.target.value as CashflowFrequency)}
@@ -581,13 +590,10 @@ function ItemInlineForm({
             </Select>
           </div>
         )}
-      </div>
 
-      {/* Row 2: conditional fields + actions */}
-      <div className="flex flex-wrap items-end gap-2">
         {showFromIncome && incomeSources && incomeSources.length > 0 && (
-          <div className="w-[140px]">
-            <label className="text-xs text-muted-foreground">From Income</label>
+          <div className="w-[100px] shrink-0">
+            <label className="text-xs text-muted-foreground">From</label>
             <Select
               value={incomeSourceId}
               onChange={(e) => setIncomeSourceId(e.target.value)}
@@ -604,7 +610,7 @@ function ItemInlineForm({
         )}
 
         {showToAccount && (
-          <div className="w-[170px]">
+          <div className="w-[120px] shrink-0">
             <label className="text-xs text-muted-foreground">To Account</label>
             <Select
               value={destAccountId}
@@ -629,7 +635,7 @@ function ItemInlineForm({
         )}
 
         {showCategory && expenseCategories && expenseCategories.length > 0 && (
-          <div className="w-[130px]">
+          <div className="w-[100px] shrink-0">
             <label className="text-xs text-muted-foreground">Category</label>
             <Select
               value={category}
@@ -646,7 +652,7 @@ function ItemInlineForm({
           </div>
         )}
 
-        <div className="ml-auto flex h-7 items-center gap-1">
+        <div className="flex h-7 shrink-0 items-center gap-1">
           <Button
             type="submit"
             variant="ghost"

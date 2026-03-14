@@ -16,28 +16,33 @@ interface ProjectionChartProps {
 export function ProjectionChart({ projection, fireNumber, className }: ProjectionChartProps) {
   const theme = useNivoTheme();
 
+  // Deduplicate ages (year 0 fractional may floor to same as year 1)
+  const hasAge = projection.years[0]?.age != null;
+  const seen = new Set<number>();
+  const dedupedYears = projection.years.filter((y) => {
+    const x = hasAge && y.age != null ? Math.floor(y.age) : y.year;
+    if (seen.has(x)) return false;
+    seen.add(x);
+    return true;
+  });
+
   const nivoData = useMemo(
     () => [
       {
         id: 'Portfolio',
-        data: projection.years.map((y) => ({
-          x: y.age != null ? Math.floor(y.age) : y.year,
+        data: dedupedYears.map((y) => ({
+          x: String(hasAge && y.age != null ? Math.floor(y.age) : y.year),
           y: y.ending_portfolio,
         })),
       },
     ],
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     [projection],
   );
 
   if (!theme || projection.years.length === 0) return null;
 
-  const hasAge = projection.years[0]?.age != null;
   const maxY = Math.max(...projection.years.map((y) => y.ending_portfolio), fireNumber ?? 0);
-
-  // Generate clean x-axis tick values (every 5 years)
-  const xValues = projection.years
-    .filter((_, i) => i % 5 === 0 || i === projection.years.length - 1)
-    .map((y) => (hasAge && y.age != null ? Math.floor(y.age) : y.year));
 
   return (
     <div
@@ -49,25 +54,20 @@ export function ProjectionChart({ projection, fireNumber, className }: Projectio
         data={nivoData}
         theme={theme}
         colors={[CHART_COLORS[0]]}
-        margin={{ top: 16, right: 16, bottom: 36, left: 60 }}
-        xScale={{ type: 'linear', min: 'auto', max: 'auto' }}
+        margin={{ top: 8, right: 12, bottom: 28, left: 52 }}
+        xScale={{ type: 'point' }}
         yScale={{ type: 'linear', min: 0, max: maxY * 1.05 }}
         axisBottom={{
           tickSize: 0,
           tickPadding: 8,
-          tickValues: xValues,
-          format: (v) => String(Math.round(Number(v))),
-          legend: hasAge ? 'Age' : 'Year',
-          legendOffset: 28,
-          legendPosition: 'middle',
         }}
         axisLeft={{
           tickSize: 0,
           tickPadding: 8,
-          tickValues: 5,
+          tickValues: 4,
           format: fmtAxisK,
         }}
-        gridYValues={5}
+        gridYValues={4}
         enableGridX={false}
         lineWidth={2}
         enablePoints={false}

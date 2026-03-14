@@ -316,6 +316,12 @@ function FlowForm({
   const defaultSourceId = item?.income_source_id || item?.source_account_id || '';
 
   const [sourceType, setSourceType] = useState(defaultSourceType);
+  const [sourceId, setSourceId] = useState(defaultSourceId);
+
+  function handleSourceTypeChange(newType: string) {
+    setSourceType(newType);
+    setSourceId(''); // Reset selection when switching types
+  }
 
   function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -372,7 +378,7 @@ function FlowForm({
           <Select
             name="source_type"
             value={sourceType}
-            onChange={(e) => setSourceType(e.target.value)}
+            onChange={(e) => handleSourceTypeChange(e.target.value)}
           >
             <option value="income">From income source</option>
             <option value="account">From account</option>
@@ -382,7 +388,7 @@ function FlowForm({
           <label className="mb-1.5 block text-sm font-medium">
             {sourceType === 'income' ? 'Income Source' : 'Source Account'}
           </label>
-          <Select name="source_id" defaultValue={defaultSourceId}>
+          <Select name="source_id" value={sourceId} onChange={(e) => setSourceId(e.target.value)}>
             <option value="">None</option>
             {sourceType === 'income'
               ? incomeSources.map((s) => (

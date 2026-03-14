@@ -155,6 +155,14 @@ planningRoute.delete('/income-sources/:sourceId', async (c) => {
 
   if (error) return c.json({ error: error.message }, 500);
   if (count === 0) return c.json({ error: 'Income source not found' }, 404);
+
+  // Clear orphaned references on cashflow items
+  await db
+    .from('cashflow_item')
+    .update({ income_source_id: null, updated_at: new Date().toISOString() })
+    .eq('household_id', householdId)
+    .eq('income_source_id', sourceId);
+
   return c.json({ success: true });
 });
 
@@ -302,6 +310,23 @@ planningRoute.patch('/flows/:flowId', async (c) => {
   if (update.amount_type === 'percent') {
     if (update.amount !== undefined && (update.amount as number) > 100) {
       return c.json({ error: 'percent amount must be between 0 and 100' }, 400);
+    }
+  }
+
+  // If switching to percent or clearing income_source_id on a percent item, validate
+  if (update.amount_type === 'percent' && update.income_source_id === null) {
+    return c.json({ error: 'percent-type items require an income source' }, 400);
+  }
+  if (update.income_source_id === null && update.amount_type === undefined) {
+    // Check if existing item is percent type
+    const { data: existing } = await db
+      .from('cashflow_item')
+      .select('amount_type')
+      .eq('id', flowId)
+      .eq('household_id', householdId)
+      .single();
+    if (existing?.amount_type === 'percent') {
+      return c.json({ error: 'percent-type items require an income source' }, 400);
     }
   }
 
@@ -569,10 +594,7 @@ planningRoute.get('/projections', async (c) => {
     const primaryMember = planningData.members[0];
     const currentAge = primaryMember ? computeCurrentAge(primaryMember.birthday) : undefined;
 
-    const projection = computeProjection(
-      projectionInput,
-      currentAge != null ? Math.floor(currentAge) : undefined,
-    );
+    const projection = computeProjection(projectionInput, currentAge ?? undefined);
 
     return c.json({
       scenario: { id: planningData.scenario.id, name: planningData.scenario.name, assumptions },

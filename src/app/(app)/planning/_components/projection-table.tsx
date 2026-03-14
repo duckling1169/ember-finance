@@ -11,7 +11,7 @@ interface ProjectionTableProps {
 }
 
 export function ProjectionTable({ projection }: ProjectionTableProps) {
-  const [showAll, setShowAll] = useState(false);
+  const [showAll, setShowAll] = useState(true);
 
   const years = showAll
     ? projection.years
@@ -54,9 +54,15 @@ export function ProjectionTable({ projection }: ProjectionTableProps) {
           <tbody>
             {years.map((y) => (
               <tr key={y.year} className="border-b border-border/30 hover:bg-muted/30">
-                <td className="px-3 py-1.5 font-mono tabular-nums">{y.year}</td>
+                <td className="px-3 py-1.5 font-mono tabular-nums">
+                  {y.year === 0 ? 'Today' : y.year}
+                </td>
                 <td className="px-3 py-1.5 text-muted-foreground">
-                  {y.age != null ? Math.floor(y.age) : '--'}
+                  {y.age != null
+                    ? y.year === 0
+                      ? Number(y.age).toFixed(1)
+                      : Math.floor(y.age)
+                    : '--'}
                 </td>
                 <td className="px-3 py-1.5 text-right font-mono tabular-nums">
                   {fmt(y.starting_portfolio)}

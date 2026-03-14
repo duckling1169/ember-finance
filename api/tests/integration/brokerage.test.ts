@@ -6,7 +6,7 @@ import {
   cleanupTestHousehold,
   getTestClient,
 } from '../helpers.js';
-import { processIngest } from '../../src/services/ingest.js';
+import { persistIngest } from '../../src/services/ingest.js';
 import type { IngestResult } from '../../src/types/index.js';
 
 describe('brokerage account (comprehensive)', () => {
@@ -56,7 +56,7 @@ describe('brokerage account (comprehensive)', () => {
   });
 
   const ingestBrokerage = (result: IngestResult) =>
-    processIngest(
+    persistIngest(
       {
         householdId,
         accountId: brokerageId,
@@ -67,7 +67,7 @@ describe('brokerage account (comprehensive)', () => {
     );
 
   const ingestRetirement = (result: IngestResult) =>
-    processIngest(
+    persistIngest(
       {
         householdId,
         accountId: retirementId,
@@ -78,7 +78,7 @@ describe('brokerage account (comprehensive)', () => {
     );
 
   const ingestHsa = (result: IngestResult) =>
-    processIngest(
+    persistIngest(
       { householdId, accountId: hsaId, sourceId: hsaSourceId, sourceType: 'manual_entry' },
       result,
     );
