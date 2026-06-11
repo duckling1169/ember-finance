@@ -1,5 +1,6 @@
 'use client';
 
+import { PageSkeleton } from '@/components/common/page-skeleton';
 import { useState, useMemo } from 'react';
 import Link from 'next/link';
 import {
@@ -109,7 +110,7 @@ export default function DashboardPage() {
   const fetchError = hhError || acctsError;
 
   if (loading) {
-    return <div className="py-10 text-muted-foreground">Loading...</div>;
+    return <PageSkeleton rows={2} />;
   }
 
   if (fetchError) {

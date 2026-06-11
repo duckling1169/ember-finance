@@ -1,5 +1,6 @@
 'use client';
 
+import { PageSkeleton } from '@/components/common/page-skeleton';
 import { use, useState, useRef } from 'react';
 import Link from 'next/link';
 import type { AccountDetailResponse } from '@shared/types';
@@ -11,6 +12,7 @@ import {
   mutateAccounts,
 } from '@/lib/swr';
 import { AccountFlows } from './_components/account-flows';
+import { TransactionsTab } from './_components/transactions-tab';
 import { ingestManual, ingestCsv } from '@/lib/api';
 import { fmt, fmtDateTime } from '@/lib/formatters';
 import { TAX_TREATMENT_LABELS, TAX_TREATMENT_OPTIONS, API_PROVIDERS } from '@/lib/constants';
@@ -45,7 +47,7 @@ import {
   IconPlayerPlay,
 } from '@tabler/icons-react';
 
-type Tab = 'overview' | 'history' | 'settings';
+type Tab = 'overview' | 'transactions' | 'history' | 'settings';
 
 interface AccountHistoryEvent {
   id: string;
@@ -154,7 +156,7 @@ export default function AccountDetailPage({ params }: { params: Promise<{ id: st
   }
 
   if (isLoading) {
-    return <div className="py-10 text-muted-foreground">Loading...</div>;
+    return <PageSkeleton rows={3} />;
   }
 
   if (error) {
@@ -195,8 +197,13 @@ export default function AccountDetailPage({ params }: { params: Promise<{ id: st
 
   const LinkIcon = linkConfig.icon;
 
+  const isInvestmentAccount = INVESTMENT_ACCOUNT_TYPES.includes(
+    account.account_type as AccountType,
+  );
+
   const tabs: { key: Tab; label: string; count?: number }[] = [
     { key: 'overview', label: 'Overview' },
+    { key: 'transactions', label: isInvestmentAccount ? 'Activity' : 'Transactions' },
     { key: 'history', label: 'History', count: history.length },
     { key: 'settings', label: 'Settings' },
   ];
@@ -267,6 +274,9 @@ export default function AccountDetailPage({ params }: { params: Promise<{ id: st
       {/* Tab content */}
       {activeTab === 'overview' && (
         <OverviewTab account={account} balanceHistory={balanceHistory} accountId={id} />
+      )}
+      {activeTab === 'transactions' && (
+        <TransactionsTab accountId={id} isInvestmentAccount={isInvestmentAccount} />
       )}
       {activeTab === 'history' && (
         <HistoryTab

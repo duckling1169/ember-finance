@@ -9,6 +9,8 @@ import {
   getInvestmentHistory,
   getTransactions,
   getInvestmentActivity,
+  getHiddenTransactions,
+  getHiddenActivity,
   getProfile,
   getMembers,
   getInvites,
@@ -186,7 +188,31 @@ export function mutateActivity() {
   return Promise.all([
     mutate((key: unknown) => Array.isArray(key) && key[0] === 'transactions'),
     mutate((key: unknown) => Array.isArray(key) && key[0] === 'investment-activity'),
+    mutate((key: unknown) => Array.isArray(key) && key[0] === 'hidden-transactions'),
+    mutate((key: unknown) => Array.isArray(key) && key[0] === 'hidden-activity'),
   ]);
+}
+
+// ── Hidden records (duplicates review) ──
+
+export function useHiddenTransactions(accountId: string | undefined) {
+  const householdId = useHouseholdId();
+
+  return useSWR(
+    householdId && accountId ? ['hidden-transactions', householdId, accountId] : null,
+    ([, hhId, acctId]) => getHiddenTransactions(hhId, acctId),
+    { revalidateOnFocus: false },
+  );
+}
+
+export function useHiddenActivity(accountId: string | undefined) {
+  const householdId = useHouseholdId();
+
+  return useSWR(
+    householdId && accountId ? ['hidden-activity', householdId, accountId] : null,
+    ([, hhId, acctId]) => getHiddenActivity(hhId, acctId),
+    { revalidateOnFocus: false },
+  );
 }
 
 // ── Profile ──

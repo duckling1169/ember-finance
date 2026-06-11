@@ -1,5 +1,6 @@
 'use client';
 
+import { Skeleton } from '@/components/ui/skeleton';
 import { useState, useMemo } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { useAccounts, useTransactions, useInvestmentActivity } from '@/lib/swr';
@@ -340,7 +341,11 @@ export default function ActivityPage() {
       <Card size="sm">
         <CardContent>
           {loading ? (
-            <div className="py-10 text-center text-muted-foreground">Loading...</div>
+            <div className="space-y-2 py-4">
+              {Array.from({ length: 6 }).map((_, i) => (
+                <Skeleton key={i} className="h-8 w-full" />
+              ))}
+            </div>
           ) : rows.length === 0 ? (
             <div className="py-10 text-center text-muted-foreground">
               No activity found for the selected accounts and date range.

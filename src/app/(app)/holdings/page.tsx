@@ -1,5 +1,6 @@
 'use client';
 
+import { PageSkeleton } from '@/components/common/page-skeleton';
 import { useState, useMemo } from 'react';
 import type { HouseholdHoldingsResponse } from '@shared/types';
 import { useHouseholdHoldings, useAccounts } from '@/lib/swr';
@@ -127,7 +128,7 @@ export default function HoldingsPage() {
   const fetchError = acctsError || holdingsError;
 
   if (loading) {
-    return <div className="py-10 text-center text-muted-foreground">Loading...</div>;
+    return <PageSkeleton />;
   }
 
   if (fetchError) {

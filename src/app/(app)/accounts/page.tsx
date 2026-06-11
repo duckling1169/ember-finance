@@ -1,5 +1,6 @@
 'use client';
 
+import { PageSkeleton } from '@/components/common/page-skeleton';
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { createAccount } from '@/lib/api';
@@ -100,7 +101,7 @@ function AccountsContent() {
   }
 
   if (loading) {
-    return <div className="py-10 text-center text-muted-foreground">Loading...</div>;
+    return <PageSkeleton />;
   }
 
   if (fetchError) {

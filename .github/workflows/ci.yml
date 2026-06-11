@@ -54,6 +54,9 @@ jobs:
       - name: Type check (frontend)
         run: npx tsc --noEmit
 
+      - name: Frontend tests
+        run: npx vitest run
+
       - name: Build (Next.js)
         run: pnpm run build
 
