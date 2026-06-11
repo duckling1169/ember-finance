@@ -21,8 +21,6 @@ import type {
 import type { FIMetricsInput } from '../engine/metrics.js';
 import type { ProjectionInput, AccountContribution } from '../engine/projections.js';
 import type { SavingsRateInput } from '../engine/savings.js';
-import { computeHouseholdWaterfall } from '../engine/household.js';
-import { toAnnual } from '../engine/normalize.js';
 import { resolveItemAnnual } from '../engine/resolve-amount.js';
 
 // ── Default Assumptions ──

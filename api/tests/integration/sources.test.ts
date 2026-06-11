@@ -89,7 +89,7 @@ describe('account_source (DB integration)', () => {
 
   it('allows multiple providers on one account', async () => {
     const db = getTestClient();
-    const { data, error } = await db
+    const { error } = await db
       .from('account_source')
       .insert({
         account_id: accountId,

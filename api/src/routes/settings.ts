@@ -67,7 +67,6 @@ settingsRoute.patch('/household', async (c) => {
 
 settingsRoute.get('/profile', async (c) => {
   const memberId = c.get('memberId');
-  const householdId = c.get('householdId');
   const db = c.get('userClient');
 
   const { data, error } = await db.from('member').select('*').eq('id', memberId).single();

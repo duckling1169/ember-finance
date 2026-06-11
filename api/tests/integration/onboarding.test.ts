@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest';
+import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import { Hono } from 'hono';
 import { onboardingRoute } from '../../src/routes/onboarding.js';
 import type { AuthEnv } from '../../src/middleware/auth.js';

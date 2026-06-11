@@ -10,7 +10,6 @@ import {
 describe('tax_lot + lot_disposition + open_tax_lots view', () => {
   let householdId: string;
   let brokerageId: string;
-  let brokerageSourceId: string;
 
   const db = () => getTestClient();
 
@@ -28,8 +27,7 @@ describe('tax_lot + lot_disposition + open_tax_lots view', () => {
     });
     brokerageId = brokerage.id;
 
-    const bs = await createTestSource(brokerageId, householdId, 'manual');
-    brokerageSourceId = bs.id;
+    await createTestSource(brokerageId, householdId, 'manual');
   });
 
   afterAll(async () => {
@@ -555,7 +553,7 @@ describe('tax_lot + lot_disposition + open_tax_lots view', () => {
         amount: -1700.0,
       });
 
-      const closedLot = await insertLot({
+      await insertLot({
         symbol: 'LOT_VIEW',
         acquired_date: '2025-05-15',
         quantity: 0,

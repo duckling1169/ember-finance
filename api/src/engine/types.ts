@@ -1,5 +1,4 @@
 import type {
-  CashflowFrequency,
   CashflowItem,
   IncomeSource,
   TaxFilingStatus,

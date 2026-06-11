@@ -33,6 +33,9 @@ export default [
     rules: {
       ...eslint.configs.recommended.rules,
       ...tseslint.configs.recommended.rules,
+      // TypeScript itself reports unknown identifiers; eslint's no-undef
+      // false-positives on lib types like fetch/File/RequestInit
+      'no-undef': 'off',
       '@typescript-eslint/no-unused-vars': ['error', { argsIgnorePattern: '^_' }],
       '@typescript-eslint/no-explicit-any': 'warn',
       'no-console': ['warn', { allow: ['warn', 'error'] }],

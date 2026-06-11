@@ -13,8 +13,6 @@ describe('security_price + current_positions + household_positions_summary', () 
   let retirementId: string;
   let checkingId: string;
   let creditCardId: string;
-  let brokerageSourceId: string;
-  let retirementSourceId: string;
 
   const db = () => getTestClient();
 
@@ -54,10 +52,8 @@ describe('security_price + current_positions + household_positions_summary', () 
     });
     creditCardId = creditCard.id;
 
-    const bs = await createTestSource(brokerageId, householdId, 'manual');
-    brokerageSourceId = bs.id;
-    const rs = await createTestSource(retirementId, householdId, 'manual');
-    retirementSourceId = rs.id;
+    await createTestSource(brokerageId, householdId, 'manual');
+    await createTestSource(retirementId, householdId, 'manual');
     await createTestSource(checkingId, householdId, 'manual');
     await createTestSource(creditCardId, householdId, 'manual');
   });

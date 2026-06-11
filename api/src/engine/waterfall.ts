@@ -1,4 +1,4 @@
-import type { CashflowItem, IncomeSource } from '../types/index.js';
+import type { CashflowItem } from '../types/index.js';
 import type {
   WaterfallMemberInput,
   MemberWaterfall,
