@@ -133,6 +133,78 @@ export function validateHouseholdSettings(body: Record<string, unknown>): Valida
   return errors;
 }
 
+// ── Manual ingest payload ──
+
+const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
+
+function isValidDate(value: unknown): boolean {
+  return typeof value === 'string' && DATE_RE.test(value) && !isNaN(new Date(value).getTime());
+}
+
+function isFiniteNumber(value: unknown): boolean {
+  return typeof value === 'number' && Number.isFinite(value);
+}
+
+/**
+ * Validate a ManualIngestInput payload. Returns an error message or null.
+ * Each record type is checked for the fields persistIngest will insert,
+ * so malformed input fails with 400 instead of a DB error.
+ */
+export function validateManualIngest(body: Record<string, unknown>): string | null {
+  const transactions = body.transactions as unknown[] | undefined;
+  const investmentActivity = body.investmentActivity as unknown[] | undefined;
+  const balances = body.balances as unknown[] | undefined;
+  const holdings = body.holdings as unknown[] | undefined;
+
+  for (const [name, arr] of [
+    ['transactions', transactions],
+    ['investmentActivity', investmentActivity],
+    ['balances', balances],
+    ['holdings', holdings],
+  ] as const) {
+    if (arr !== undefined && !Array.isArray(arr)) {
+      return `${name} must be an array`;
+    }
+  }
+
+  const total =
+    (transactions?.length ?? 0) +
+    (investmentActivity?.length ?? 0) +
+    (balances?.length ?? 0) +
+    (holdings?.length ?? 0);
+  if (total === 0) {
+    return 'Provide at least one of: transactions, investmentActivity, balances, holdings';
+  }
+
+  for (const t of (transactions ?? []) as Record<string, unknown>[]) {
+    if (!isValidDate(t.date)) return 'transactions: date must be YYYY-MM-DD';
+    if (!isFiniteNumber(t.amount)) return 'transactions: amount must be a number';
+    if (typeof t.description !== 'string' || !t.description.trim())
+      return 'transactions: description is required';
+  }
+
+  for (const a of (investmentActivity ?? []) as Record<string, unknown>[]) {
+    if (!isValidDate(a.date)) return 'investmentActivity: date must be YYYY-MM-DD';
+    if (!isFiniteNumber(a.amount)) return 'investmentActivity: amount must be a number';
+    if (typeof a.activityType !== 'string' || !a.activityType)
+      return 'investmentActivity: activityType is required';
+  }
+
+  for (const b of (balances ?? []) as Record<string, unknown>[]) {
+    if (!isValidDate(b.date)) return 'balances: date must be YYYY-MM-DD';
+    if (!isFiniteNumber(b.balance)) return 'balances: balance must be a number';
+  }
+
+  for (const h of (holdings ?? []) as Record<string, unknown>[]) {
+    if (!isValidDate(h.asOf)) return 'holdings: asOf must be YYYY-MM-DD';
+    if (typeof h.symbol !== 'string' || !h.symbol.trim()) return 'holdings: symbol is required';
+    if (!isFiniteNumber(h.quantity)) return 'holdings: quantity must be a number';
+    if (!isFiniteNumber(h.marketValue)) return 'holdings: marketValue must be a number';
+  }
+
+  return null;
+}
+
 function validateOptionalMemberFields(body: Record<string, unknown>): ValidationError[] {
   const errors: ValidationError[] = [];
 

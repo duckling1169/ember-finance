@@ -129,16 +129,15 @@ quotesRoute.get('/', async (c) => {
     }
   }
 
-  // Upsert successful quotes into security_price cache (fire-and-forget)
+  // Upsert successful quotes into the security_price cache. A cache failure
+  // shouldn't fail the request — log it and return the quotes anyway.
   if (cacheRows.length > 0) {
-    supabase
+    const { error } = await supabase
       .from('security_price')
-      .upsert(cacheRows, { onConflict: 'symbol' })
-      .then(({ error }) => {
-        if (error) {
-          console.error('security_price cache upsert failed:', error.message);
-        }
-      });
+      .upsert(cacheRows, { onConflict: 'symbol' });
+    if (error) {
+      console.error('security_price cache upsert failed:', error.message);
+    }
   }
 
   return c.json({ quotes });

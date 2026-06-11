@@ -3,9 +3,12 @@ import {
   ACCOUNT_TYPES,
   INVESTMENT_ACCOUNT_TYPES,
   LIABILITY_TYPES,
+  TAX_TREATMENTS,
   type AccountType,
+  type TaxTreatment,
 } from '../types/index.js';
 import type { AuthEnv } from '../middleware/auth.js';
+import { clampPagination } from '../lib/pagination.js';
 
 export const accountsRoute = new Hono<AuthEnv>();
 
@@ -20,6 +23,44 @@ const ACCOUNT_UPDATABLE_FIELDS = new Set([
   'include_in_fi_portfolio',
   'tax_treatment',
 ]);
+
+/** Validate account create/update fields. Returns an error message or null. */
+function validateAccountFields(body: Record<string, unknown>, isCreate: boolean): string | null {
+  if (isCreate || body.name !== undefined) {
+    if (typeof body.name !== 'string' || !body.name.trim()) {
+      return 'name is required';
+    }
+  }
+  if (isCreate || body.account_type !== undefined) {
+    if (!ACCOUNT_TYPES.includes(body.account_type as AccountType)) {
+      return `Invalid account_type: ${body.account_type}`;
+    }
+  }
+  if (body.tax_treatment !== undefined && body.tax_treatment !== null) {
+    if (!TAX_TREATMENTS.includes(body.tax_treatment as TaxTreatment)) {
+      return `Invalid tax_treatment: ${body.tax_treatment}`;
+    }
+  }
+  if (body.institution !== undefined && body.institution !== null) {
+    if (typeof body.institution !== 'string') return 'institution must be a string';
+  }
+  if (body.currency !== undefined && typeof body.currency !== 'string') {
+    return 'currency must be a string';
+  }
+  if (body.meta !== undefined && (typeof body.meta !== 'object' || body.meta === null)) {
+    return 'meta must be an object';
+  }
+  if (body.is_active !== undefined && typeof body.is_active !== 'boolean') {
+    return 'is_active must be a boolean';
+  }
+  if (
+    body.include_in_fi_portfolio !== undefined &&
+    typeof body.include_in_fi_portfolio !== 'boolean'
+  ) {
+    return 'include_in_fi_portfolio must be a boolean';
+  }
+  return null;
+}
 
 // ── List accounts (enriched with latest balance + source status) ──
 
@@ -331,8 +372,7 @@ accountsRoute.get('/:householdId/:accountId/balances', async (c) => {
 accountsRoute.get('/:householdId/:accountId/history', async (c) => {
   const { householdId, accountId } = c.req.param();
   const db = c.get('userClient');
-  const limit = parseInt(c.req.query('limit') || '50', 10);
-  const offset = parseInt(c.req.query('offset') || '0', 10);
+  const { limit, offset } = clampPagination(c.req.query('limit'), c.req.query('offset'), 50);
   const from = c.req.query('from');
   const to = c.req.query('to');
 
@@ -365,22 +405,23 @@ accountsRoute.post('/:householdId', async (c) => {
     member_id?: string;
     currency?: string;
     meta?: Record<string, unknown>;
+    tax_treatment?: TaxTreatment;
   }>();
 
-  if (!ACCOUNT_TYPES.includes(body.account_type)) {
-    return c.json({ error: `Invalid account_type: ${body.account_type}` }, 400);
-  }
+  const validationError = validateAccountFields(body as Record<string, unknown>, true);
+  if (validationError) return c.json({ error: validationError }, 400);
 
   const { data, error } = await db
     .from('account')
     .insert({
       household_id: householdId,
-      name: body.name,
+      name: body.name.trim(),
       institution: body.institution || null,
       account_type: body.account_type,
       member_id: body.member_id || null,
       currency: body.currency || 'USD',
       meta: body.meta || {},
+      tax_treatment: body.tax_treatment || 'none',
       is_liability: LIABILITY_TYPES.includes(body.account_type),
       include_in_fi_portfolio: INVESTMENT_ACCOUNT_TYPES.includes(body.account_type),
     })
@@ -422,6 +463,10 @@ accountsRoute.patch('/:householdId/:accountId', async (c) => {
     return c.json({ error: 'No valid fields to update' }, 400);
   }
 
+  const validationError = validateAccountFields(update, false);
+  if (validationError) return c.json({ error: validationError }, 400);
+
+  if (typeof update.name === 'string') update.name = update.name.trim();
   if (update.account_type) {
     update.is_liability = LIABILITY_TYPES.includes(update.account_type as AccountType);
   }

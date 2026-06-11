@@ -1,5 +1,6 @@
 import { Hono } from 'hono';
 import type { AuthEnv } from '../middleware/auth.js';
+import { clampPagination } from '../lib/pagination.js';
 
 export const activityRoute = new Hono<AuthEnv>();
 
@@ -12,8 +13,7 @@ activityRoute.get('/transactions/:householdId', async (c) => {
   const accountId = c.req.query('accountId');
   const from = c.req.query('from');
   const to = c.req.query('to');
-  const limit = parseInt(c.req.query('limit') || '100', 10);
-  const offset = parseInt(c.req.query('offset') || '0', 10);
+  const { limit, offset } = clampPagination(c.req.query('limit'), c.req.query('offset'));
 
   let query = db
     .from('transaction')
@@ -44,8 +44,7 @@ activityRoute.get('/investments/:householdId', async (c) => {
   const to = c.req.query('to');
   const symbol = c.req.query('symbol');
   const activityType = c.req.query('activityType');
-  const limit = parseInt(c.req.query('limit') || '100', 10);
-  const offset = parseInt(c.req.query('offset') || '0', 10);
+  const { limit, offset } = clampPagination(c.req.query('limit'), c.req.query('offset'));
 
   let query = db
     .from('investment_activity')

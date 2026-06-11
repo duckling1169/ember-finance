@@ -5,6 +5,7 @@ import { ManualAdapter } from '../adapters/manual.js';
 import { CsvAdapter, detectCsvFormat } from '../adapters/csv.js';
 import type { Account, AccountSource } from '../types/index.js';
 import type { AuthEnv } from '../middleware/auth.js';
+import { validateManualIngest } from '../lib/validation.js';
 
 export const ingestRoute = new Hono<AuthEnv>();
 
@@ -40,10 +41,13 @@ async function getOrCreateSource(
   return newSource;
 }
 
-// Manual entry — accepts ManualIngestInput (from UI) or normalized data directly
+// Manual entry — accepts normalized ManualIngestInput
 ingestRoute.post('/manual/:householdId/:accountId', async (c) => {
   const { householdId, accountId } = c.req.param();
   const body = await c.req.json();
+
+  const validationError = validateManualIngest(body);
+  if (validationError) return c.json({ error: validationError }, 400);
 
   // Verify account exists (RLS-enforced — confirms caller owns this account)
   const db = c.get('userClient');

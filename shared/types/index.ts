@@ -263,7 +263,7 @@ export interface BalanceSnapshot {
   date: string;
   balance: number;
   available: number | null;
-  source: 'provider_sync' | 'csv_derived' | 'manual';
+  source: 'provider_sync' | 'csv_derived' | 'manual' | 'holdings_derived';
   created_at: string;
 }
 

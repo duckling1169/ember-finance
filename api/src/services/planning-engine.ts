@@ -107,7 +107,10 @@ export async function fetchPlanningData(
   if (itemsRes.error) throw new Error(`Failed to fetch cashflow items: ${itemsRes.error.message}`);
   if (accountsRes.error) throw new Error(`Failed to fetch accounts: ${accountsRes.error.message}`);
 
-  // Scenario: auto-create a base scenario if none exists
+  // Scenario: auto-create a base scenario if none exists. Concurrent
+  // requests can race here — the partial unique index on (household_id)
+  // where is_base makes the loser fail with 23505, in which case we
+  // re-read the winner's row.
   let scenario: PlanningScenario;
   if (scenarioRes.data) {
     scenario = scenarioRes.data;
@@ -123,10 +126,22 @@ export async function fetchPlanningData(
       .select()
       .single();
 
-    if (createErr || !created) {
+    if (created) {
+      scenario = created;
+    } else if (createErr?.code === '23505') {
+      const { data: existing, error: refetchErr } = await db
+        .from('planning_scenario')
+        .select('*')
+        .eq('household_id', householdId)
+        .eq('is_base', true)
+        .single();
+      if (refetchErr || !existing) {
+        throw new Error(`Failed to load base scenario: ${refetchErr?.message ?? 'unknown'}`);
+      }
+      scenario = existing;
+    } else {
       throw new Error(`Failed to create base scenario: ${createErr?.message ?? 'unknown'}`);
     }
-    scenario = created;
   }
 
   // Build account tax_treatment lookup
@@ -146,41 +161,26 @@ export async function fetchPlanningData(
   );
   const fiAccountIds = new Set(fiAccounts.map((a: { id: string }) => a.id));
 
-  // Sum latest balance for FI accounts
+  // Sum latest balance for FI accounts via the latest_account_balances view
   let fiPortfolioValue = 0;
   if (fiAccountIds.size > 0) {
     const fiAccountIdArr = Array.from(fiAccountIds);
-    const { data: balances } = await db.rpc('latest_balances_for_accounts', {
-      p_account_ids: fiAccountIdArr,
-    });
+    const { data: balances, error: balancesErr } = await db
+      .from('latest_account_balances')
+      .select('account_id, balance')
+      .in('account_id', fiAccountIdArr);
 
-    if (balances) {
-      fiPortfolioValue = balances.reduce(
-        (sum: number, b: { balance: number }) => sum + (b.balance ?? 0),
-        0,
-      );
-    } else {
-      // Fallback: query balance_snapshot directly
-      const { data: snapshots } = await db
-        .from('balance_snapshot')
-        .select('account_id, balance')
-        .in('account_id', fiAccountIdArr)
-        .order('date', { ascending: false });
-
-      if (snapshots) {
-        // Take latest per account
-        const seen = new Set<string>();
-        for (const s of snapshots) {
-          if (!seen.has(s.account_id)) {
-            fiPortfolioValue += s.balance ?? 0;
-            seen.add(s.account_id);
-          }
-        }
-      }
+    if (balancesErr) {
+      throw new Error(`Failed to fetch FI account balances: ${balancesErr.message}`);
     }
 
-    // Final fallback: if still zero, try summing current holdings market values
-    // (covers accounts with holdings but no balance_snapshot yet)
+    fiPortfolioValue = (balances ?? []).reduce(
+      (sum: number, b: { balance: number }) => sum + (b.balance ?? 0),
+      0,
+    );
+
+    // Fallback: if no balance snapshots exist yet, sum current holdings
+    // market values (covers accounts with holdings but no balance row)
     if (fiPortfolioValue === 0) {
       const { data: positions } = await db
         .from('current_positions')

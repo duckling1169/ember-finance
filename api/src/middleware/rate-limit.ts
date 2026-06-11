@@ -74,14 +74,9 @@ export function rateLimit(opts: RateLimitOptions = {}): MiddlewareHandler {
   };
 }
 
-/** Default key: use IP address, or authenticated user ID if available. */
+/** Default key: client IP. Rate limiting runs before auth, so requests
+ *  are bucketed per-IP (x-forwarded-for must come from a trusted proxy). */
 function defaultKeyFn(c: Context): string {
-  // Prefer authenticated user ID if the auth middleware has already run
-  const userId = c.get('userId') as string | undefined;
-  if (userId) return `user:${userId}`;
-
-  // Fall back to IP — Hono on @hono/node-server exposes this via
-  // the standard headers or the underlying socket.
   const forwarded = c.req.header('x-forwarded-for');
   if (forwarded) return `ip:${forwarded.split(',')[0].trim()}`;
 

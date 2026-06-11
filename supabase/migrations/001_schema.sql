@@ -443,6 +443,11 @@ create table planning_scenario (
 
 create index idx_planning_scenario_household on planning_scenario(household_id);
 
+-- At most one base scenario per household (auto-create relies on this
+-- to stay race-free under concurrent requests)
+create unique index uq_planning_scenario_base
+  on planning_scenario(household_id) where is_base = true;
+
 create table expense_category (
   id              uuid primary key default gen_random_uuid(),
   household_id    uuid not null references household(id) on delete cascade,

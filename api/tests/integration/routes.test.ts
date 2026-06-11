@@ -135,7 +135,7 @@ describe('API routes', () => {
       const res = await req(
         'POST',
         `/api/ingest/manual/${householdId}/00000000-0000-0000-0000-000000000000`,
-        { transactions: [] },
+        { transactions: [{ date: '2025-06-01', amount: -10, description: 'Ghost txn' }] },
       );
 
       expect(res.status).toBe(404);
