@@ -1,5 +1,9 @@
 name: CI
 
+# The repo is installed locally via the pnpm workspace at the parent js/
+# directory, which lives outside this repository — so CI installs fresh
+# (no lockfile) with pnpm in each package.
+
 on:
   push:
     branches: [main]
@@ -13,22 +17,22 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-          cache: npm
 
-      - name: Install root dependencies
-        run: npm ci
-
-      - name: Install API dependencies
-        run: npm ci --prefix api
+      - name: Install dependencies
+        run: pnpm install && pnpm install --dir api
 
       - name: Lint (frontend + API)
-        run: npm run lint
+        run: pnpm run lint
 
       - name: Format check
-        run: npm run format:check
+        run: pnpm run format:check
 
   typecheck-build:
     name: Type check & Build
@@ -36,50 +40,52 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-          cache: npm
 
-      - name: Install root dependencies
-        run: npm ci
-
-      - name: Install API dependencies
-        run: npm ci --prefix api
+      - name: Install dependencies
+        run: pnpm install && pnpm install --dir api
 
       - name: Type check (frontend)
         run: npx tsc --noEmit
 
       - name: Build (Next.js)
-        run: npm run build
+        run: pnpm run build
 
-  api-typecheck:
-    name: API type check
+  api-test:
+    name: API type check & unit tests
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
 
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-          cache: npm
 
-      - name: Install root dependencies
-        run: npm ci
-
-      - name: Install API dependencies
-        run: npm ci --prefix api
+      - name: Install dependencies
+        run: pnpm install && pnpm install --dir api
 
       - name: Type check (API)
         run: cd api && npx tsc --noEmit
 
-      # API tests (vitest) require a Supabase test database and are
-      # skipped in CI for now. To enable them, provision a test Supabase
-      # instance and set SUPABASE_URL / SUPABASE_SECRET_KEY as
-      # repository secrets, then uncomment the step below.
-      #
-      # - name: API tests
-      #   run: npm test --prefix api
-      #   env:
-      #     SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
-      #     SUPABASE_SECRET_KEY: ${{ secrets.SUPABASE_SECRET_KEY }}
+      # Unit tests are pure functions (engine math, adapters, validation)
+      # and need no database.
+      - name: API unit tests
+        run: cd api && npx vitest run tests/unit
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: http://localhost:54321
+          NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: ci-placeholder
+          SUPABASE_SECRET_KEY: ci-placeholder
+
+      # Integration tests require a Supabase database. To enable them,
+      # provision a test instance and set the secrets below, then run
+      # `npx vitest run tests/integration`.
