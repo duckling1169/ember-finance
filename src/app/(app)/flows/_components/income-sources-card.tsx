@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { useFlash } from '@/lib/use-flash';
+import { useToast } from '@/components/ui/toast';
 import { Card, CardHeader, CardTitle, CardAction, CardContent } from '@/components/ui/card';
 import {
   Table,
@@ -14,7 +14,6 @@ import {
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select } from '@/components/ui/select';
-import { Alert } from '@/components/ui/alert';
 import { IconPlus, IconPencil, IconTrash, IconCheck, IconX } from '@tabler/icons-react';
 import { SortIcon, type SortDir } from '@/components/common/sort-icon';
 
@@ -63,7 +62,7 @@ export function IncomeSourcesCard({ memberId }: IncomeSourcesCardProps) {
   const [saving, setSaving] = useState(false);
   const [sortKey, setSortKey] = useState<SortKey>('name');
   const [sortDir, setSortDir] = useState<SortDir>('asc');
-  const { flash, show: showFlash } = useFlash();
+  const toast = useToast();
 
   const memberSources = (sources ?? []).filter((s) => s.member_id === memberId);
 
@@ -113,8 +112,9 @@ export function IncomeSourcesCard({ memberId }: IncomeSourcesCardProps) {
       await createIncomeSource(data);
       await Promise.all([mutateIncomeSources(), mutatePlanningComputed()]);
       setAdding(false);
+      toast('success', 'Income source added');
     } catch (err) {
-      showFlash('error', err instanceof Error ? err.message : 'Failed to create income source');
+      toast('error', err instanceof Error ? err.message : 'Failed to create income source');
     } finally {
       setSaving(false);
     }
@@ -126,8 +126,9 @@ export function IncomeSourcesCard({ memberId }: IncomeSourcesCardProps) {
       await updateIncomeSource(id, data);
       await Promise.all([mutateIncomeSources(), mutatePlanningComputed()]);
       setEditingId(null);
+      toast('success', 'Income source updated');
     } catch (err) {
-      showFlash('error', err instanceof Error ? err.message : 'Failed to update income source');
+      toast('error', err instanceof Error ? err.message : 'Failed to update income source');
     } finally {
       setSaving(false);
     }
@@ -138,8 +139,9 @@ export function IncomeSourcesCard({ memberId }: IncomeSourcesCardProps) {
     try {
       await deleteIncomeSource(id);
       await Promise.all([mutateIncomeSources(), mutatePlanningComputed()]);
+      toast('success', 'Income source deleted');
     } catch (err) {
-      showFlash('error', err instanceof Error ? err.message : 'Failed to delete income source');
+      toast('error', err instanceof Error ? err.message : 'Failed to delete income source');
     } finally {
       setSaving(false);
     }
@@ -163,12 +165,6 @@ export function IncomeSourcesCard({ memberId }: IncomeSourcesCardProps) {
         </CardAction>
       </CardHeader>
       <CardContent className="space-y-1">
-        {flash && (
-          <Alert variant={flash.type === 'error' ? 'error' : 'success'} size="sm">
-            {flash.message}
-          </Alert>
-        )}
-
         {isLoading && <p className="text-sm text-muted-foreground">Loading...</p>}
 
         {!isLoading && memberSources.length === 0 && !adding && (

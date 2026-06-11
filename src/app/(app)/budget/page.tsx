@@ -5,11 +5,10 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Alert } from '@/components/ui/alert';
 import { IconPlus, IconCheck, IconX } from '@tabler/icons-react';
 
 import { fmt } from '@/lib/formatters';
-import { useFlash } from '@/lib/use-flash';
+import { useToast } from '@/components/ui/toast';
 import {
   useExpenseCategories,
   mutateExpenseCategories,
@@ -43,7 +42,7 @@ function toMonthly(amount: number, frequency: string): number {
 export default function BudgetPage() {
   const { data: categories, isLoading: catLoading } = useExpenseCategories();
   const { data: allItems, isLoading: itemsLoading } = useCashflowItems();
-  const { flash, show: showFlash } = useFlash();
+  const toast = useToast();
 
   const [saving, setSaving] = useState(false);
   const [addingCategory, setAddingCategory] = useState(false);
@@ -98,7 +97,7 @@ export default function BudgetPage() {
       setNewCatName('');
       setNewCatEssential(true);
     } catch (err) {
-      showFlash('error', err instanceof Error ? err.message : 'Failed to create category');
+      toast('error', err instanceof Error ? err.message : 'Failed to create category');
     } finally {
       setSaving(false);
     }
@@ -114,7 +113,7 @@ export default function BudgetPage() {
         mutatePlanningComputed(),
       ]);
     } catch (err) {
-      showFlash('error', err instanceof Error ? err.message : 'Failed to update category');
+      toast('error', err instanceof Error ? err.message : 'Failed to update category');
     } finally {
       setSaving(false);
     }
@@ -126,7 +125,7 @@ export default function BudgetPage() {
       await deleteExpenseCategory(id);
       await Promise.all([mutateExpenseCategories(), mutateCashflowItems()]);
     } catch (err) {
-      showFlash('error', err instanceof Error ? err.message : 'Failed to delete category');
+      toast('error', err instanceof Error ? err.message : 'Failed to delete category');
     } finally {
       setSaving(false);
     }
@@ -139,7 +138,7 @@ export default function BudgetPage() {
       await Promise.all([mutateCashflowItems(), mutatePlanningComputed()]);
       setAddingExpense(false);
     } catch (err) {
-      showFlash('error', err instanceof Error ? err.message : 'Failed to create expense');
+      toast('error', err instanceof Error ? err.message : 'Failed to create expense');
     } finally {
       setSaving(false);
     }
@@ -152,7 +151,7 @@ export default function BudgetPage() {
       await Promise.all([mutateCashflowItems(), mutatePlanningComputed()]);
       setEditingItemId(null);
     } catch (err) {
-      showFlash('error', err instanceof Error ? err.message : 'Failed to update expense');
+      toast('error', err instanceof Error ? err.message : 'Failed to update expense');
     } finally {
       setSaving(false);
     }
@@ -164,7 +163,7 @@ export default function BudgetPage() {
       await deleteCashflowItem(id);
       await Promise.all([mutateCashflowItems(), mutatePlanningComputed()]);
     } catch (err) {
-      showFlash('error', err instanceof Error ? err.message : 'Failed to delete expense');
+      toast('error', err instanceof Error ? err.message : 'Failed to delete expense');
     } finally {
       setSaving(false);
     }
@@ -209,12 +208,6 @@ export default function BudgetPage() {
           </Button>
         </div>
       </div>
-
-      {flash && (
-        <Alert variant={flash.type === 'error' ? 'error' : 'success'} size="sm">
-          {flash.message}
-        </Alert>
-      )}
 
       {/* Totals bar */}
       <div className="flex gap-3">

@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { useFlash } from '@/lib/use-flash';
+import { useToast } from '@/components/ui/toast';
 import { Card, CardHeader, CardTitle, CardAction, CardContent } from '@/components/ui/card';
 import {
   Table,
@@ -14,7 +14,6 @@ import {
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select } from '@/components/ui/select';
-import { Alert } from '@/components/ui/alert';
 import { IconPlus, IconPencil, IconTrash, IconCheck, IconX } from '@tabler/icons-react';
 import { SortIcon, type SortDir } from '@/components/common/sort-icon';
 
@@ -97,7 +96,7 @@ export function CashflowItemsCard({ memberId }: CashflowItemsCardProps) {
   const [saving, setSaving] = useState(false);
   const [sortKey, setSortKey] = useState<CashflowSortKey>('name');
   const [sortDir, setSortDir] = useState<SortDir>('asc');
-  const { flash, show: showFlash } = useFlash();
+  const toast = useToast();
 
   function toggleSort(key: CashflowSortKey) {
     if (sortKey === key) {
@@ -146,7 +145,7 @@ export function CashflowItemsCard({ memberId }: CashflowItemsCardProps) {
       await Promise.all([mutateCashflowItems(), mutatePlanningComputed()]);
       setAdding(false);
     } catch (err) {
-      showFlash('error', err instanceof Error ? err.message : 'Failed to create allocation');
+      toast('error', err instanceof Error ? err.message : 'Failed to create allocation');
     } finally {
       setSaving(false);
     }
@@ -159,7 +158,7 @@ export function CashflowItemsCard({ memberId }: CashflowItemsCardProps) {
       await Promise.all([mutateCashflowItems(), mutatePlanningComputed()]);
       setEditingId(null);
     } catch (err) {
-      showFlash('error', err instanceof Error ? err.message : 'Failed to update allocation');
+      toast('error', err instanceof Error ? err.message : 'Failed to update allocation');
     } finally {
       setSaving(false);
     }
@@ -171,7 +170,7 @@ export function CashflowItemsCard({ memberId }: CashflowItemsCardProps) {
       await deleteCashflowItem(id);
       await Promise.all([mutateCashflowItems(), mutatePlanningComputed()]);
     } catch (err) {
-      showFlash('error', err instanceof Error ? err.message : 'Failed to delete allocation');
+      toast('error', err instanceof Error ? err.message : 'Failed to delete allocation');
     } finally {
       setSaving(false);
     }
@@ -195,12 +194,6 @@ export function CashflowItemsCard({ memberId }: CashflowItemsCardProps) {
         </CardAction>
       </CardHeader>
       <CardContent className="space-y-3">
-        {flash && (
-          <Alert variant={flash.type === 'error' ? 'error' : 'success'} size="sm">
-            {flash.message}
-          </Alert>
-        )}
-
         {isLoading && <p className="text-sm text-muted-foreground">Loading...</p>}
 
         {!isLoading && memberItems.length === 0 && !adding && (

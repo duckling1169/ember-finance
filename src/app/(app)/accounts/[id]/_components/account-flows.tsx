@@ -1,12 +1,11 @@
 'use client';
 
 import { useState } from 'react';
-import { useFlash } from '@/lib/use-flash';
+import { useToast } from '@/components/ui/toast';
 import { Card, CardHeader, CardTitle, CardAction, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select } from '@/components/ui/select';
-import { Alert } from '@/components/ui/alert';
 import { IconPlus, IconPencil, IconTrash, IconCheck, IconX } from '@tabler/icons-react';
 
 import { fmt } from '@/lib/formatters';
@@ -56,7 +55,7 @@ export function AccountFlows({ accountId, taxTreatment: accountTax, memberId }: 
   const [adding, setAdding] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
-  const { flash, show: showFlash } = useFlash();
+  const toast = useToast();
 
   // Items flowing into or out of this account
   const accountItems = (allItems ?? []).filter(
@@ -88,9 +87,9 @@ export function AccountFlows({ accountId, taxTreatment: accountTax, memberId }: 
       await createCashflowItem(data);
       await Promise.all([mutateCashflowItems(), mutatePlanningComputed()]);
       setAdding(false);
-      showFlash('success', 'Flow added');
+      toast('success', 'Flow added');
     } catch (err) {
-      showFlash('error', err instanceof Error ? err.message : 'Failed to add flow');
+      toast('error', err instanceof Error ? err.message : 'Failed to add flow');
     } finally {
       setSaving(false);
     }
@@ -114,9 +113,9 @@ export function AccountFlows({ accountId, taxTreatment: accountTax, memberId }: 
       });
       await Promise.all([mutateCashflowItems(), mutatePlanningComputed()]);
       setEditingId(null);
-      showFlash('success', 'Flow updated');
+      toast('success', 'Flow updated');
     } catch (err) {
-      showFlash('error', err instanceof Error ? err.message : 'Failed to update flow');
+      toast('error', err instanceof Error ? err.message : 'Failed to update flow');
     } finally {
       setSaving(false);
     }
@@ -126,9 +125,9 @@ export function AccountFlows({ accountId, taxTreatment: accountTax, memberId }: 
     try {
       await deleteCashflowItem(itemId);
       await Promise.all([mutateCashflowItems(), mutatePlanningComputed()]);
-      showFlash('success', 'Flow removed');
+      toast('success', 'Flow removed');
     } catch (err) {
-      showFlash('error', err instanceof Error ? err.message : 'Failed to remove flow');
+      toast('error', err instanceof Error ? err.message : 'Failed to remove flow');
     }
   }
 
@@ -164,12 +163,6 @@ export function AccountFlows({ accountId, taxTreatment: accountTax, memberId }: 
         </CardAction>
       </CardHeader>
       <CardContent>
-        {flash && (
-          <Alert variant={flash.type === 'error' ? 'error' : 'success'} size="sm" className="mb-2">
-            {flash.message}
-          </Alert>
-        )}
-
         {isLoading ? (
           <p className="py-4 text-center text-sm text-muted-foreground">Loading...</p>
         ) : accountItems.length === 0 && !adding ? (

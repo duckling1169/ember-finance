@@ -5,11 +5,10 @@ import { Card, CardHeader, CardTitle, CardAction, CardContent } from '@/componen
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select } from '@/components/ui/select';
-import { Alert } from '@/components/ui/alert';
 import { InfoTip } from '@/components/ui/info-tip';
 import { IconChevronDown, IconChevronUp } from '@tabler/icons-react';
 import { updateScenario } from '@/lib/api';
-import { useFlash } from '@/lib/use-flash';
+import { useToast } from '@/components/ui/toast';
 import { mutateScenarios, mutatePlanningComputed } from '@/lib/swr';
 
 import type { ResolvedScenario, ScenarioAssumptions, ContributionGrowthMode } from '@shared/types';
@@ -37,7 +36,7 @@ interface AssumptionsPanelProps {
 export function AssumptionsPanel({ scenario, defaultOpen = false }: AssumptionsPanelProps) {
   const [open, setOpen] = useState(defaultOpen);
   const [saving, setSaving] = useState(false);
-  const { flash, show: showFlash } = useFlash();
+  const toast = useToast();
 
   const a = scenario.assumptions;
   const [grossReturn, setGrossReturn] = useState('');
@@ -76,9 +75,9 @@ export function AssumptionsPanel({ scenario, defaultOpen = false }: AssumptionsP
       };
       await updateScenario(scenario.id, { assumptions });
       await Promise.all([mutateScenarios(), mutatePlanningComputed()]);
-      showFlash('success', 'Assumptions saved');
+      toast('success', 'Assumptions saved');
     } catch (err) {
-      showFlash('error', err instanceof Error ? err.message : 'Failed to save assumptions');
+      toast('error', err instanceof Error ? err.message : 'Failed to save assumptions');
     } finally {
       setSaving(false);
     }
@@ -114,15 +113,6 @@ export function AssumptionsPanel({ scenario, defaultOpen = false }: AssumptionsP
 
       {open && (
         <CardContent id={panelId}>
-          {flash && (
-            <Alert
-              variant={flash.type === 'error' ? 'error' : 'success'}
-              size="sm"
-              className="mb-3"
-            >
-              {flash.message}
-            </Alert>
-          )}
           <div className="flex items-end gap-3">
             <div className="flex min-w-0 flex-1 flex-wrap items-end gap-3">
               <Field
