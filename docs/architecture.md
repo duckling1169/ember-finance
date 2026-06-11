@@ -43,25 +43,26 @@ The frontend and API run as separate services:
 | Shared contracts | `shared/types`                         |
 | CSV ingest       | Papa Parse adapter in API              |
 | Charts           | Nivo (`@nivo/line`, `@nivo/pie`) in UI |
-| Encryption       | AES-256-GCM for provider credentials   |
 
-## Current Capability Boundary (March 2026)
+## Current Capability Boundary (June 2026)
 
 Implemented:
 
 - Onboarding and household/member/invite lifecycle
 - Accounts + sources model
 - Manual and CSV ingest routes
-- Dedup and duplicate-review routes
+- Dedup and duplicate-review routes (incl. transaction hide/unhide UI)
 - Holdings/tax-lot-backed account and household portfolio views
-- Frontend pages: dashboard, accounts, account detail, holdings, settings
+- Money flow engine: waterfall, tax estimation, FI metrics, projections
+- Frontend pages: dashboard, accounts, account detail (overview/
+  transactions/history/settings), holdings, activity, flows (Sankey),
+  planning, budget, settings
 
-Not yet implemented end-to-end:
+Not yet implemented (post-MVP):
 
-- Live provider sync execution (`POST /api/ingest/sync/:householdId/:sourceId` returns `501`)
-- Provider link/disconnect workflows in UI
-- Full production dashboard history pipeline (some time-series remain mock-backed)
+- Live provider sync (Teller/SnapTrade) and link/disconnect workflows
 - Drawdown-specific modeling engines and workflows
+- Monte Carlo / sequence-of-returns simulation
 
 ## Data Ownership Model
 

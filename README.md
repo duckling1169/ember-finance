@@ -14,32 +14,30 @@ Ember is designed around two primary planning feature sets:
 - Accumulation phase
 - Drawdown/spending phase
 
-## Current Product State (March 2026)
+## Current Product State (June 2026)
 
 Implemented:
 
 - Supabase auth + onboarding (create household, invite/accept, member profiles)
 - Household settings, profile settings, member management, invite lifecycle
-- Account management (list, create, update, account detail)
-- Household holdings endpoint backed by portfolio/tax-lot views
-- Ingest pipeline for:
-  - manual normalized payloads
-  - CSV upload with format detection + normalization
-- Dedup tooling (auto-hide + review endpoints)
+- Account management (list, create, update, account detail with
+  overview / transactions / history / settings tabs)
+- Household holdings backed by portfolio/tax-lot views, live quotes via Tiingo
+- Ingest pipeline: manual normalized payloads + CSV upload with format
+  detection (Chase, Fidelity, Vanguard, Schwab, generic)
+- Cross-source dedup (auto-hide + review + hide/unhide UI)
 - Timeline/history model (`raw_ingest` + `account_event` unified as `account_timeline`)
-- Frontend app shell and pages:
-  - Dashboard
-  - Accounts + account detail
-  - Holdings
-  - Settings
+- Money flow engine: per-member cashflow waterfall, tax estimation
+  (federal brackets + state + FICA, joint filing), FI metrics (FIRE
+  number, CoastFI, SecurityFI, years to FI), deterministic projections
+- Frontend: dashboard, accounts, holdings, activity, flows (Sankey),
+  planning (metrics + projections), budget, settings
 
-In progress / not yet shipped:
+Post-MVP (not yet built):
 
-- Live provider sync (`/api/ingest/sync/:householdId/:sourceId` currently returns `501`)
-- Link/disconnect provider UX flows in frontend
-- Production dashboard time-series from persisted snapshots (some dashboard series still use dev mocks)
-- PDF ingest adapter
-- Advanced drawdown/withdrawal modeling toolkit
+- Live provider sync (Teller/SnapTrade) — manual + CSV are the supported paths
+- Monte Carlo / sequence-of-returns simulation
+- Drawdown/withdrawal modeling toolkit
 
 ## Architecture
 
@@ -55,44 +53,72 @@ The frontend and API are separate services:
 
 ## Local Development
 
+This repo is part of the `js/` pnpm workspace (one directory up).
+
 ### 1. Install dependencies
 
 ```bash
-npm install
-npm install --prefix api
+# from the js/ workspace root
+pnpm install
 ```
 
 ### 2. Configure environment
 
-Copy `.env.example` to `.env.local` and set required keys for Supabase/API integrations.
+Copy `.env.example` to `.env.local` and set the Supabase keys. The API
+fails fast on startup if `NEXT_PUBLIC_SUPABASE_URL`,
+`NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`, or `SUPABASE_SECRET_KEY` are missing.
 
 ### 3. Run services
 
 Terminal 1:
 
 ```bash
-npm run dev
+pnpm run dev        # Next.js on :3000
 ```
 
 Terminal 2:
 
 ```bash
-npm run dev:api
+pnpm run dev:api    # Hono API on :3001
 ```
+
+In development, the login page has a "Dev Login" button that creates a
+throwaway account + household (requires "Confirm email" disabled in
+Supabase Auth settings).
 
 ### 4. (Optional) Run Supabase locally
 
 ```bash
-npm run db:start
-npm run db:migrate
+pnpm run db:start
+pnpm run db:migrate
 ```
+
+## Testing
+
+- `pnpm run test:web` — frontend unit tests (vitest + testing-library)
+- `pnpm --dir api run test` — API tests; `tests/unit` are pure
+  (engine math, adapters, middleware) and run anywhere, `tests/integration`
+  need a reachable Supabase instance via `.env.local`
+- `pnpm test` — both suites
+
+## Deployment
+
+- **Database**: apply `supabase/migrations/*.sql` to a Supabase project
+  (`pnpm run db:migrate` with a linked project). Migrations 001+002 are a
+  consolidated baseline (Decision 030).
+- **API**: any Node 22+ host. Build with `pnpm --dir api run build`, run
+  `node api/dist/index.js`. Set the three Supabase vars plus
+  `CORS_ORIGIN=<frontend origin>` and optionally `TIINGO_API_KEY` / `API_PORT`.
+- **Frontend**: standard Next.js deploy (e.g. Vercel). Set
+  `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`, and
+  `NEXT_PUBLIC_API_URL=<API origin>`.
 
 ## Useful Scripts
 
-- `npm run lint` - lint frontend + API
-- `npm test` - run API tests
-- `npm run build` - build frontend
-- `npm run db:reset` - reset local Supabase database
+- `pnpm run lint` - lint frontend + API
+- `pnpm test` - run frontend + API tests
+- `pnpm run build` - build frontend
+- `pnpm run db:reset` - reset local Supabase database
 
 ## Documentation
 

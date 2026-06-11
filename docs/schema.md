@@ -7,20 +7,20 @@ This doc is an implementation summary of the current schema.
 
 ### `household`
 
-- tenant root (`id`, `name`, `tax_filing_status`, `state`, `currency`)
+- tenant root (`id`, `name`, `tax_filing_status`, `currency`)
 
 ### `member`
 
 - household membership and profile fields
 - role: `owner | viewer`
-- planning fields: `state_of_residence`, `tax_mode`, `effective_tax_rate_override` (0–1 decimal)
+- planning fields: `state` (of residence), `tax_mode`, `effective_tax_rate_override` (0–1 decimal)
 - constraint: one household per auth user (`auth_user_id` unique + trigger)
 
 ### `household_invite`
 
 - pending invites with `expires_at`, `accepted_at`, and invited email
 
-## Accounts, Sources, and Assets
+## Accounts and Sources
 
 ### `account`
 
@@ -32,15 +32,8 @@ This doc is an implementation summary of the current schema.
 
 ### `account_source`
 
-- ingestion/source pipes attached to account (`teller`, `snaptrade`, `csv`, `pdf`, `manual`)
-- source credential payload in encrypted `provider_meta`
+- ingestion/source pipes attached to account (`teller`, `snaptrade`, `csv`, `manual`)
 - tracks `last_synced`
-
-### `asset`
-
-- non-account items tracked for net worth (real estate, vehicles, etc.)
-- category: `real_estate | vehicle | other`
-- `estimated_value` for current worth
 
 ## Ingest and Event Timeline
 
@@ -77,11 +70,6 @@ This doc is an implementation summary of the current schema.
 ### `balance_snapshot`
 
 - account balance points with source marker (`provider_sync`, `csv_derived`, `manual`)
-
-### `net_worth_snapshot`
-
-- derived household net-worth snapshots by date
-- breakdown: `cash`, `investments`, `debt`, `assets`
 
 ## Pricing and Tax Lots
 
@@ -154,11 +142,6 @@ This doc is an implementation summary of the current schema.
 ### `check_record_ownership(...)`
 
 - validates ownership for hide/unhide duplicate mutations
-
-### `compute_net_worth_snapshot(p_household_id, p_date)`
-
-- computes/upserts household net worth
-- groups: cash (checking/savings), investments (brokerage/retirement/hsa), debt (credit/loan/mortgage), assets (from asset table)
 
 ## RLS
 

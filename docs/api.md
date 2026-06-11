@@ -146,10 +146,6 @@ Notes:
 - account-scoped source is created if needed
 - parsed records flow through same ingest pipeline
 
-### `POST /api/ingest/sync/:householdId/:sourceId`
-
-Provider sync placeholder (currently returns `501`).
-
 ## Duplicates
 
 ### Listing

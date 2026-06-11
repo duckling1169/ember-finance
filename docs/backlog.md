@@ -8,7 +8,9 @@
 
 ### 1.1 Transaction History UI
 
-**Status:** Backend ready, frontend missing
+**Status:** DONE (June 2026) — Transactions/Activity tab on account detail with search, pagination, and hide/unhide of duplicates. Remaining nice-to-haves: inline category editing, date-range filter.
+
+**Original scope (for reference):**
 **Why:** Transactions exist in the DB (ingested via CSV/manual), but there's no way to browse them. This is table-stakes for a finance app.
 
 **Scope:**
@@ -125,7 +127,7 @@
 
 ### 2.2 Net Worth Snapshot Automation
 
-**Status:** `compute_net_worth_snapshot()` RPC exists, not scheduled
+**Status:** Dropped for MVP (Decision 028) — net worth is computed live from balance snapshots. Revisit if request-time aggregation gets slow.
 **Why:** Dashboard net worth chart reads from `net_worth_snapshot` — needs to be populated regularly.
 
 **Scope:**
@@ -139,7 +141,7 @@
 
 ### 2.3 Dashboard Placeholder Cards
 
-**Status:** 4 placeholder cards visible in UI
+**Status:** Resolved — the dashboard no longer ships placeholder cards. The ideas below remain candidates for new cards.
 **Why:** They're visible and empty — either build them or remove them.
 
 **Cards:**
@@ -251,6 +253,5 @@
 - [x] Settings page (profile, household, members, invites, theme)
 - [x] Ingest pipeline (manual + CSV adapters, fingerprinting, dedup)
 - [x] Cross-source duplicate detection with authority ranking
-- [x] Credential encryption (AES-256-GCM)
 - [x] RLS on all tables
 - [x] Shared types between frontend and API

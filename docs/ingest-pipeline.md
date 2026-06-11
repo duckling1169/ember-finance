@@ -198,11 +198,7 @@ Users can hide/unhide records via the `/api/duplicates` endpoints. Manual hides 
 
 ## Credential Encryption
 
-Provider credentials (Teller tokens, SnapTrade creds) stored in `account_source.provider_meta` as encrypted `bytea`.
-
-- **Algorithm:** AES-256-GCM
-- **Key:** 32-byte hex-encoded key from `ENCRYPTION_KEY` env var
-- **Format:** IV (12 bytes) + auth tag (16 bytes) + ciphertext
-- **Implementation:** `api/src/lib/crypto.ts`
-
-A database dump does not expose provider credentials.
+Deferred until provider sync ships (Decision 029). The planned design is
+application-level AES-256-GCM encryption of provider credentials before
+storage (Decision 005); no encryption code exists today because nothing
+stores credentials.
