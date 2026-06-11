@@ -5,9 +5,8 @@ import { supabase } from '../lib/supabase.js';
 const SOURCE_AUTHORITY: Record<string, number> = {
   manual_entry: 1,
   csv_upload: 2,
-  pdf_parse: 3,
-  snaptrade_sync: 4,
-  teller_sync: 5,
+  snaptrade_sync: 3,
+  teller_sync: 4,
 };
 
 function getAuthority(sourceType: string): number {

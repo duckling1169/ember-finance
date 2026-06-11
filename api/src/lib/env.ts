@@ -8,7 +8,19 @@ const __dirname = dirname(__filename);
 // Load .env.local from project root
 config({ path: resolve(__dirname, '../../../.env.local') });
 
-const projectRoot = resolve(__dirname, '../../..');
+const REQUIRED_VARS = [
+  'NEXT_PUBLIC_SUPABASE_URL',
+  'NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY',
+  'SUPABASE_SECRET_KEY',
+] as const;
+
+const missing = REQUIRED_VARS.filter((name) => !process.env[name]);
+if (missing.length > 0) {
+  throw new Error(
+    `Missing required environment variables: ${missing.join(', ')}. ` +
+      'Set them in .env.local at the project root.',
+  );
+}
 
 export const env = {
   // Supabase
@@ -16,19 +28,8 @@ export const env = {
   supabasePublishableKey: process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY!,
   supabaseSecretKey: process.env.SUPABASE_SECRET_KEY!,
 
-  // Teller
-  tellerAppId: process.env.TELLER_APP_ID!,
-  tellerEnvironment: process.env.TELLER_ENVIRONMENT || 'sandbox',
-  tellerCertPath: resolve(projectRoot, process.env.TELLER_CERT_PATH || './certificate.pem'),
-  tellerKeyPath: resolve(projectRoot, process.env.TELLER_KEY_PATH || './private_key.pem'),
-  tellerTokenSigningSecret: process.env.TOKEN_SIGNING_SECRET!,
-
-  // SnapTrade
-  snaptradeClientId: process.env.SNAPTRADE_CLIENT_ID!,
-  snaptradeSecret: process.env.SNAPTRADE_SECRET!,
-
-  // Encryption
-  encryptionKey: process.env.ENCRYPTION_KEY!,
+  // Quotes (optional — quote endpoint returns 503 when unset)
+  tiingoApiKey: process.env.TIINGO_API_KEY,
 
   // Server
   port: parseInt(process.env.API_PORT || '3001', 10),

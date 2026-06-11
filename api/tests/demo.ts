@@ -296,7 +296,6 @@ async function main() {
   // ── CLEANUP ──
   console.log('\n━━━ Cleaning up demo data ━━━');
   for (const table of [
-    'net_worth_snapshot',
     'balance_snapshot',
     'holding',
     'investment_activity',

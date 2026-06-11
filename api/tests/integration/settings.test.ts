@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import { Hono } from 'hono';
 import { settingsRoute } from '../../src/routes/settings.js';
-import type { AuthEnv } from '../../src/middleware/auth.js';
+import { requireMember, type AuthEnv } from '../../src/middleware/auth.js';
 import { getTestClient, cleanupTestHousehold } from '../helpers.js';
 
 /**
@@ -38,6 +38,8 @@ function buildApp(authId: string, email: string) {
     c.set('authUser', { id: authId, email });
     await next();
   });
+  // Same middleware the production router applies to /settings/*
+  app.use('/api/settings/*', requireMember);
   app.route('/api/settings', settingsRoute);
   return app;
 }
@@ -55,7 +57,6 @@ beforeAll(async () => {
     .insert({
       name: 'Settings Test Household',
       tax_filing_status: 'single',
-      state: 'NY',
       currency: 'USD',
     })
     .select()
@@ -104,12 +105,11 @@ afterAll(async () => {
 // ── Direct DB tests (bypass Hono layer since we can't match auth_user_id) ──
 
 describe('Household settings — DB operations', () => {
-  it('reads household with new columns', async () => {
+  it('reads household columns', async () => {
     const { data, error } = await db.from('household').select('*').eq('id', householdId).single();
     expect(error).toBeNull();
     expect(data.name).toBe('Settings Test Household');
     expect(data.tax_filing_status).toBe('single');
-    expect(data.state).toBe('NY');
     expect(data.currency).toBe('USD');
   });
 
@@ -119,7 +119,6 @@ describe('Household settings — DB operations', () => {
       .update({
         name: 'Updated Household',
         tax_filing_status: 'married_jointly',
-        state: 'CA',
       })
       .eq('id', householdId)
       .select()
@@ -127,19 +126,17 @@ describe('Household settings — DB operations', () => {
     expect(error).toBeNull();
     expect(data.name).toBe('Updated Household');
     expect(data.tax_filing_status).toBe('married_jointly');
-    expect(data.state).toBe('CA');
   });
 
   it('clears optional fields', async () => {
     const { data, error } = await db
       .from('household')
-      .update({ tax_filing_status: null, state: null })
+      .update({ tax_filing_status: null })
       .eq('id', householdId)
       .select()
       .single();
     expect(error).toBeNull();
     expect(data.tax_filing_status).toBeNull();
-    expect(data.state).toBeNull();
   });
 
   it('rejects invalid tax filing status at DB level', async () => {
@@ -149,14 +146,6 @@ describe('Household settings — DB operations', () => {
       .eq('id', householdId);
     expect(error).not.toBeNull();
     expect(error!.message).toContain('chk_household_tax_filing_status');
-  });
-
-  it('rejects invalid state at DB level', async () => {
-    const { error } = await db
-      .from('household')
-      .update({ state: 'XYZ' }) // 3 chars, fails length check
-      .eq('id', householdId);
-    expect(error).not.toBeNull();
   });
 });
 

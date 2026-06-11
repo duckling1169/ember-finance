@@ -51,24 +51,18 @@ export function stubHouseholdMember() {
 
 /**
  * Stub requireMember middleware for tests on routes without :householdId.
- * Resolves the first member in the DB and sets householdId + memberId.
+ * Takes a getter so the test can bind it to its own household/member created
+ * in beforeAll (never resolve "any member in the DB" — that races with other
+ * test files and can leak writes into real households).
  */
-export function stubMember() {
+export function stubMember(
+  getCtx: () => { householdId: string; memberId: string; memberRole?: string },
+) {
   return async (c: Context, next: Next) => {
-    const db = getTestClient();
-    const { data: member } = await db
-      .from('member')
-      .select('id, household_id, role')
-      .limit(1)
-      .single();
-
-    if (!member) {
-      return c.json({ error: 'No member found' }, 404);
-    }
-
-    c.set('householdId', member.household_id);
-    c.set('memberId', member.id);
-    c.set('memberRole', member.role);
+    const ctx = getCtx();
+    c.set('householdId', ctx.householdId);
+    c.set('memberId', ctx.memberId);
+    c.set('memberRole', ctx.memberRole ?? 'owner');
     await next();
   };
 }
@@ -147,25 +141,10 @@ export async function createTestSource(
   return data;
 }
 
-// Clean up all test data for a household (cascading)
+// Clean up all test data for a household. Deleting the household row
+// cascades through every child table (all FKs are ON DELETE CASCADE).
 export async function cleanupTestHousehold(householdId: string) {
   const db = getTestClient();
-
-  // Delete in reverse dependency order
-  await db.from('planning_scenario').delete().eq('household_id', householdId);
-  await db.from('cashflow_item').delete().eq('household_id', householdId);
-  await db.from('income_source').delete().eq('household_id', householdId);
-  await db.from('lot_disposition').delete().eq('household_id', householdId);
-  await db.from('tax_lot').delete().eq('household_id', householdId);
-  await db.from('net_worth_snapshot').delete().eq('household_id', householdId);
-  await db.from('balance_snapshot').delete().eq('household_id', householdId);
-  await db.from('holding').delete().eq('household_id', householdId);
-  await db.from('investment_activity').delete().eq('household_id', householdId);
-  await db.from('transaction').delete().eq('household_id', householdId);
-  await db.from('raw_ingest').delete().eq('household_id', householdId);
-  await db.from('account_event').delete().eq('household_id', householdId);
-  await db.from('account_source').delete().eq('household_id', householdId);
-  await db.from('account').delete().eq('household_id', householdId);
-  await db.from('member').delete().eq('household_id', householdId);
-  await db.from('household').delete().eq('id', householdId);
+  const { error } = await db.from('household').delete().eq('id', householdId);
+  if (error) throw new Error(`Failed to clean up test household: ${error.message}`);
 }

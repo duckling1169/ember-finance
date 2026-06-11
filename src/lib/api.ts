@@ -243,10 +243,6 @@ export async function ingestCsv(
   return res.json();
 }
 
-export function syncSource(householdId: string, sourceId: string) {
-  return apiFetch(`/api/ingest/sync/${householdId}/${sourceId}`, { method: 'POST' });
-}
-
 // ── Activity ──
 
 export function getTransactions(

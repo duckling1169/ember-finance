@@ -163,7 +163,9 @@ create trigger trg_prevent_multi_household
   when (new.auth_user_id is not null)
   execute function prevent_multi_household();
 
--- Prevent removing the last owner from a household
+-- Prevent removing the last owner from a household.
+-- Skips the check when the parent household row is already gone, so that
+-- household deletion can cascade through its members.
 create or replace function prevent_last_owner_removal()
 returns trigger
 language plpgsql
@@ -171,15 +173,16 @@ security definer
 set search_path = ''
 as $$
 begin
-  if old.role = 'owner' then
-    if not exists (
-      select 1 from public.member
-      where household_id = old.household_id
-        and role = 'owner'
-        and id != old.id
-    ) then
-      raise exception 'Cannot remove the last owner from a household';
-    end if;
+  if old.role = 'owner'
+     and exists (select 1 from public.household where id = old.household_id)
+     and not exists (
+       select 1 from public.member
+       where household_id = old.household_id
+         and role = 'owner'
+         and id != old.id
+     )
+  then
+    raise exception 'Cannot remove the last owner from a household';
   end if;
   return old;
 end;
@@ -292,98 +295,5 @@ begin
         and m.auth_user_id = p_auth_user_id
       where ia.id = p_record_id;
   end if;
-end;
-$$;
-
--- Compute and upsert a net_worth_snapshot for a household
-create or replace function compute_net_worth_snapshot(
-  p_household_id uuid,
-  p_date date default current_date
-)
-returns uuid
-language plpgsql
-security definer
-set search_path = ''
-as $$
-declare
-  v_snapshot_id uuid;
-  v_cash numeric(14,2) := 0;
-  v_investments numeric(14,2) := 0;
-  v_debt numeric(14,2) := 0;
-  v_assets numeric(14,2) := 0;
-  v_total_assets numeric(14,2);
-  v_total_liabilities numeric(14,2);
-  v_net_worth numeric(14,2);
-begin
-  -- Cash accounts
-  select coalesce(sum(b.balance), 0) into v_cash
-  from (
-    select distinct on (a.id) bs.balance
-    from public.account a
-    join public.balance_snapshot bs on bs.account_id = a.id
-    where a.household_id = p_household_id
-      and a.is_active = true
-      and a.account_type in ('checking', 'savings')
-      and bs.date <= p_date
-    order by a.id, bs.date desc
-  ) b;
-
-  -- Investment accounts: holdings x security_price
-  select coalesce(sum(h.quantity * coalesce(sp.price, h.price)), 0) into v_investments
-  from (
-    select distinct on (hld.account_id, hld.symbol)
-      hld.account_id, hld.symbol, hld.quantity, hld.price
-    from public.holding hld
-    join public.account a on a.id = hld.account_id
-    where a.household_id = p_household_id
-      and a.is_active = true
-      and a.account_type in ('brokerage', 'retirement', 'hsa')
-      and hld.as_of <= p_date
-    order by hld.account_id, hld.symbol, hld.as_of desc
-  ) h
-  left join public.security_price sp on sp.symbol = h.symbol;
-
-  -- Debt accounts
-  select coalesce(sum(abs(b.balance)), 0) into v_debt
-  from (
-    select distinct on (a.id) bs.balance
-    from public.account a
-    join public.balance_snapshot bs on bs.account_id = a.id
-    where a.household_id = p_household_id
-      and a.is_active = true
-      and a.account_type in ('credit', 'loan', 'mortgage')
-      and bs.date <= p_date
-    order by a.id, bs.date desc
-  ) b;
-
-  -- Assets (real estate, vehicles, etc.)
-  select coalesce(sum(estimated_value), 0) into v_assets
-  from public.asset
-  where household_id = p_household_id;
-
-  v_total_assets := v_cash + v_investments + v_assets;
-  v_total_liabilities := v_debt;
-  v_net_worth := v_total_assets - v_total_liabilities;
-
-  insert into public.net_worth_snapshot (
-    household_id, date, total_assets, total_liabilities, net_worth, breakdown
-  )
-  values (
-    p_household_id, p_date, v_total_assets, v_total_liabilities, v_net_worth,
-    jsonb_build_object(
-      'cash', v_cash, 'investments', v_investments,
-      'debt', v_debt, 'assets', v_assets
-    )
-  )
-  on conflict (household_id, date)
-  do update set
-    total_assets = excluded.total_assets,
-    total_liabilities = excluded.total_liabilities,
-    net_worth = excluded.net_worth,
-    breakdown = excluded.breakdown,
-    created_at = now()
-  returning id into v_snapshot_id;
-
-  return v_snapshot_id;
 end;
 $$;

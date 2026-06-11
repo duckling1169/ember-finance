@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { Card, CardHeader, CardTitle, CardAction, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -48,7 +48,11 @@ export function AssumptionsPanel({ scenario, defaultOpen = false }: AssumptionsP
   const [growthMode, setGrowthMode] = useState<ContributionGrowthMode>('none');
   const [growthRate, setGrowthRate] = useState('');
 
-  useEffect(() => {
+  // Reset form fields when a different scenario's assumptions arrive (render-time
+  // state reset — see react.dev "You Might Not Need an Effect")
+  const [prevAssumptions, setPrevAssumptions] = useState<typeof a | null>(null);
+  if (a !== prevAssumptions) {
+    setPrevAssumptions(a);
     setGrossReturn(pctStr(a.gross_return_rate));
     setInflation(pctStr(a.inflation_rate));
     setRealReturn(pctStr(a.real_return_rate));
@@ -56,7 +60,7 @@ export function AssumptionsPanel({ scenario, defaultOpen = false }: AssumptionsP
     setRetirementSpend(a.retirement_annual_spend_override?.toString() ?? '');
     setGrowthMode(a.contribution_growth_mode ?? 'none');
     setGrowthRate(a.contribution_growth_rate != null ? pctStr(a.contribution_growth_rate) : '');
-  }, [a]);
+  }
 
   async function handleSave() {
     setSaving(true);

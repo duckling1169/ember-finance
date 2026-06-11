@@ -4,7 +4,6 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { createAccount } from '@/lib/api';
 import { useAccounts, mutateAccounts } from '@/lib/swr';
-import { devBypass, enrichAccounts } from '@/lib/mock-data';
 import type { EnrichedAccount, AccountType, TaxTreatment } from '@shared/types';
 import { Card, CardContent } from '@/components/ui/card';
 import {
@@ -57,9 +56,8 @@ function AccountsContent() {
     householdId,
     error: fetchError,
   } = useAccounts();
-  const [mockAccts, setMockAccts] = useState<AccountData[]>(devBypass ? enrichAccounts() : []);
-  const accounts: AccountData[] = devBypass ? mockAccts : (apiAccounts ?? []);
-  const loading = !devBypass && swrLoading;
+  const accounts: AccountData[] = apiAccounts ?? [];
+  const loading = swrLoading;
 
   const [showForm, setShowForm] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -85,36 +83,6 @@ function AccountsContent() {
     setError('');
     const form = new FormData(e.currentTarget);
 
-    if (devBypass) {
-      const newAccount: AccountData = {
-        id: `mock-${Date.now()}`,
-        household_id: 'mock-household',
-        member_id: null,
-        name: form.get('name') as string,
-        institution: (form.get('institution') as string) || null,
-        account_type: form.get('account_type') as AccountType,
-        currency: 'USD',
-        meta: {
-          tax_treatment: form.get('tax_treatment') as string,
-        },
-        is_active: true,
-        is_liability: ['credit', 'loan', 'mortgage'].includes(form.get('account_type') as string),
-        include_in_fi_portfolio: ['brokerage', 'retirement', 'hsa'].includes(
-          form.get('account_type') as string,
-        ),
-        created_at: new Date().toISOString(),
-        balance: 0,
-        balance_date: null,
-        linked: false,
-        last_synced: null,
-        tax_treatment: (form.get('tax_treatment') as TaxTreatment) ?? 'after_tax',
-      };
-      setMockAccts((prev) => [...prev, newAccount]);
-      setShowForm(false);
-      setSaving(false);
-      return;
-    }
-
     try {
       await createAccount(householdId, {
         name: form.get('name') as string,
@@ -135,7 +103,7 @@ function AccountsContent() {
     return <div className="py-10 text-center text-muted-foreground">Loading...</div>;
   }
 
-  if (!devBypass && fetchError) {
+  if (fetchError) {
     return (
       <div className="space-y-3">
         <h1 className="text-2xl font-semibold">Accounts</h1>

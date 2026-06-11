@@ -107,7 +107,6 @@ create table account_source (
   household_id        uuid not null references household(id) on delete cascade,
   provider            text not null,
   provider_account_id text,
-  provider_meta       bytea,
   is_active           boolean default true,
   last_synced         timestamptz,
   created_at          timestamptz default now(),
@@ -116,27 +115,6 @@ create table account_source (
 
 create index idx_account_source_account on account_source(account_id);
 create index idx_account_source_provider on account_source(account_id, household_id, provider);
-
--- ══════════════════════════════════════════════════════════════
--- Layer 2b: Assets (non-account items tracked for net worth)
--- ══════════════════════════════════════════════════════════════
-
-create table asset (
-  id              uuid primary key default gen_random_uuid(),
-  household_id    uuid not null references household(id) on delete cascade,
-  name            text not null,
-  category        text not null,
-  estimated_value numeric(14,2) not null default 0,
-  created_at      timestamptz default now(),
-  updated_at      timestamptz default now(),
-
-  constraint chk_asset_category
-    check (category in ('real_estate', 'vehicle', 'other')),
-  constraint chk_asset_value_non_negative
-    check (estimated_value >= 0)
-);
-
-create index idx_asset_household on asset(household_id);
 
 -- ══════════════════════════════════════════════════════════════
 -- Layer 3: Raw Ingestion (immutable audit trail)
@@ -174,7 +152,13 @@ create table account_event (
   event_type    text not null,
   triggered_by  uuid references member(id) on delete set null,
   detail        jsonb default '{}',
-  created_at    timestamptz default now()
+  created_at    timestamptz default now(),
+
+  constraint chk_account_event_type
+    check (event_type in (
+      'account_created', 'account_updated', 'account_deactivated',
+      'link_connected', 'link_disconnected', 'source_added', 'source_removed'
+    ))
 );
 
 create index idx_account_event_account on account_event(account_id, created_at desc);
@@ -372,24 +356,6 @@ create index idx_lot_disp_sell on lot_disposition(sell_activity_id);
 create index idx_lot_disp_household on lot_disposition(household_id);
 
 -- ══════════════════════════════════════════════════════════════
--- Layer 5: Derived / Materialized
--- ══════════════════════════════════════════════════════════════
-
-create table net_worth_snapshot (
-  id                uuid primary key default gen_random_uuid(),
-  household_id      uuid not null references household(id) on delete cascade,
-  date              date not null,
-  total_assets      numeric(14,2) not null,
-  total_liabilities numeric(14,2) not null,
-  net_worth         numeric(14,2) not null,
-  breakdown         jsonb not null default '{}',
-  created_at        timestamptz default now(),
-  unique(household_id, date)
-);
-
-create index idx_nw_household_date on net_worth_snapshot(household_id, date desc);
-
--- ══════════════════════════════════════════════════════════════
 -- Layer 6: Planning
 -- ══════════════════════════════════════════════════════════════
 
@@ -527,10 +493,6 @@ alter table account_source enable row level security;
 create policy "household_isolation" on account_source
   for all using (household_id = get_my_household_id());
 
-alter table asset enable row level security;
-create policy "household_isolation" on asset
-  for all using (household_id = get_my_household_id());
-
 alter table raw_ingest enable row level security;
 create policy "household_isolation" on raw_ingest
   for all using (household_id = get_my_household_id());
@@ -561,10 +523,6 @@ create policy "household_isolation" on tax_lot
 
 alter table lot_disposition enable row level security;
 create policy "household_isolation" on lot_disposition
-  for all using (household_id = get_my_household_id());
-
-alter table net_worth_snapshot enable row level security;
-create policy "household_isolation" on net_worth_snapshot
   for all using (household_id = get_my_household_id());
 
 alter table income_source enable row level security;

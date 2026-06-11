@@ -33,7 +33,7 @@ onboardingRoute.post('/', async (c) => {
     return c.json({ error: 'User already belongs to a household' }, 409);
   }
 
-  // Try atomic RPC first
+  // Atomic RPC: creates household + member in a single transaction
   const { data: rpcData, error: rpcError } = await supabase.rpc('create_household_with_owner', {
     p_household_name: body.householdName.trim(),
     p_tax_filing_status: body.taxFilingStatus || null,
@@ -47,52 +47,14 @@ onboardingRoute.post('/', async (c) => {
     p_state: body.state || null,
   });
 
-  if (!rpcError && rpcData) {
-    return c.json(rpcData, 201);
+  if (rpcError) {
+    if (rpcError.message.includes('already belongs to a household')) {
+      return c.json({ error: 'User already belongs to a household' }, 409);
+    }
+    return c.json({ error: 'Failed to create household', details: rpcError.message }, 500);
   }
 
-  if (rpcError?.message.includes('already belongs to a household')) {
-    return c.json({ error: 'User already belongs to a household' }, 409);
-  }
-
-  // Fallback: sequential inserts (non-atomic, but handles FK-less environments)
-  const { data: household, error: householdError } = await supabase
-    .from('household')
-    .insert({
-      name: body.householdName.trim(),
-      tax_filing_status: body.taxFilingStatus || null,
-      currency: body.currency || 'USD',
-    })
-    .select()
-    .single();
-
-  if (householdError) {
-    return c.json({ error: 'Failed to create household', details: householdError.message }, 500);
-  }
-
-  const { data: member, error: memberError } = await supabase
-    .from('member')
-    .insert({
-      household_id: household.id,
-      auth_user_id: authUser.id,
-      display_name: body.displayName.trim(),
-      role: 'owner',
-      birthday: body.birthday,
-      target_retirement_age: body.targetRetirementAge || null,
-      employment_type: body.employmentType || null,
-      risk_tolerance: body.riskTolerance || null,
-      state: body.state || null,
-    })
-    .select()
-    .single();
-
-  if (memberError) {
-    // Rollback household
-    await supabase.from('household').delete().eq('id', household.id);
-    return c.json({ error: 'Failed to create member', details: memberError.message }, 500);
-  }
-
-  return c.json({ household, member }, 201);
+  return c.json(rpcData, 201);
 });
 
 /**

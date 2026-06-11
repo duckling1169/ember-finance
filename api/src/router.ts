@@ -46,7 +46,6 @@ export function createApiRouter() {
   api.use('/holdings/:householdId', requireHouseholdMember);
   api.use('/ingest/manual/:householdId/*', requireHouseholdMember);
   api.use('/ingest/csv/:householdId/*', requireHouseholdMember);
-  api.use('/ingest/sync/:householdId/*', requireHouseholdMember);
   api.use('/duplicates/transactions/:householdId/*', requireHouseholdMember);
   api.use('/duplicates/activity/:householdId/*', requireHouseholdMember);
   api.use('/duplicates/review/:householdId/*', requireHouseholdMember);

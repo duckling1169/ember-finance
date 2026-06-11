@@ -514,6 +514,9 @@ describe('tax_lot + lot_disposition + open_tax_lots view', () => {
   // ── open_tax_lots view ──
 
   describe('open_tax_lots view', () => {
+    // A date ~90 days ago, so the lot is always short-term regardless of when tests run
+    const recentDate = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+
     it('shows only unclosed lots with live prices and holding_period', async () => {
       // Insert security price for LOT_VIEW
       await db().from('security_price').upsert({
@@ -524,7 +527,7 @@ describe('tax_lot + lot_disposition + open_tax_lots view', () => {
       });
 
       const buyAct = await insertActivity({
-        date: '2025-05-01',
+        date: recentDate,
         activity_type: 'buy',
         symbol: 'LOT_VIEW',
         quantity: 40,
@@ -534,7 +537,7 @@ describe('tax_lot + lot_disposition + open_tax_lots view', () => {
 
       const openLot = await insertLot({
         symbol: 'LOT_VIEW',
-        acquired_date: '2025-05-01',
+        acquired_date: recentDate,
         quantity: 40,
         original_quantity: 40,
         cost_basis_per_share: 80.0,
@@ -584,9 +587,7 @@ describe('tax_lot + lot_disposition + open_tax_lots view', () => {
     });
 
     it('holding_period is short_term for lots < 365 days old', async () => {
-      // The LOT_VIEW lot acquired on 2025-05-01 should be short_term
-      // (test date is effectively "now" in the DB, which is 2026-03-09 per currentDate)
-      // 2025-05-01 to 2026-03-09 = 312 days < 365 → short_term
+      // The open LOT_VIEW lot was acquired ~90 days ago → short_term
       const { data } = await db()
         .from('open_tax_lots')
         .select('holding_period, acquired_date')
@@ -594,9 +595,6 @@ describe('tax_lot + lot_disposition + open_tax_lots view', () => {
         .eq('symbol', 'LOT_VIEW');
 
       expect(data).toHaveLength(1);
-      // Note: the DB uses current_date which is the actual server date.
-      // Since acquired_date is 2025-05-01 and current date is 2026-03-09,
-      // days = 312 < 365, so short_term
       expect(data![0].holding_period).toBe('short_term');
     });
 

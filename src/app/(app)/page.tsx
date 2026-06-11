@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo } from 'react';
 import Link from 'next/link';
 import {
   useHousehold,
@@ -9,13 +9,6 @@ import {
   useNetWorthHistory,
   useInvestmentHistory,
 } from '@/lib/swr';
-import {
-  devBypass,
-  enrichAccounts,
-  getMockNetWorthHistory,
-  getMockPortfolioHistory,
-  mockHoldings,
-} from '@/lib/mock-data';
 import type { EnrichedAccount } from '@shared/types';
 import { cn } from '@/lib/utils';
 import { Card, CardContent } from '@/components/ui/card';
@@ -45,43 +38,6 @@ const RANGE_OPTIONS: { key: RangeKey; label: string }[] = [
   { key: '1Y', label: '1Y' },
   { key: 'Custom', label: 'Custom' },
 ];
-
-function filterByRange(
-  data: { date: string; value: number }[],
-  range: RangeKey,
-  customStart?: string,
-  customEnd?: string,
-): { date: string; value: number }[] {
-  if (data.length === 0) return data;
-  const today = new Date(data[data.length - 1].date);
-  let cutoff: Date;
-  switch (range) {
-    case '30D':
-      cutoff = new Date(today);
-      cutoff.setDate(cutoff.getDate() - 30);
-      break;
-    case '90D':
-      cutoff = new Date(today);
-      cutoff.setDate(cutoff.getDate() - 90);
-      break;
-    case 'YTD':
-      cutoff = new Date(today.getFullYear(), 0, 1);
-      break;
-    case '1Y':
-      cutoff = new Date(today);
-      cutoff.setFullYear(cutoff.getFullYear() - 1);
-      break;
-    case 'Custom': {
-      const s = customStart ? new Date(customStart) : new Date(data[0].date);
-      const e = customEnd ? new Date(customEnd) : today;
-      return data.filter((d) => {
-        const dt = new Date(d.date);
-        return dt >= s && dt <= e;
-      });
-    }
-  }
-  return data.filter((d) => new Date(d.date) >= cutoff);
-}
 
 function rangeToFromTo(
   range: RangeKey,
@@ -114,12 +70,12 @@ function rangeToFromTo(
 }
 
 export default function DashboardPage() {
-  const { data: household, isLoading: hhLoading, error: hhError } = useHousehold();
+  const { isLoading: hhLoading, error: hhError } = useHousehold();
   const { data: apiAccounts, isLoading: acctsLoading, error: acctsError } = useAccounts();
   const { data: apiHoldings } = useHouseholdHoldings();
 
-  const accounts: EnrichedAccount[] = devBypass ? enrichAccounts() : (apiAccounts ?? []);
-  const loading = !devBypass && (hhLoading || acctsLoading);
+  const accounts: EnrichedAccount[] = apiAccounts ?? [];
+  const loading = hhLoading || acctsLoading;
 
   const [range, setRange] = useState<RangeKey>('YTD');
   const [customStart, setCustomStart] = useState('');
@@ -134,23 +90,10 @@ export default function DashboardPage() {
 
   // Onboarding redirect is handled by RequireAuth in the layout
 
-  const nwData = useMemo(
-    () =>
-      devBypass
-        ? filterByRange(getMockNetWorthHistory(), range, customStart, customEnd)
-        : (apiNwHistory ?? []),
-    [range, customStart, customEnd, apiNwHistory],
-  );
-  const invData = useMemo(
-    () =>
-      devBypass
-        ? filterByRange(getMockPortfolioHistory(), range, customStart, customEnd)
-        : (apiInvHistory ?? []),
-    [range, customStart, customEnd, apiInvHistory],
-  );
+  const nwData = apiNwHistory ?? [];
+  const invData = apiInvHistory ?? [];
   // Holdings by value (for donut)
   const holdingsByValue = useMemo(() => {
-    if (devBypass) return [...mockHoldings].sort((a, b) => b.value - a.value);
     if (!apiHoldings) return [];
     return apiHoldings.summary
       .map((s) => ({
@@ -163,7 +106,7 @@ export default function DashboardPage() {
       .sort((a, b) => b.value - a.value);
   }, [apiHoldings]);
 
-  const fetchError = !devBypass && (hhError || acctsError);
+  const fetchError = hhError || acctsError;
 
   if (loading) {
     return <div className="py-10 text-muted-foreground">Loading...</div>;

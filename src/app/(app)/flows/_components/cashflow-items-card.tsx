@@ -44,7 +44,7 @@ import type {
   TaxTreatment,
 } from '@shared/types';
 import { CASHFLOW_FREQUENCIES } from '@shared/types';
-import { TAX_TREATMENT_LABELS, TAX_TREATMENT_OPTIONS } from '@/lib/constants';
+import { TAX_TREATMENT_OPTIONS } from '@/lib/constants';
 import { mutateAccounts } from '@/lib/swr';
 
 const FREQ_LABELS: Record<CashflowFrequency, string> = {

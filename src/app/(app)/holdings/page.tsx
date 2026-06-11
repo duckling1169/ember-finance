@@ -1,7 +1,6 @@
 'use client';
 
 import { useState, useMemo } from 'react';
-import { devBypass, mockHoldings, mockTaxLots, mockAccounts } from '@/lib/mock-data';
 import type { HouseholdHoldingsResponse } from '@shared/types';
 import { useHouseholdHoldings, useAccounts } from '@/lib/swr';
 import { Card, CardContent } from '@/components/ui/card';
@@ -84,20 +83,7 @@ export default function HoldingsPage() {
     error: holdingsError,
   } = useHouseholdHoldings();
 
-  // Build account list from either mock or API data
   const accountList: AccountInfo[] = useMemo(() => {
-    if (devBypass) {
-      return mockAccounts
-        .filter((a) => INVESTMENT_TYPES.has(a.account_type) && a.is_active)
-        .map((a) => ({
-          id: a.id,
-          name: a.name,
-          institution: a.institution,
-          account_type: a.account_type,
-          tax_treatment: a.tax_treatment || 'none',
-          is_active: a.is_active,
-        }));
-    }
     if (!apiAccounts) return [];
     return apiAccounts
       .filter((a) => INVESTMENT_TYPES.has(a.account_type) && a.is_active !== false)
@@ -124,16 +110,12 @@ export default function HoldingsPage() {
   const [sheetSymbol, setSheetSymbol] = useState<string | null>(null);
   const [filterOpen, setFilterOpen] = useState(false);
 
-  // Build aggregated holdings from either mock or API data
   const holdings = useMemo(() => {
-    if (devBypass) {
-      return buildMockHoldings(effectiveSelectedIds, sortKey, sortDir);
-    }
     if (!apiHoldings) return [];
     return buildApiHoldings(apiHoldings, effectiveSelectedIds, sortKey, sortDir);
   }, [apiHoldings, effectiveSelectedIds, sortKey, sortDir]);
 
-  const loading = !devBypass && (acctsLoading || holdingsLoading);
+  const loading = acctsLoading || holdingsLoading;
 
   const totalValue = holdings.reduce((s, h) => s + h.value, 0);
   const totalCost = holdings.reduce((s, h) => s + h.cost_basis, 0);
@@ -142,7 +124,7 @@ export default function HoldingsPage() {
 
   const sheetHolding = sheetSymbol ? holdings.find((h) => h.symbol === sheetSymbol) : null;
 
-  const fetchError = !devBypass && (acctsError || holdingsError);
+  const fetchError = acctsError || holdingsError;
 
   if (loading) {
     return <div className="py-10 text-center text-muted-foreground">Loading...</div>;
@@ -381,63 +363,6 @@ export default function HoldingsPage() {
 }
 
 // -- Data builders --
-
-function buildMockHoldings(
-  selectedAccountIds: Set<string>,
-  sortKey: SortKey | null,
-  sortDir: SortDir,
-): AggregatedHolding[] {
-  const filtered = mockHoldings.filter((h) => selectedAccountIds.has(h.account_id));
-  const bySymbol = new Map<string, AggregatedHolding>();
-
-  for (const h of filtered) {
-    const existing = bySymbol.get(h.symbol);
-    const lots: LotView[] = mockTaxLots
-      .filter((l) => l.symbol === h.symbol && selectedAccountIds.has(l.account_id))
-      .map((l) => ({
-        id: l.id,
-        account_id: l.account_id,
-        symbol: l.symbol,
-        acquired_date: l.acquired_date,
-        quantity: l.quantity,
-        cost_basis_per_share: l.cost_basis_per_share,
-        cost_basis_total: l.cost_basis_total,
-        live_market_value: l.live_market_value,
-        unrealized_gain_loss: l.unrealized_gain_loss,
-        holding_period: l.holding_period,
-        source: l.source,
-      }));
-    if (existing) {
-      existing.shares += h.shares;
-      existing.value += h.value;
-      existing.cost_basis += h.cost_basis;
-      existing.gain += h.gain;
-      if (!existing.account_ids.includes(h.account_id)) {
-        existing.account_ids.push(h.account_id);
-      }
-      existing.lots = lots;
-    } else {
-      bySymbol.set(h.symbol, {
-        symbol: h.symbol,
-        name: h.name,
-        shares: h.shares,
-        price: h.price,
-        value: h.value,
-        cost_basis: h.cost_basis,
-        gain: h.gain,
-        gain_pct: 0,
-        account_ids: [h.account_id],
-        lots,
-      });
-    }
-  }
-
-  for (const h of bySymbol.values()) {
-    h.gain_pct = h.cost_basis ? (h.gain / h.cost_basis) * 100 : 0;
-  }
-
-  return sortHoldings(Array.from(bySymbol.values()), sortKey, sortDir);
-}
 
 function buildApiHoldings(
   data: HouseholdHoldingsResponse,

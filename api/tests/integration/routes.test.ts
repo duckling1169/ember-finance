@@ -16,7 +16,6 @@ app.use('/api/*', stubAuth());
 app.use('/api/accounts/:householdId', stubHouseholdMember());
 app.use('/api/accounts/:householdId/*', stubHouseholdMember());
 app.use('/api/ingest/manual/:householdId/*', stubHouseholdMember());
-app.use('/api/ingest/sync/:householdId/*', stubHouseholdMember());
 app.route('/api/accounts', accountsRoute);
 app.route('/api/ingest', ingestRoute);
 
@@ -162,88 +161,6 @@ describe('API routes', () => {
       const detail = await detailRes.json();
       expect(detail.sources.length).toBeGreaterThanOrEqual(1);
       expect(detail.sources[0].provider).toBe('manual');
-    });
-  });
-
-  describe('POST /api/ingest/manual (legacy UI payload compatibility)', () => {
-    let manualAccountId: string;
-
-    it('creates a fresh account for UI-style manual entry tests', async () => {
-      const res = await req('POST', `/api/accounts/${householdId}`, {
-        name: 'Manual Entry Test Account',
-        account_type: 'checking',
-      });
-      expect(res.status).toBe(201);
-      manualAccountId = (await res.json()).id;
-    });
-
-    it('entry_type=current creates a balance snapshot', async () => {
-      const res = await req('POST', `/api/ingest/manual/${householdId}/${manualAccountId}`, {
-        entry_type: 'current',
-        amount: 5000,
-        description: 'Updated balance',
-      });
-
-      expect(res.status).toBe(201);
-      const data = await res.json();
-      expect(data.rawIngestId).toBeTruthy();
-      expect(data.recordCount).toBe(1);
-
-      // Verify balance snapshot was created
-      const balRes = await req('GET', `/api/accounts/${householdId}/${manualAccountId}/balances`);
-      const balances = await balRes.json();
-      expect(balances.length).toBeGreaterThanOrEqual(1);
-      const latest = balances[balances.length - 1];
-      expect(Number(latest.balance)).toBe(5000);
-    });
-
-    it('entry_type=delta creates a transaction', async () => {
-      const res = await req('POST', `/api/ingest/manual/${householdId}/${manualAccountId}`, {
-        entry_type: 'delta',
-        amount: -42.5,
-        description: 'Coffee shop',
-      });
-
-      expect(res.status).toBe(201);
-      const data = await res.json();
-      expect(data.rawIngestId).toBeTruthy();
-      expect(data.recordCount).toBe(1);
-
-      // Verify transaction was created
-      const db = (await import('../helpers.js')).getTestClient();
-      const { data: txns } = await db
-        .from('transaction')
-        .select('*')
-        .eq('account_id', manualAccountId)
-        .eq('description', 'Coffee shop');
-      expect(txns).toBeTruthy();
-      expect(txns!.length).toBeGreaterThanOrEqual(1);
-      expect(Number(txns![0].amount)).toBe(-42.5);
-    });
-
-    it('entry_type=delta uses default description when none provided', async () => {
-      const res = await req('POST', `/api/ingest/manual/${householdId}/${manualAccountId}`, {
-        entry_type: 'delta',
-        amount: 100,
-      });
-
-      expect(res.status).toBe(201);
-
-      const db = (await import('../helpers.js')).getTestClient();
-      const { data: txns } = await db
-        .from('transaction')
-        .select('*')
-        .eq('account_id', manualAccountId)
-        .eq('description', 'Manual entry');
-      expect(txns).toBeTruthy();
-      expect(txns!.length).toBeGreaterThanOrEqual(1);
-    });
-  });
-
-  describe('POST /api/ingest/sync/:householdId/:sourceId', () => {
-    it('returns 501 (not yet implemented)', async () => {
-      const res = await req('POST', `/api/ingest/sync/${householdId}/fake-source-id`);
-      expect(res.status).toBe(501);
     });
   });
 

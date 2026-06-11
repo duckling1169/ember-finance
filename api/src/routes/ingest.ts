@@ -3,31 +3,8 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { persistIngest } from '../services/ingest.js';
 import { ManualAdapter } from '../adapters/manual.js';
 import { CsvAdapter, detectCsvFormat } from '../adapters/csv.js';
-import type { Account, AccountSource, ManualIngestInput } from '../types/index.js';
+import type { Account, AccountSource } from '../types/index.js';
 import type { AuthEnv } from '../middleware/auth.js';
-
-interface LegacyManualIngestInput {
-  entry_type: 'current' | 'delta';
-  amount: number;
-  description?: string;
-}
-
-// Temporary compatibility shim for older clients using entry_type/amount payloads.
-// New clients should send normalized ManualIngestInput directly.
-function convertLegacyPayload(body: Record<string, unknown>): ManualIngestInput {
-  if (!('entry_type' in body)) return body as ManualIngestInput;
-
-  const { entry_type, amount, description } = body as unknown as LegacyManualIngestInput;
-  const today = new Date().toISOString().slice(0, 10);
-
-  if (entry_type === 'current') {
-    return { balances: [{ date: today, balance: amount }] };
-  }
-  // delta
-  return {
-    transactions: [{ date: today, amount, description: description || 'Manual entry' }],
-  };
-}
 
 export const ingestRoute = new Hono<AuthEnv>();
 
@@ -164,9 +141,4 @@ ingestRoute.post('/csv/:householdId/:accountId', async (c) => {
     const message = err instanceof Error ? err.message : String(err);
     return c.json({ error: message }, 400);
   }
-});
-
-// Sync a specific source (for provider adapters — Phase 3)
-ingestRoute.post('/sync/:householdId/:sourceId', async (c) => {
-  return c.json({ error: 'Provider sync not yet implemented' }, 501);
 });

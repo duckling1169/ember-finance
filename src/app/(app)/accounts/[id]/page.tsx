@@ -2,13 +2,6 @@
 
 import { use, useState, useRef } from 'react';
 import Link from 'next/link';
-import {
-  devBypass,
-  enrichAccounts,
-  mockAccountHistory,
-  mockBalanceHistory,
-  type AccountHistoryEvent,
-} from '@/lib/mock-data';
 import type { AccountDetailResponse } from '@shared/types';
 import {
   useAccountDetail,
@@ -53,6 +46,23 @@ import {
 } from '@tabler/icons-react';
 
 type Tab = 'overview' | 'history' | 'settings';
+
+interface AccountHistoryEvent {
+  id: string;
+  date: string;
+  type:
+    | 'api_sync'
+    | 'file_import'
+    | 'manual_override'
+    | 'manual_delta'
+    | 'link_connected'
+    | 'link_disconnected'
+    | 'account_created';
+  description: string;
+  detail?: string; // filename, balance value, etc.
+  balance_after?: number;
+  records?: number;
+}
 
 interface AccountView {
   id: string;
@@ -130,41 +140,24 @@ export default function AccountDetailPage({ params }: { params: Promise<{ id: st
   const [activeTab, setActiveTab] = useState<Tab>('overview');
 
   const { householdId } = useAccounts();
-  const { data: apiDetail, isLoading, error } = useAccountDetail(devBypass ? undefined : id);
+  const { data: apiDetail, isLoading, error } = useAccountDetail(id);
 
   let account: AccountView | null = null;
   let history: AccountHistoryEvent[] = [];
   let balanceHistory: { date: string; balance: number }[] = [];
 
-  if (devBypass) {
-    const enriched = enrichAccounts().find((a) => a.id === id);
-    if (enriched) {
-      account = {
-        id: enriched.id,
-        name: enriched.name,
-        institution: enriched.institution,
-        account_type: enriched.account_type,
-        balance: enriched.balance,
-        linked: enriched.linked,
-        last_updated: enriched.last_synced,
-        tax_treatment: enriched.tax_treatment,
-        notes: (enriched.meta?.notes as string) || '',
-      };
-      history = mockAccountHistory[id] || [];
-      balanceHistory = mockBalanceHistory[id] || [];
-    }
-  } else if (apiDetail) {
+  if (apiDetail) {
     const mapped = mapApiDetail(id, apiDetail);
     account = mapped.account;
     history = mapped.history;
     balanceHistory = mapped.balanceHistory;
   }
 
-  if (!devBypass && isLoading) {
+  if (isLoading) {
     return <div className="py-10 text-muted-foreground">Loading...</div>;
   }
 
-  if (!devBypass && error) {
+  if (error) {
     return (
       <div className="space-y-3">
         <Link
@@ -357,52 +350,6 @@ function OverviewTab({
           </dl>
         </CardContent>
       </Card>
-
-      {/* Connection management */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Connection</CardTitle>
-        </CardHeader>
-        <CardContent>
-          {account.linked ? (
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <div className="flex h-10 w-10 items-center justify-center rounded-full bg-gain/10">
-                  <IconPlugConnected size={20} className="text-gain" />
-                </div>
-                <div>
-                  <p className="text-sm font-medium">Connected via API</p>
-                  <p className="text-xs text-muted-foreground">
-                    Last synced {account.last_updated ? fmtDateTime(account.last_updated) : 'never'}
-                  </p>
-                </div>
-              </div>
-              <Button variant="outline" size="sm">
-                <IconLinkOff size={14} />
-                Disconnect
-              </Button>
-            </div>
-          ) : (
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <div className="flex h-10 w-10 items-center justify-center rounded-full bg-muted">
-                  <IconLink size={20} className="text-muted-foreground" />
-                </div>
-                <div>
-                  <p className="text-sm font-medium">Not linked</p>
-                  <p className="text-xs text-muted-foreground">
-                    Connect to automatically sync balances and transactions
-                  </p>
-                </div>
-              </div>
-              <Button variant="primary-outline" size="sm">
-                <IconLink size={14} />
-                Link Account
-              </Button>
-            </div>
-          )}
-        </CardContent>
-      </Card>
     </div>
   );
 }
@@ -443,7 +390,7 @@ const EVENT_CONFIG: Record<
 };
 
 function HistoryTab({
-  history: initialHistory,
+  history,
   accountId,
   householdId,
   accountType,
@@ -456,7 +403,6 @@ function HistoryTab({
   holdings: CurrentPosition[];
 }) {
   const isInvestmentAccount = INVESTMENT_ACCOUNT_TYPES.includes(accountType);
-  const [history, setHistory] = useState(initialHistory);
   const [showManualForm, setShowManualForm] = useState(false);
   const [showUpload, setShowUpload] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -472,47 +418,31 @@ function HistoryTab({
     const description = form.get('description') as string;
     const today = new Date().toISOString().slice(0, 10);
 
-    if (!devBypass && householdId) {
-      try {
-        setSubmitting(true);
-        setFormError('');
-        const payload =
-          entryType === 'current'
-            ? { balances: [{ date: today, balance: amount }] }
-            : {
-                transactions: [
-                  {
-                    date: today,
-                    amount,
-                    description: description || 'Manual entry',
-                    category: 'manual_adjustment',
-                  },
-                ],
-              };
-        await ingestManual(householdId, accountId, payload);
-        await Promise.all([mutateAccountDetail(accountId), mutateAccounts()]);
-        setShowManualForm(false);
-      } catch (err) {
-        setFormError(err instanceof Error ? err.message : 'Manual entry failed');
-      } finally {
-        setSubmitting(false);
-      }
-      return;
-    }
-
-    const newEvent: AccountHistoryEvent = {
-      id: `h-${Date.now()}`,
-      date: new Date().toISOString(),
-      type: entryType === 'current' ? 'manual_override' : 'manual_delta',
-      description:
+    if (!householdId) return;
+    try {
+      setSubmitting(true);
+      setFormError('');
+      const payload =
         entryType === 'current'
-          ? `Balance set to ${fmt(amount)}`
-          : description || (amount >= 0 ? 'Deposit' : 'Withdrawal'),
-      detail: entryType === 'delta' ? `${amount >= 0 ? '+' : ''}${fmt(amount)}` : undefined,
-      balance_after: entryType === 'current' ? amount : undefined,
-    };
-    setHistory((prev) => [newEvent, ...prev]);
-    setShowManualForm(false);
+          ? { balances: [{ date: today, balance: amount }] }
+          : {
+              transactions: [
+                {
+                  date: today,
+                  amount,
+                  description: description || 'Manual entry',
+                  category: 'manual_adjustment',
+                },
+              ],
+            };
+      await ingestManual(householdId, accountId, payload);
+      await Promise.all([mutateAccountDetail(accountId), mutateAccounts()]);
+      setShowManualForm(false);
+    } catch (err) {
+      setFormError(err instanceof Error ? err.message : 'Manual entry failed');
+    } finally {
+      setSubmitting(false);
+    }
   }
 
   function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
@@ -521,31 +451,18 @@ function HistoryTab({
   }
 
   async function handleFileDrop(file: File) {
-    if (!devBypass && householdId) {
-      try {
-        setSubmitting(true);
-        setFormError('');
-        await ingestCsv(householdId, accountId, file);
-        await Promise.all([mutateAccountDetail(accountId), mutateAccounts()]);
-        setShowUpload(false);
-      } catch (err) {
-        setFormError(err instanceof Error ? err.message : 'File upload failed');
-      } finally {
-        setSubmitting(false);
-      }
-      return;
+    if (!householdId) return;
+    try {
+      setSubmitting(true);
+      setFormError('');
+      await ingestCsv(householdId, accountId, file);
+      await Promise.all([mutateAccountDetail(accountId), mutateAccounts()]);
+      setShowUpload(false);
+    } catch (err) {
+      setFormError(err instanceof Error ? err.message : 'File upload failed');
+    } finally {
+      setSubmitting(false);
     }
-
-    const newEvent: AccountHistoryEvent = {
-      id: `h-${Date.now()}`,
-      date: new Date().toISOString(),
-      type: 'file_import',
-      description: `Uploaded ${file.name}`,
-      detail: file.name,
-      records: 0,
-    };
-    setHistory((prev) => [newEvent, ...prev]);
-    setShowUpload(false);
   }
 
   return (
@@ -614,7 +531,7 @@ function HistoryTab({
             >
               <IconUpload size={28} className="text-muted-foreground" stroke={1.5} />
               <div className="text-center">
-                <p className="text-sm font-medium">Drop a CSV or PDF here</p>
+                <p className="text-sm font-medium">Drop a CSV here</p>
                 <p className="text-xs text-muted-foreground mt-1">or click to browse</p>
               </div>
               <Button
@@ -628,7 +545,7 @@ function HistoryTab({
               <input
                 ref={fileInputRef}
                 type="file"
-                accept=".csv,.pdf"
+                accept=".csv"
                 className="hidden"
                 onChange={handleFileChange}
               />
@@ -781,7 +698,7 @@ function SettingsTab({
       return;
     }
 
-    if (!householdId || devBypass) return;
+    if (!householdId) return;
 
     try {
       setSaving(true);

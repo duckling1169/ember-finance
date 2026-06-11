@@ -17,7 +17,10 @@ let testAccountId: string;
 // Build a test app with stub auth + member middleware
 const app = new Hono<AuthEnv>();
 app.use('/api/*', stubAuth());
-app.use('/api/planning/*', stubMember());
+app.use(
+  '/api/planning/*',
+  stubMember(() => ({ householdId, memberId })),
+);
 app.route('/api/planning', planningRoute);
 
 function req(method: string, path: string, body?: unknown) {
@@ -196,12 +199,12 @@ describe('Planning API', () => {
   let oneTimeItemId: string;
 
   describe('POST /api/planning/flows', () => {
-    it('creates a recurring salary inflow', async () => {
+    it('creates a recurring savings contribution', async () => {
       const res = await req('POST', '/api/planning/flows', {
         member_id: memberId,
-        name: 'Base Salary',
-        direction: 'inflow',
-        bucket: 'salary',
+        name: 'Brokerage Contribution',
+        direction: 'outflow',
+        bucket: 'savings',
         amount: 8000,
         frequency: 'monthly',
         start_date: '2025-01-01',
@@ -209,9 +212,9 @@ describe('Planning API', () => {
 
       expect(res.status).toBe(201);
       const data = await res.json();
-      expect(data.name).toBe('Base Salary');
-      expect(data.direction).toBe('inflow');
-      expect(data.bucket).toBe('salary');
+      expect(data.name).toBe('Brokerage Contribution');
+      expect(data.direction).toBe('outflow');
+      expect(data.bucket).toBe('savings');
       expect(Number(data.amount)).toBe(8000);
       expect(data.is_recurring).toBe(true);
       expect(data.include_in_projection).toBe(true);
@@ -245,7 +248,6 @@ describe('Planning API', () => {
         name: 'Employer 401k Match',
         direction: 'inflow',
         bucket: 'employer_match',
-        tax_treatment: 'pre_tax',
         amount: 500,
         frequency: 'monthly',
         start_date: '2025-01-01',
@@ -254,7 +256,6 @@ describe('Planning API', () => {
       expect(res.status).toBe(201);
       const data = await res.json();
       expect(data.bucket).toBe('employer_match');
-      expect(data.tax_treatment).toBe('pre_tax');
     });
 
     it('creates a cashflow item with income_source_id and destination_account_id', async () => {
@@ -262,8 +263,7 @@ describe('Planning API', () => {
         member_id: memberId,
         name: '401k Deferral',
         direction: 'outflow',
-        bucket: 'retirement_deferral',
-        tax_treatment: 'pre_tax',
+        bucket: 'savings',
         amount: 1875,
         frequency: 'monthly',
         start_date: '2025-01-01',
@@ -305,7 +305,7 @@ describe('Planning API', () => {
       const res = await req('POST', '/api/planning/flows', {
         name: 'Bad',
         direction: 'inflow',
-        bucket: 'salary',
+        bucket: 'savings',
         amount: 0,
         frequency: 'monthly',
         start_date: '2025-01-01',
@@ -338,7 +338,7 @@ describe('Planning API', () => {
       const res = await req('GET', `/api/planning/flows?member_id=${memberId}`);
       expect(res.status).toBe(200);
       const data = await res.json();
-      expect(data.length).toBe(3); // salary + employer match + 401k deferral
+      expect(data.length).toBe(3); // brokerage contribution + employer match + 401k deferral
       expect(data.every((d: { member_id: string }) => d.member_id === memberId)).toBe(true);
     });
   });
@@ -347,13 +347,13 @@ describe('Planning API', () => {
     it('updates item fields', async () => {
       const res = await req('PATCH', `/api/planning/flows/${itemId}`, {
         amount: 9000,
-        name: 'Updated Salary',
+        name: 'Updated Contribution',
       });
 
       expect(res.status).toBe(200);
       const data = await res.json();
       expect(Number(data.amount)).toBe(9000);
-      expect(data.name).toBe('Updated Salary');
+      expect(data.name).toBe('Updated Contribution');
     });
 
     it('updates routing fields', async () => {

@@ -1,5 +1,6 @@
 import { Hono } from 'hono';
 import { supabase } from '../lib/supabase.js';
+import { env } from '../lib/env.js';
 import type { AuthEnv } from '../middleware/auth.js';
 
 interface TiingoEOD {
@@ -76,7 +77,7 @@ quotesRoute.get('/', async (c) => {
     return c.json({ error: 'Missing required query parameter: symbols' }, 400);
   }
 
-  const apiKey = process.env.TIINGO_API_KEY;
+  const apiKey = env.tiingoApiKey;
   if (!apiKey) {
     return c.json({ error: 'Quote service not configured' }, 503);
   }

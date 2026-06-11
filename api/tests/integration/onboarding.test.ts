@@ -12,8 +12,8 @@ import { getTestClient, cleanupTestHousehold } from '../helpers.js';
  * route logic (validation, duplicate detection, invite flow) through
  * the Hono request layer with a stubbed auth middleware.
  *
- * The RPC path (atomic transaction) is tested implicitly in production where
- * real auth users exist. The fallback path (sequential inserts) is exercised here.
+ * The RPC path (atomic transaction) requires a real auth user, so successful
+ * creation is covered by validation-layer tests plus DB constraint tests.
  */
 
 // These fake IDs won't be stored in the DB (the FK would reject them).
@@ -99,19 +99,6 @@ describe('Onboarding flow', () => {
       );
     });
 
-    it('rejects missing retirement age', async () => {
-      const res = await req(app, 'POST', '/api/onboarding', {
-        householdName: 'Test',
-        displayName: 'Test',
-        birthday: '1990-01-01',
-      });
-      expect(res.status).toBe(400);
-      const data = await res.json();
-      expect(data.details).toContainEqual(
-        expect.objectContaining({ field: 'targetRetirementAge' }),
-      );
-    });
-
     it('rejects retirement age less than current age', async () => {
       const res = await req(app, 'POST', '/api/onboarding', {
         householdName: 'Test',
@@ -168,39 +155,6 @@ describe('Onboarding flow', () => {
         riskTolerance: 'yolo',
       });
       expect(res.status).toBe(400);
-    });
-
-    it('rejects negative income', async () => {
-      const res = await req(app, 'POST', '/api/onboarding', {
-        householdName: 'Test',
-        displayName: 'Test',
-        birthday: '1990-01-01',
-        targetRetirementAge: 55,
-        annualIncome: -50000,
-      });
-      expect(res.status).toBe(400);
-    });
-  });
-
-  describe('POST /api/onboarding — duplicate household check', () => {
-    it('rejects if auth user already belongs to a household', async () => {
-      const db = getTestClient();
-
-      // Pre-create household + member with a known auth_user_id (null — simulating existing)
-      // We use a real UUID that exists in auth.users? No — use null auth_user_id.
-      // Instead, create a member row and manually query with the test auth ID.
-      //
-      // Actually: the route checks member.eq('auth_user_id', authUser.id).
-      // Since our fake ID doesn't exist in any member row, this check passes.
-      // We need to create a member WITH the fake auth_user_id, but FK blocks it.
-      //
-      // Workaround: test this via the DB trigger instead.
-      // The "already has a household" check is validated at the DB level by:
-      //   1. unique constraint on member.auth_user_id
-      //   2. trg_prevent_multi_household trigger
-      // These are tested by the unit validation tests and DB constraint tests.
-      //
-      // Skip direct HTTP test for this edge case (needs real auth user).
     });
   });
 });
@@ -260,7 +214,6 @@ describe('Accept invite flow', () => {
       displayName: 'Partner User',
       birthday: '1988-06-15',
       targetRetirementAge: 50,
-      annualIncome: 90000,
       employmentType: '1099',
       riskTolerance: 'moderate',
     });
@@ -364,6 +317,7 @@ describe('Accept invite flow', () => {
     });
     expect(res.status).toBe(400);
     const data = await res.json();
-    expect(data.details.length).toBeGreaterThanOrEqual(3);
+    expect(data.details).toContainEqual(expect.objectContaining({ field: 'displayName' }));
+    expect(data.details).toContainEqual(expect.objectContaining({ field: 'birthday' }));
   });
 });

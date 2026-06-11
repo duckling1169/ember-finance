@@ -89,18 +89,7 @@ export const INVESTMENT_ACCOUNT_TYPES: AccountType[] = ['brokerage', 'retirement
 export const BANKING_ACCOUNT_TYPES: AccountType[] = ['checking', 'savings', 'credit'];
 export const LIABILITY_TYPES: AccountType[] = ['credit', 'loan', 'mortgage'];
 
-export const NET_WORTH_GROUPS = {
-  cash: ['checking', 'savings'] as AccountType[],
-  investments: ['brokerage', 'retirement', 'hsa'] as AccountType[],
-  debt: ['credit', 'loan', 'mortgage'] as AccountType[],
-};
-
-// ── Asset Types (non-account items tracked for net worth) ──
-
-export const ASSET_CATEGORIES = ['real_estate', 'vehicle', 'other'] as const;
-export type AssetCategory = (typeof ASSET_CATEGORIES)[number];
-
-export type Provider = 'teller' | 'snaptrade' | 'csv' | 'pdf' | 'manual';
+export type Provider = 'teller' | 'snaptrade' | 'csv' | 'manual';
 
 export type ActivityType =
   | 'buy'
@@ -181,41 +170,14 @@ export interface Account {
   created_at: string;
 }
 
-export interface Asset {
-  id: string;
-  household_id: string;
-  name: string;
-  category: AssetCategory;
-  estimated_value: number;
-  created_at: string;
-  updated_at: string;
-}
-
 export interface AccountSource {
   id: string;
   account_id: string;
   household_id: string;
   provider: Provider;
   provider_account_id: string | null;
-  provider_meta: Uint8Array | null; // encrypted
   is_active: boolean;
   last_synced: string | null;
-  created_at: string;
-}
-
-export interface RawIngest {
-  id: string;
-  household_id: string;
-  account_id: string | null;
-  source_id: string | null;
-  source_type: string;
-  source_ref: string | null;
-  payload: unknown;
-  record_count: number | null;
-  status: 'pending' | 'processed' | 'failed' | 'skipped';
-  error: string | null;
-  triggered_by: string | null;
-  processed_at: string | null;
   created_at: string;
 }
 
@@ -302,17 +264,6 @@ export interface BalanceSnapshot {
   balance: number;
   available: number | null;
   source: 'provider_sync' | 'csv_derived' | 'manual';
-  created_at: string;
-}
-
-export interface NetWorthSnapshot {
-  id: string;
-  household_id: string;
-  date: string;
-  total_assets: number;
-  total_liabilities: number;
-  net_worth: number;
-  breakdown: Record<string, number>;
   created_at: string;
 }
 

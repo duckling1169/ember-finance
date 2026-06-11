@@ -4,7 +4,6 @@ import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from './auth-context';
 import { useHousehold } from './swr';
-import { devBypass } from './mock-data';
 
 interface RequireAuthProps {
   children: React.ReactNode;
@@ -19,7 +18,7 @@ export function RequireAuth({ children, requireHousehold = true }: RequireAuthPr
 
   const { data: household, isLoading: hhLoading, error: hhError } = useHousehold();
   const noHousehold =
-    !devBypass && !hhLoading && (!household || hhError?.message?.includes('No household found'));
+    !hhLoading && (!household || hhError?.message?.includes('No household found'));
 
   useEffect(() => {
     if (!authLoading && !user) {

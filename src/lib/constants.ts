@@ -13,6 +13,3 @@ export const TAX_TREATMENT_OPTIONS = [
 ] as const;
 
 export const API_PROVIDERS: readonly string[] = ['teller', 'snaptrade'];
-
-export const devBypass =
-  process.env.NODE_ENV === 'development' && process.env.NEXT_PUBLIC_DEV_BYPASS_AUTH === 'true';
