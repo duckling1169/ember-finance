@@ -163,3 +163,27 @@ Frontend chart components are currently implemented with Nivo (`@nivo/line`, `@n
 ### 026 — Terminology: Feature Sets, Not Modes
 
 Supersedes terminology in Decision 023 for product language. Accumulation and drawdown/spending are treated as Ember's two primary planning feature sets, not mutually exclusive app modes. Households may use both continuously as part of one integrated investment-planning workflow.
+
+---
+
+### 027 — Household-First Model Confirmed for MVP
+
+Considered switching the primary entity from household to user (with an optional linked household). Decided against it: the one-household-per-user constraint (Decision 010) already makes a solo user equivalent to a single-member household, so the household adds no friction for individuals while enabling the joint-filing tax math, member-scoped income sources, and shared-expense aggregation that the planning engine is built on. Re-keying every table to user-first would be a large migration with no MVP benefit.
+
+---
+
+### 028 — Net Worth Computed Live; Materialized Snapshots Dropped
+
+Supersedes Decision 009. The dashboard computes net worth from `balance_snapshot` aggregates at request time; the `net_worth_snapshot` table and `compute_net_worth_snapshot()` function had no callers and were dropped, along with the unused `asset` table (non-account asset tracking has no API or UI yet). If request-time aggregation becomes slow or asset tracking ships, re-introduce materialization then.
+
+---
+
+### 029 — Provider Sync and Credential Encryption Deferred Post-MVP
+
+Supersedes the implementation status implied by Decision 005. Teller/SnapTrade live sync is out of MVP scope: the 501 sync endpoint, encryption utilities, `account_source.provider_meta` column, and related env vars were removed because none had a live code path. Decision 005's design (AES-256-GCM application-level encryption) remains the plan when provider sync is actually built. Manual entry and CSV upload are the supported MVP ingestion paths.
+
+---
+
+### 030 — Consolidated Migration Baseline
+
+`001_schema.sql` + `002_views_functions.sql` are treated as an editable consolidated baseline while the product is pre-launch (the hosted DB is kept in sync by applying equivalent DDL directly). Once there are real external users, migrations become append-only.
