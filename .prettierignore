@@ -5,4 +5,6 @@ build
 out
 *.min.js
 package-lock.json
+pnpm-lock.yaml
+yarn.lock
 supabase/.temp

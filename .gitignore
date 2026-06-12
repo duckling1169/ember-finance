@@ -2,6 +2,11 @@
 
 # dependencies
 node_modules
+# Lockfiles are intentionally not committed: this app is installed via the
+# pnpm workspace at the parent js/ dir (outside this repo); CI installs fresh.
+pnpm-lock.yaml
+package-lock.json
+yarn.lock
 /.pnp
 .pnp.*
 .yarn/*
