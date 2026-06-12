@@ -1,7 +1,10 @@
 import { describe, it, expect } from 'vitest';
 import { computeMemberWaterfall } from '../../../src/engine/waterfall.js';
 import type { WaterfallMemberInput } from '../../../src/engine/types.js';
-import type { IncomeSource, CashflowItem, TaxTreatment } from '../../../shared/types/index.js';
+import type { IncomeSource, CashflowItem, TaxTreatment } from '../../../src/types/index.js';
+import { TAX_PARAMS_2025 } from './fixtures.js';
+
+const run = (member: WaterfallMemberInput) => computeMemberWaterfall(member, TAX_PARAMS_2025);
 
 function makeIncomeSource(overrides: Partial<IncomeSource> = {}): IncomeSource {
   return {
@@ -62,7 +65,7 @@ function makeMember(overrides: Partial<WaterfallMemberInput> = {}): WaterfallMem
 
 describe('computeMemberWaterfall', () => {
   it('computes gross income from income sources', () => {
-    const result = computeMemberWaterfall(makeMember());
+    const result = run(makeMember());
 
     // $125,900/yr → $10,491.67/mo
     expect(result.total_gross_monthly).toBeCloseTo(10491.67, 0);
@@ -70,7 +73,7 @@ describe('computeMemberWaterfall', () => {
   });
 
   it('filters out inactive income sources', () => {
-    const result = computeMemberWaterfall(
+    const result = run(
       makeMember({
         income_sources: [
           makeIncomeSource({ gross_amount: 100000 }),
@@ -83,7 +86,7 @@ describe('computeMemberWaterfall', () => {
   });
 
   it('deducts pre-tax saving items linked to income source', () => {
-    const result = computeMemberWaterfall(
+    const result = run(
       makeMember({
         cashflow_items: [
           makeCashflowItem({
@@ -105,7 +108,7 @@ describe('computeMemberWaterfall', () => {
   });
 
   it('applies manual tax mode with override rate', () => {
-    const result = computeMemberWaterfall(
+    const result = run(
       makeMember({
         tax_mode: 'manual',
         effective_tax_rate_override: 0.28,
@@ -118,7 +121,7 @@ describe('computeMemberWaterfall', () => {
   });
 
   it('computes auto taxes with federal + state + FICA', () => {
-    const result = computeMemberWaterfall(makeMember());
+    const result = run(makeMember());
 
     expect(result.tax_breakdown.federal).toBeGreaterThan(0);
     expect(result.tax_breakdown.state).toBeGreaterThan(0);
@@ -129,7 +132,7 @@ describe('computeMemberWaterfall', () => {
   });
 
   it('tracks post-tax contributions (saving to non-pre-tax account)', () => {
-    const result = computeMemberWaterfall(
+    const result = run(
       makeMember({
         cashflow_items: [
           makeCashflowItem({
@@ -151,7 +154,7 @@ describe('computeMemberWaterfall', () => {
   });
 
   it('computes expenses and residual', () => {
-    const result = computeMemberWaterfall(
+    const result = run(
       makeMember({
         cashflow_items: [
           makeCashflowItem({ id: 'cf-rent', name: 'Rent', amount: 2000, frequency: 'monthly' }),
@@ -175,7 +178,7 @@ describe('computeMemberWaterfall', () => {
   });
 
   it('full waterfall flows balance: gross - pretax - tax - posttax - expenses = residual', () => {
-    const result = computeMemberWaterfall(
+    const result = run(
       makeMember({
         cashflow_items: [
           makeCashflowItem({
@@ -218,7 +221,7 @@ describe('computeMemberWaterfall', () => {
   });
 
   it('handles zero income gracefully', () => {
-    const result = computeMemberWaterfall(makeMember({ income_sources: [] }));
+    const result = run(makeMember({ income_sources: [] }));
 
     expect(result.total_gross_monthly).toBe(0);
     expect(result.tax_monthly).toBe(0);
@@ -226,7 +229,7 @@ describe('computeMemberWaterfall', () => {
   });
 
   it('handles biweekly income sources', () => {
-    const result = computeMemberWaterfall(
+    const result = run(
       makeMember({
         income_sources: [makeIncomeSource({ gross_amount: 4842.31, frequency: 'biweekly' })],
       }),
@@ -237,7 +240,7 @@ describe('computeMemberWaterfall', () => {
   });
 
   it('saving without destination account is treated as post-tax', () => {
-    const result = computeMemberWaterfall(
+    const result = run(
       makeMember({
         cashflow_items: [
           makeCashflowItem({

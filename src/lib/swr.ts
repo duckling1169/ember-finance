@@ -20,6 +20,8 @@ import {
   getCashflowSummary,
   getProjections,
   getMetrics,
+  getAssumptions,
+  getPortfolioComposition,
   getExpenseCategories,
 } from './api';
 import type { Household } from '@shared/types';
@@ -295,6 +297,34 @@ export function useScenarios() {
 
 export function mutateScenarios() {
   return mutate('scenarios');
+}
+
+// ── Portfolio Composition ──
+
+export function usePortfolioComposition() {
+  const householdId = useHouseholdId();
+
+  return useSWR(
+    householdId ? ['portfolio-composition', householdId] : null,
+    ([, id]: [string, string]) => getPortfolioComposition(id),
+    { revalidateOnFocus: false },
+  );
+}
+
+export function mutatePortfolioComposition() {
+  return mutate((key: unknown) => Array.isArray(key) && key[0] === 'portfolio-composition');
+}
+
+// ── Planning: Assumptions ──
+
+export function useAssumptions(scenarioId?: string) {
+  return useSWR(['assumptions', scenarioId ?? 'base'], () => getAssumptions(scenarioId), {
+    revalidateOnFocus: false,
+  });
+}
+
+export function mutateAssumptions() {
+  return mutate((key: unknown) => Array.isArray(key) && key[0] === 'assumptions');
 }
 
 // ── Planning: Computed (read-only) ──

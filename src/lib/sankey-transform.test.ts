@@ -35,6 +35,7 @@ function makeMemberWaterfall(overrides: Partial<MemberWaterfall> = {}): MemberWa
       fica_total: 9_180,
       total: 33_180,
       effective_rate: 0.2765,
+      tax_year: 2025,
     },
     tax_monthly: 2_765,
     net_income_monthly: 7_235,

@@ -7,6 +7,7 @@ import { duplicatesRoute } from './routes/duplicates.js';
 import { onboardingRoute } from './routes/onboarding.js';
 import { settingsRoute } from './routes/settings.js';
 import { planningRoute } from './routes/planning.js';
+import { portfolioRoute } from './routes/portfolio.js';
 import { syncRoute } from './routes/sync.js';
 import { quotesRoute } from './routes/quotes.js';
 import {
@@ -44,6 +45,7 @@ export function createApiRouter() {
   api.use('/activity/transactions/:householdId', requireHouseholdMember);
   api.use('/activity/investments/:householdId', requireHouseholdMember);
   api.use('/holdings/:householdId', requireHouseholdMember);
+  api.use('/portfolio/:householdId/*', requireHouseholdMember);
   api.use('/ingest/manual/:householdId/*', requireHouseholdMember);
   api.use('/ingest/csv/:householdId/*', requireHouseholdMember);
   api.use('/duplicates/transactions/:householdId/*', requireHouseholdMember);
@@ -71,6 +73,7 @@ export function createApiRouter() {
   api.route('/ingest', ingestRoute);
   api.route('/duplicates', duplicatesRoute);
   api.route('/planning', planningRoute);
+  api.route('/portfolio', portfolioRoute);
   api.route('/quotes', quotesRoute);
   api.route('/sync', syncRoute);
 

@@ -28,6 +28,8 @@ export interface WaterfallMemberInput {
 export interface HouseholdWaterfallInput {
   tax_filing_status: TaxFilingStatus | null;
   members: WaterfallMemberInput[];
+  /** Versioned tax tables resolved from the assumptions system */
+  tax_params: TaxParams;
 }
 
 // ── Cadence Normalization ──
@@ -52,12 +54,37 @@ export interface TaxBreakdown {
   fica_total: number;
   total: number;
   effective_rate: number;
+  /** Tax-table year the figures were computed with; null for manual flat-rate overrides */
+  tax_year: number | null;
 }
 
 export interface FederalBracket {
   min: number;
-  max: number;
+  /** null = no upper bound (top bracket) */
+  max: number | null;
   rate: number;
+}
+
+export interface FICAParams {
+  ss_rate: number;
+  ss_wage_cap: number;
+  medicare_rate: number;
+  medicare_surtax_rate: number;
+  medicare_surtax_threshold: Record<TaxFilingStatus, number>;
+}
+
+/**
+ * Versioned tax tables. Built from assumption values
+ * (`tax.federal_brackets`, `tax.standard_deduction`, `tax.fica`,
+ * `tax.state_rates`) by `buildTaxParams` — never hardcoded.
+ */
+export interface TaxParams {
+  /** Headline tax year (from the federal bracket table) */
+  year: number;
+  federal_brackets: Record<TaxFilingStatus, FederalBracket[]>;
+  standard_deduction: Record<TaxFilingStatus, number>;
+  fica: FICAParams;
+  state_rates: Partial<Record<USState, number>>;
 }
 
 // ── Waterfall Output Types ──

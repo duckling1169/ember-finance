@@ -187,3 +187,27 @@ Supersedes the implementation status implied by Decision 005. Teller/SnapTrade l
 ### 030 — Consolidated Migration Baseline
 
 `001_schema.sql` + `002_views_functions.sql` are treated as an editable consolidated baseline while the product is pre-launch (the hosted DB is kept in sync by applying equivalent DDL directly). Once there are real external users, migrations become append-only.
+
+---
+
+### 031 — Assumptions Are Individually Date-Stamped Records
+
+Every assumption that drives projections — planning knobs (returns, inflation, withdrawal rate, contribution growth) and rule-shaped tax parameters (ACA, IRMAA, NIIT, AMT, Roth-conversion inputs) — is a record in the assumptions system (`003_assumptions.sql`), not a settings blob. Two tables: `assumption_default` (global, Ember-shipped, dated reference values — read-only to users, like `security_price` per Decision 017) and `assumption_record` (household-scoped, **append-only**: an edit inserts a new row, so the table is its own audit history). Resolution layers, highest wins: scenario-scoped record > household record > default; within a layer, latest `effective_date <= as-of` wins, `created_at` breaks ties; future-dated rows activate automatically on their effective date (pre-staging next year's tax tables works). Edits made under the base scenario are normalized to household-level records so every scenario inherits them; only non-base scenarios carry scenario-scoped overrides. This supersedes the `planning_scenario.assumptions` JSONB blob from Phase 2a — the column was dropped and its data migrated to records. Deleting an individual record is allowed (revert), which trims history; the audit property holds for everything not explicitly deleted.
+
+---
+
+### 032 — Tax Tables Are Versioned Data, Not Code
+
+Supersedes the vision-doc line "static versioned tables in code." Federal brackets, standard deduction, FICA rates/caps, state effective rates, retirement contribution limits, and RMD ages live as year-stamped values in the assumptions system. The tax engine (`api/src/engine/tax.ts`) takes a `TaxParams` argument built from resolved assumptions and contains no rate constants — changing a tax year is a data edit (insert a dated record), not a code change. Every computed `TaxBreakdown` carries a `tax_year` stamp (null under a manual flat-rate override) surfaced in the UI. Ember ships sensible dated defaults with source citations but makes no promise of tracking live law; users (or future community packs) own the upkeep. Rule-shaped parameters (ACA, IRMAA, NIIT, AMT) are stored and editable but not yet consumed by any engine — they are foundation for drawdown-phase modeling.
+
+---
+
+### 033 — Portfolio Composition: Five Buckets with Classification Provenance
+
+Cross-account allocation uses five buckets (stock/bond/intl/cash/alt). Classification priority: per-symbol user override (`allocation.symbol_overrides` assumption) > international-fund symbol heuristic > `holding.asset_class` mapping > fallback-to-stock. Every position is tagged with its `classification_source` so the UI always explains why a position landed where it did — nothing is classified silently. Target bands (`allocation.targets`) and symbol overrides are assumption records, so they are date-stamped and carry edit history for free. Drift alerts fire when |actual − target| exceeds the band. Asset location groups bucket values by `account.tax_treatment`. Fund overlap / X-ray look-through requires an external underlying-holdings dataset and is deferred pending a data-source decision (SEC N-PORT is the leading candidate).
+
+---
+
+### 034 — Progressive Onboarding Seeds Real Records
+
+The post-signup quick-start step (`/onboarding/quick-start`) collects three numbers (income, monthly spending, invested assets) and produces a headline FI number in minutes — but it does so by creating real records (an income source, an expense cashflow item, a starter brokerage account with a balance snapshot) and calling the same metrics engine the rest of the app uses. There is no separate onboarding calculator whose math could drift from the real engine, and the user's first inputs are immediately visible and editable in Flows/Accounts/Planning.

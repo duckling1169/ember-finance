@@ -212,13 +212,13 @@ function AccountsContent() {
 
 // ── Sortable Accounts Table ──
 
-const columns: { key: SortKey; label: string; align?: 'right' }[] = [
+const columns: { key: SortKey; label: string; align?: 'right'; hideSm?: boolean }[] = [
   { key: 'name', label: 'Name' },
-  { key: 'institution', label: 'Institution' },
+  { key: 'institution', label: 'Institution', hideSm: true },
   { key: 'account_type', label: 'Type' },
   { key: 'linked', label: 'Status' },
   { key: 'balance', label: 'Balance', align: 'right' },
-  { key: 'last_synced', label: 'Last Synced', align: 'right' },
+  { key: 'last_synced', label: 'Last Synced', align: 'right', hideSm: true },
 ];
 
 function AccountsTable({
@@ -274,41 +274,43 @@ function AccountsTable({
   });
 
   return (
-    <Table>
-      <TableHeader>
-        <TableRow>
-          {columns.map((col) => (
-            <TableHead
-              key={col.key}
-              className={`cursor-pointer select-none hover:text-foreground transition-colors ${col.align === 'right' ? 'text-right' : ''}`}
-              onClick={() => onSort(col.key)}
-            >
-              <span className="inline-flex items-center gap-1">
-                {col.label}
-                <SortIcon field={col.key} sortKey={sortKey} sortDir={sortDir} />
-              </span>
-            </TableHead>
-          ))}
-        </TableRow>
-      </TableHeader>
-      <TableBody>
-        {sorted.map((a) => (
-          <TableRow key={a.id} className="cursor-pointer" onClick={() => onRowClick(a.id)}>
-            <TableCell className="font-medium">{a.name}</TableCell>
-            <TableCell>{a.institution || '\u2014'}</TableCell>
-            <TableCell className="capitalize">{a.account_type}</TableCell>
-            <TableCell>
-              <LinkedBadge linked={a.linked} />
-            </TableCell>
-            <TableCell className="text-right font-mono tabular-nums">
-              {fmt(a.balance ?? 0)}
-            </TableCell>
-            <TableCell className="text-right text-muted-foreground text-xs">
-              {a.last_synced ? timeAgo(a.last_synced) : '\u2014'}
-            </TableCell>
+    <div className="-mx-6 overflow-x-auto sm:mx-0">
+      <Table>
+        <TableHeader>
+          <TableRow>
+            {columns.map((col) => (
+              <TableHead
+                key={col.key}
+                className={`cursor-pointer select-none hover:text-foreground transition-colors ${col.align === 'right' ? 'text-right' : ''} ${col.hideSm ? 'hidden sm:table-cell' : ''}`}
+                onClick={() => onSort(col.key)}
+              >
+                <span className="inline-flex items-center gap-1">
+                  {col.label}
+                  <SortIcon field={col.key} sortKey={sortKey} sortDir={sortDir} />
+                </span>
+              </TableHead>
+            ))}
           </TableRow>
-        ))}
-      </TableBody>
-    </Table>
+        </TableHeader>
+        <TableBody>
+          {sorted.map((a) => (
+            <TableRow key={a.id} className="cursor-pointer" onClick={() => onRowClick(a.id)}>
+              <TableCell className="font-medium">{a.name}</TableCell>
+              <TableCell className="hidden sm:table-cell">{a.institution || '\u2014'}</TableCell>
+              <TableCell className="capitalize">{a.account_type}</TableCell>
+              <TableCell>
+                <LinkedBadge linked={a.linked} />
+              </TableCell>
+              <TableCell className="text-right font-mono tabular-nums">
+                {fmt(a.balance ?? 0)}
+              </TableCell>
+              <TableCell className="hidden text-right text-muted-foreground text-xs sm:table-cell">
+                {a.last_synced ? timeAgo(a.last_synced) : '\u2014'}
+              </TableCell>
+            </TableRow>
+          ))}
+        </TableBody>
+      </Table>
+    </div>
   );
 }

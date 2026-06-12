@@ -413,30 +413,19 @@ describe('Planning API', () => {
   // ── Scenarios ──
 
   let scenarioId: string;
+  let altScenarioId: string;
 
   describe('POST /api/planning/scenarios', () => {
-    it('creates a base scenario with formalized assumptions', async () => {
+    it('creates a base scenario', async () => {
       const res = await req('POST', '/api/planning/scenarios', {
         name: 'Current Plan',
         is_base: true,
-        assumptions: {
-          gross_return_rate: 0.09,
-          inflation_rate: 0.03,
-          real_return_rate: 0.06,
-          withdrawal_rate: 0.04,
-          contribution_growth_mode: 'inflation',
-        },
       });
 
       expect(res.status).toBe(201);
       const data = await res.json();
       expect(data.name).toBe('Current Plan');
       expect(data.is_base).toBe(true);
-      expect(data.assumptions.gross_return_rate).toBe(0.09);
-      expect(data.assumptions.inflation_rate).toBe(0.03);
-      expect(data.assumptions.real_return_rate).toBe(0.06);
-      expect(data.assumptions.withdrawal_rate).toBe(0.04);
-      expect(data.assumptions.contribution_growth_mode).toBe('inflation');
       scenarioId = data.id;
     });
 
@@ -448,7 +437,7 @@ describe('Planning API', () => {
       expect(res.status).toBe(201);
       const data = await res.json();
       expect(data.is_base).toBe(false);
-      expect(data.assumptions).toEqual({});
+      altScenarioId = data.id;
     });
 
     it('rejects scenario without name', async () => {
@@ -467,27 +456,6 @@ describe('Planning API', () => {
   });
 
   describe('PATCH /api/planning/scenarios/:scenarioId', () => {
-    it('updates scenario assumptions', async () => {
-      const res = await req('PATCH', `/api/planning/scenarios/${scenarioId}`, {
-        assumptions: {
-          gross_return_rate: 0.08,
-          inflation_rate: 0.025,
-          real_return_rate: 0.055,
-          withdrawal_rate: 0.035,
-          retirement_annual_spend_override: 50000,
-          contribution_growth_mode: 'fixed_rate',
-          contribution_growth_rate: 0.03,
-        },
-      });
-
-      expect(res.status).toBe(200);
-      const data = await res.json();
-      expect(data.assumptions.gross_return_rate).toBe(0.08);
-      expect(data.assumptions.retirement_annual_spend_override).toBe(50000);
-      expect(data.assumptions.contribution_growth_mode).toBe('fixed_rate');
-      expect(data.assumptions.contribution_growth_rate).toBe(0.03);
-    });
-
     it('renames scenario', async () => {
       const res = await req('PATCH', `/api/planning/scenarios/${scenarioId}`, {
         name: 'Base Plan (Updated)',
@@ -503,6 +471,187 @@ describe('Planning API', () => {
         household_id: 'sneaky',
       });
       expect(res.status).toBe(400);
+    });
+  });
+
+  // ── Assumptions ──
+
+  describe('Assumptions API', () => {
+    it('GET /assumptions returns seeded defaults with provenance', async () => {
+      const res = await req('GET', '/api/planning/assumptions');
+      expect(res.status).toBe(200);
+      const data = await res.json();
+      expect(data.as_of).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+
+      const byKey = Object.fromEntries(
+        data.assumptions.map((a: { key: string }) => [a.key, a]),
+      ) as Record<string, { value: unknown; source: string; effective_date: string }>;
+
+      expect(byKey['real_return_rate'].value).toBe(0.06);
+      expect(byKey['real_return_rate'].source).toBe('default');
+
+      const brackets = byKey['tax.federal_brackets'].value as {
+        year: number;
+        brackets: Record<string, unknown[]>;
+      };
+      expect(brackets.year).toBe(2025);
+      expect(brackets.brackets.single.length).toBe(7);
+      expect(byKey['tax.federal_brackets'].effective_date).toBe('2025-01-01');
+
+      // Rule-shaped params are present as dated defaults too
+      expect(byKey['tax.aca']).toBeDefined();
+      expect(byKey['tax.irmaa']).toBeDefined();
+      expect(byKey['tax.niit']).toBeDefined();
+      expect(byKey['tax.amt']).toBeDefined();
+      expect(byKey['tax.retirement_limits']).toBeDefined();
+      expect(byKey['tax.rmd_ages']).toBeDefined();
+    });
+
+    let recordId: string;
+
+    it('POST /assumptions creates a household record (base scenario writes to baseline)', async () => {
+      const res = await req('POST', '/api/planning/assumptions', {
+        key: 'withdrawal_rate',
+        value: 0.035,
+        scenario_id: scenarioId, // base scenario → stored household-level
+        effective_date: '2026-01-01',
+        note: 'more conservative SWR',
+      });
+      expect(res.status).toBe(201);
+      const data = await res.json();
+      expect(data.scenario_id).toBeNull();
+      expect(data.value).toBe(0.035);
+      expect(data.created_by).toBe(memberId);
+      recordId = data.id;
+    });
+
+    it('resolved value now comes from the household layer', async () => {
+      const res = await req('GET', '/api/planning/assumptions');
+      const data = await res.json();
+      const wr = data.assumptions.find((a: { key: string }) => a.key === 'withdrawal_rate');
+      expect(wr.value).toBe(0.035);
+      expect(wr.source).toBe('household');
+      expect(wr.record_id).toBe(recordId);
+    });
+
+    it('scenario-scoped record overrides only its scenario', async () => {
+      const createRes = await req('POST', '/api/planning/assumptions', {
+        key: 'withdrawal_rate',
+        value: 0.03,
+        scenario_id: altScenarioId,
+      });
+      expect(createRes.status).toBe(201);
+      const created = await createRes.json();
+      expect(created.scenario_id).toBe(altScenarioId);
+
+      const altRes = await req('GET', `/api/planning/assumptions?scenario_id=${altScenarioId}`);
+      const altData = await altRes.json();
+      const altWr = altData.assumptions.find((a: { key: string }) => a.key === 'withdrawal_rate');
+      expect(altWr.value).toBe(0.03);
+      expect(altWr.source).toBe('scenario');
+
+      const baseRes = await req('GET', '/api/planning/assumptions');
+      const baseData = await baseRes.json();
+      const baseWr = baseData.assumptions.find((a: { key: string }) => a.key === 'withdrawal_rate');
+      expect(baseWr.value).toBe(0.035);
+    });
+
+    it('GET /assumptions/:key/history lists records and defaults', async () => {
+      const res = await req('GET', '/api/planning/assumptions/withdrawal_rate/history');
+      expect(res.status).toBe(200);
+      const data = await res.json();
+      expect(data.key).toBe('withdrawal_rate');
+      const sources = data.history.map((h: { source: string }) => h.source);
+      expect(sources).toContain('household');
+      expect(sources).toContain('default');
+      // newest effective_date first
+      expect(data.history[0].effective_date >= data.history[1].effective_date).toBe(true);
+    });
+
+    it('rejects unknown keys', async () => {
+      const res = await req('POST', '/api/planning/assumptions', {
+        key: 'made_up_key',
+        value: 1,
+      });
+      expect(res.status).toBe(400);
+    });
+
+    it('rejects percent-style rate values', async () => {
+      const res = await req('POST', '/api/planning/assumptions', {
+        key: 'real_return_rate',
+        value: 6, // must be 0.06
+      });
+      expect(res.status).toBe(400);
+    });
+
+    it('rejects malformed federal bracket tables', async () => {
+      const res = await req('POST', '/api/planning/assumptions', {
+        key: 'tax.federal_brackets',
+        value: { year: 2026, brackets: { single: [{ min: 0, max: null, rate: 0.1 }] } },
+      });
+      expect(res.status).toBe(400); // missing other filing statuses
+    });
+
+    it('rejects invalid effective_date', async () => {
+      const res = await req('POST', '/api/planning/assumptions', {
+        key: 'inflation_rate',
+        value: 0.025,
+        effective_date: 'not-a-date',
+      });
+      expect(res.status).toBe(400);
+    });
+
+    it('a tax-table edit changes the engine tax year stamp', async () => {
+      // Stamp before: seeded 2025 tables
+      const before = await req('GET', '/api/planning/cashflow-summary');
+      expect(before.status).toBe(200);
+      const beforeData = await before.json();
+      expect(beforeData.waterfall.members[0].tax_breakdown.tax_year).toBe(2025);
+      expect(beforeData.assumptions_detail.length).toBeGreaterThan(0);
+
+      // Edit: 2026 flat-tax table (data edit, no code change)
+      const flat = (rate: number) => [{ min: 0, max: null, rate }];
+      const editRes = await req('POST', '/api/planning/assumptions', {
+        key: 'tax.federal_brackets',
+        value: {
+          year: 2026,
+          brackets: {
+            single: flat(0.2),
+            married_jointly: flat(0.2),
+            married_separately: flat(0.2),
+            head_of_household: flat(0.2),
+          },
+        },
+      });
+      expect(editRes.status).toBe(201);
+      const edited = await editRes.json();
+
+      const after = await req('GET', '/api/planning/cashflow-summary');
+      const afterData = await after.json();
+      expect(afterData.waterfall.members[0].tax_breakdown.tax_year).toBe(2026);
+
+      // Clean up so later assertions see seeded tables again
+      const delRes = await req('DELETE', `/api/planning/assumptions/records/${edited.id}`);
+      expect(delRes.status).toBe(200);
+    });
+
+    it('DELETE /assumptions/records/:id reverts resolution to the default layer', async () => {
+      const res = await req('DELETE', `/api/planning/assumptions/records/${recordId}`);
+      expect(res.status).toBe(200);
+
+      const after = await req('GET', '/api/planning/assumptions');
+      const data = await after.json();
+      const wr = data.assumptions.find((a: { key: string }) => a.key === 'withdrawal_rate');
+      expect(wr.value).toBe(0.04);
+      expect(wr.source).toBe('default');
+    });
+
+    it('DELETE returns 404 for unknown record', async () => {
+      const res = await req(
+        'DELETE',
+        '/api/planning/assumptions/records/00000000-0000-0000-0000-000000000000',
+      );
+      expect(res.status).toBe(404);
     });
   });
 });

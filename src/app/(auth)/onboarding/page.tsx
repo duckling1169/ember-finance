@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { createHousehold, acceptInvite } from '@/lib/api';
+import { mutateHousehold } from '@/lib/swr';
 import { RequireAuth } from '@/lib/require-auth';
 import { Card, CardHeader, CardDescription, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -48,6 +49,7 @@ function OnboardingContent() {
           displayName: form.get('displayName') as string,
           birthday: (form.get('birthday') as string) || null,
         });
+        router.push('/');
       } else {
         await createHousehold({
           householdName: form.get('householdName') as string,
@@ -56,8 +58,13 @@ function OnboardingContent() {
           taxFilingStatus: (form.get('taxFilingStatus') as TaxFilingStatus) || null,
           state: (form.get('state') as USState) || null,
         });
+        // Revalidate the household cache first — quick-start's auth gate
+        // reads it and would bounce back here on stale "no household" data
+        await mutateHousehold();
+        // Progressive onboarding: a few more numbers produce a first FI
+        // estimate before the user ever sees the (empty) dashboard
+        router.push('/onboarding/quick-start');
       }
-      router.push('/');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Something went wrong');
     } finally {

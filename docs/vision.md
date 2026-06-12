@@ -184,7 +184,8 @@ Year-by-year deterministic projections with:
 - Manual override available (flat effective rate)
 - Member state of residence drives state tax estimation
 - Household filing status drives federal bracket selection and joint filing math
-- No mandatory tax-bracket maintenance — static versioned tables in code
+- No mandatory tax-bracket maintenance — Ember ships dated default tax tables as data
+  (versioned, year-stamped assumption records per Decision 032); users own upkeep beyond that
 
 ### UX Direction
 

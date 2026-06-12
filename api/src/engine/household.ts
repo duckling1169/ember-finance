@@ -12,7 +12,7 @@ import { monthlyToAnnual } from './normalize.js';
  */
 export function computeHouseholdWaterfall(input: HouseholdWaterfallInput): HouseholdWaterfall {
   // Compute per-member waterfalls first
-  const memberWaterfalls = input.members.map(computeMemberWaterfall);
+  const memberWaterfalls = input.members.map((m) => computeMemberWaterfall(m, input.tax_params));
 
   const isJoint = input.tax_filing_status === 'married_jointly';
   const hasManualTaxOverride = input.members.some(
@@ -32,13 +32,16 @@ export function computeHouseholdWaterfall(input: HouseholdWaterfallInput): House
       m.income_sources.some((s) => s.type === 'self_employment'),
     );
 
-    const jointTax = estimateTaxes({
-      taxable_income: combinedTaxableAnnual,
-      gross_earned_income: combinedGrossAnnual,
-      filing_status: 'married_jointly',
-      state: input.members[0]?.state ?? null,
-      is_self_employed: anySelfEmployed,
-    });
+    const jointTax = estimateTaxes(
+      {
+        taxable_income: combinedTaxableAnnual,
+        gross_earned_income: combinedGrossAnnual,
+        filing_status: 'married_jointly',
+        state: input.members[0]?.state ?? null,
+        is_self_employed: anySelfEmployed,
+      },
+      input.tax_params,
+    );
 
     // Distribute joint tax proportionally across members by gross income
     members = memberWaterfalls.map((memberWaterfall) => {
@@ -65,6 +68,7 @@ export function computeHouseholdWaterfall(input: HouseholdWaterfallInput): House
           fica_total: jointTax.fica_total * proportion,
           total: memberTaxAnnual,
           effective_rate: jointTax.effective_rate,
+          tax_year: jointTax.tax_year,
         },
         tax_monthly: memberTaxMonthly,
         net_income_monthly: netIncomeMonthly,

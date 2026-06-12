@@ -31,6 +31,11 @@ import type {
   UpdatePlanningScenarioInput,
   CashflowSummaryResponse,
   MetricsResponse,
+  AssumptionsResponse,
+  AssumptionHistoryResponse,
+  AssumptionRecord,
+  CreateAssumptionRecordInput,
+  PortfolioCompositionResponse,
   ProjectionResponse,
   ExpenseCategory,
   CreateExpenseCategoryInput,
@@ -188,6 +193,12 @@ export function updateAccount(householdId: string, accountId: string, data: Upda
 
 export function deleteAccount(householdId: string, accountId: string) {
   return apiFetch(`/api/accounts/${householdId}/${accountId}`, { method: 'DELETE' });
+}
+
+// ── Portfolio Composition ──
+
+export function getPortfolioComposition(householdId: string) {
+  return apiFetch<PortfolioCompositionResponse>(`/api/portfolio/${householdId}/composition`);
 }
 
 // ── Quotes ──
@@ -415,6 +426,31 @@ export function updateScenario(scenarioId: string, data: UpdatePlanningScenarioI
     method: 'PATCH',
     body: JSON.stringify(data),
   });
+}
+
+// ── Planning: Assumptions ──
+
+export function getAssumptions(scenarioId?: string) {
+  const qs = scenarioId ? `?scenario_id=${scenarioId}` : '';
+  return apiFetch<AssumptionsResponse>(`/api/planning/assumptions${qs}`);
+}
+
+export function getAssumptionHistory(key: string, scenarioId?: string) {
+  const qs = scenarioId ? `?scenario_id=${scenarioId}` : '';
+  return apiFetch<AssumptionHistoryResponse>(
+    `/api/planning/assumptions/${encodeURIComponent(key)}/history${qs}`,
+  );
+}
+
+export function createAssumptionRecord(data: CreateAssumptionRecordInput) {
+  return apiFetch<AssumptionRecord>('/api/planning/assumptions', {
+    method: 'POST',
+    body: JSON.stringify(data),
+  });
+}
+
+export function deleteAssumptionRecord(recordId: string) {
+  return apiFetch(`/api/planning/assumptions/records/${recordId}`, { method: 'DELETE' });
 }
 
 // ── Planning: Computed Endpoints ──

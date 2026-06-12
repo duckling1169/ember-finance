@@ -103,7 +103,7 @@ function TransactionTable({ accountId }: { accountId: string }) {
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder="Search..."
-              className="h-7 w-40 text-xs"
+              className="h-7 w-28 text-xs sm:w-40"
             />
           </div>
         </CardAction>
@@ -114,53 +114,59 @@ function TransactionTable({ accountId }: { accountId: string }) {
             {search ? 'No transactions match your search.' : 'No transactions yet.'}
           </p>
         ) : (
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Date</TableHead>
-                <TableHead>Description</TableHead>
-                <TableHead>Category</TableHead>
-                <TableHead className="text-right">Amount</TableHead>
-                <TableHead className="w-10" />
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {rows.map((t) => (
-                <TableRow key={t.id} className={cn(t._hidden && 'opacity-50')}>
-                  <TableCell className="whitespace-nowrap text-muted-foreground">
-                    {t.date}
-                  </TableCell>
-                  <TableCell className="max-w-[280px] truncate font-medium">
-                    {t.description}
-                  </TableCell>
-                  <TableCell className="text-muted-foreground">{t.category || '—'}</TableCell>
-                  <TableCell
-                    className={cn(
-                      'text-right font-mono tabular-nums',
-                      t.amount > 0 ? 'text-gain' : undefined,
-                    )}
-                  >
-                    {fmt(t.amount)}
-                  </TableCell>
-                  <TableCell>
-                    <Button
-                      variant="ghost"
-                      size="icon-xs"
-                      onClick={() => toggleHidden(t)}
-                      aria-label={t._hidden ? 'Restore transaction' : 'Hide transaction'}
-                      title={t._hidden ? 'Restore (was hidden as duplicate)' : 'Hide as duplicate'}
-                    >
-                      {t._hidden ? (
-                        <IconEye size={14} stroke={1.5} />
-                      ) : (
-                        <IconEyeOff size={14} stroke={1.5} />
-                      )}
-                    </Button>
-                  </TableCell>
+          <div className="-mx-6 overflow-x-auto sm:mx-0">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Date</TableHead>
+                  <TableHead>Description</TableHead>
+                  <TableHead className="hidden sm:table-cell">Category</TableHead>
+                  <TableHead className="text-right">Amount</TableHead>
+                  <TableHead className="w-10" />
                 </TableRow>
-              ))}
-            </TableBody>
-          </Table>
+              </TableHeader>
+              <TableBody>
+                {rows.map((t) => (
+                  <TableRow key={t.id} className={cn(t._hidden && 'opacity-50')}>
+                    <TableCell className="whitespace-nowrap text-muted-foreground">
+                      {t.date}
+                    </TableCell>
+                    <TableCell className="max-w-[280px] truncate font-medium">
+                      {t.description}
+                    </TableCell>
+                    <TableCell className="hidden text-muted-foreground sm:table-cell">
+                      {t.category || '—'}
+                    </TableCell>
+                    <TableCell
+                      className={cn(
+                        'text-right font-mono tabular-nums',
+                        t.amount > 0 ? 'text-gain' : undefined,
+                      )}
+                    >
+                      {fmt(t.amount)}
+                    </TableCell>
+                    <TableCell>
+                      <Button
+                        variant="ghost"
+                        size="icon-xs"
+                        onClick={() => toggleHidden(t)}
+                        aria-label={t._hidden ? 'Restore transaction' : 'Hide transaction'}
+                        title={
+                          t._hidden ? 'Restore (was hidden as duplicate)' : 'Hide as duplicate'
+                        }
+                      >
+                        {t._hidden ? (
+                          <IconEye size={14} stroke={1.5} />
+                        ) : (
+                          <IconEyeOff size={14} stroke={1.5} />
+                        )}
+                      </Button>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
         )}
         <Pager offset={offset} hasMore={hasMore} onChange={setOffset} />
       </CardContent>
@@ -229,7 +235,7 @@ function ActivityTable({ accountId }: { accountId: string }) {
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder="Search..."
-              className="h-7 w-40 text-xs"
+              className="h-7 w-28 text-xs sm:w-40"
             />
           </div>
         </CardAction>
@@ -240,59 +246,65 @@ function ActivityTable({ accountId }: { accountId: string }) {
             {search ? 'No activity matches your search.' : 'No investment activity yet.'}
           </p>
         ) : (
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Date</TableHead>
-                <TableHead>Type</TableHead>
-                <TableHead>Symbol</TableHead>
-                <TableHead className="text-right">Qty</TableHead>
-                <TableHead className="text-right">Price</TableHead>
-                <TableHead className="text-right">Amount</TableHead>
-                <TableHead className="w-10" />
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {rows.map((a) => (
-                <TableRow key={a.id} className={cn(a._hidden && 'opacity-50')}>
-                  <TableCell className="whitespace-nowrap text-muted-foreground">
-                    {a.date}
-                  </TableCell>
-                  <TableCell className="capitalize">{a.activity_type.replace(/_/g, ' ')}</TableCell>
-                  <TableCell className="font-medium">{a.symbol || '—'}</TableCell>
-                  <TableCell className="text-right font-mono tabular-nums">
-                    {a.quantity != null ? a.quantity : '—'}
-                  </TableCell>
-                  <TableCell className="text-right font-mono tabular-nums">
-                    {a.price != null ? fmt(a.price) : '—'}
-                  </TableCell>
-                  <TableCell
-                    className={cn(
-                      'text-right font-mono tabular-nums',
-                      a.amount > 0 ? 'text-gain' : undefined,
-                    )}
-                  >
-                    {fmt(a.amount)}
-                  </TableCell>
-                  <TableCell>
-                    <Button
-                      variant="ghost"
-                      size="icon-xs"
-                      onClick={() => toggleHidden(a)}
-                      aria-label={a._hidden ? 'Restore activity' : 'Hide activity'}
-                      title={a._hidden ? 'Restore (was hidden as duplicate)' : 'Hide as duplicate'}
-                    >
-                      {a._hidden ? (
-                        <IconEye size={14} stroke={1.5} />
-                      ) : (
-                        <IconEyeOff size={14} stroke={1.5} />
-                      )}
-                    </Button>
-                  </TableCell>
+          <div className="-mx-6 overflow-x-auto sm:mx-0">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Date</TableHead>
+                  <TableHead>Type</TableHead>
+                  <TableHead>Symbol</TableHead>
+                  <TableHead className="text-right">Qty</TableHead>
+                  <TableHead className="text-right">Price</TableHead>
+                  <TableHead className="text-right">Amount</TableHead>
+                  <TableHead className="w-10" />
                 </TableRow>
-              ))}
-            </TableBody>
-          </Table>
+              </TableHeader>
+              <TableBody>
+                {rows.map((a) => (
+                  <TableRow key={a.id} className={cn(a._hidden && 'opacity-50')}>
+                    <TableCell className="whitespace-nowrap text-muted-foreground">
+                      {a.date}
+                    </TableCell>
+                    <TableCell className="capitalize">
+                      {a.activity_type.replace(/_/g, ' ')}
+                    </TableCell>
+                    <TableCell className="font-medium">{a.symbol || '—'}</TableCell>
+                    <TableCell className="text-right font-mono tabular-nums">
+                      {a.quantity != null ? a.quantity : '—'}
+                    </TableCell>
+                    <TableCell className="text-right font-mono tabular-nums">
+                      {a.price != null ? fmt(a.price) : '—'}
+                    </TableCell>
+                    <TableCell
+                      className={cn(
+                        'text-right font-mono tabular-nums',
+                        a.amount > 0 ? 'text-gain' : undefined,
+                      )}
+                    >
+                      {fmt(a.amount)}
+                    </TableCell>
+                    <TableCell>
+                      <Button
+                        variant="ghost"
+                        size="icon-xs"
+                        onClick={() => toggleHidden(a)}
+                        aria-label={a._hidden ? 'Restore activity' : 'Hide activity'}
+                        title={
+                          a._hidden ? 'Restore (was hidden as duplicate)' : 'Hide as duplicate'
+                        }
+                      >
+                        {a._hidden ? (
+                          <IconEye size={14} stroke={1.5} />
+                        ) : (
+                          <IconEyeOff size={14} stroke={1.5} />
+                        )}
+                      </Button>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
         )}
         <Pager offset={offset} hasMore={hasMore} onChange={setOffset} />
       </CardContent>

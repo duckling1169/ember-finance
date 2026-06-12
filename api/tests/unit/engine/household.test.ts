@@ -1,7 +1,8 @@
 import { describe, it, expect } from 'vitest';
 import { computeHouseholdWaterfall } from '../../../src/engine/household.js';
 import type { HouseholdWaterfallInput, WaterfallMemberInput } from '../../../src/engine/types.js';
-import type { IncomeSource, CashflowItem, TaxTreatment } from '../../../shared/types/index.js';
+import type { IncomeSource, CashflowItem, TaxTreatment } from '../../../src/types/index.js';
+import { TAX_PARAMS_2025 } from './fixtures.js';
 
 function makeIncomeSource(overrides: Partial<IncomeSource> = {}): IncomeSource {
   return {
@@ -64,6 +65,7 @@ describe('computeHouseholdWaterfall', () => {
   it('single member household aggregates match member values', () => {
     const input: HouseholdWaterfallInput = {
       tax_filing_status: 'single',
+      tax_params: TAX_PARAMS_2025,
       members: [makeMember()],
     };
     const result = computeHouseholdWaterfall(input);
@@ -77,6 +79,7 @@ describe('computeHouseholdWaterfall', () => {
   it('sums two members for non-joint filing', () => {
     const input: HouseholdWaterfallInput = {
       tax_filing_status: 'married_separately',
+      tax_params: TAX_PARAMS_2025,
       members: [
         makeMember({ id: 'mem-1', display_name: 'A' }),
         makeMember({
@@ -106,11 +109,13 @@ describe('computeHouseholdWaterfall', () => {
     // Compute separately first for comparison
     const separateResult = computeHouseholdWaterfall({
       tax_filing_status: 'married_separately',
+      tax_params: TAX_PARAMS_2025,
       members: [memberA, memberB],
     });
 
     const jointResult = computeHouseholdWaterfall({
       tax_filing_status: 'married_jointly',
+      tax_params: TAX_PARAMS_2025,
       members: [memberA, memberB],
     });
 
@@ -124,6 +129,7 @@ describe('computeHouseholdWaterfall', () => {
   it('distributes joint tax proportionally by income', () => {
     const input: HouseholdWaterfallInput = {
       tax_filing_status: 'married_jointly',
+      tax_params: TAX_PARAMS_2025,
       members: [
         makeMember({ id: 'mem-1', display_name: 'A' }),
         makeMember({
@@ -144,6 +150,7 @@ describe('computeHouseholdWaterfall', () => {
   it('skips joint recomputation when a member uses manual tax mode', () => {
     const input: HouseholdWaterfallInput = {
       tax_filing_status: 'married_jointly',
+      tax_params: TAX_PARAMS_2025,
       members: [
         makeMember({ id: 'mem-1', display_name: 'A' }),
         makeMember({
@@ -166,6 +173,7 @@ describe('computeHouseholdWaterfall', () => {
   it('aggregates expenses across members', () => {
     const input: HouseholdWaterfallInput = {
       tax_filing_status: 'single',
+      tax_params: TAX_PARAMS_2025,
       members: [
         makeMember({
           cashflow_items: [makeCashflowItem({ id: 'cf-1', amount: 1500 })],
@@ -181,6 +189,7 @@ describe('computeHouseholdWaterfall', () => {
   it('waterfall balance holds at household level', () => {
     const input: HouseholdWaterfallInput = {
       tax_filing_status: 'single',
+      tax_params: TAX_PARAMS_2025,
       members: [
         makeMember({
           cashflow_items: [
@@ -223,6 +232,7 @@ describe('computeHouseholdWaterfall', () => {
   it('handles empty household', () => {
     const result = computeHouseholdWaterfall({
       tax_filing_status: 'single',
+      tax_params: TAX_PARAMS_2025,
       members: [],
     });
 

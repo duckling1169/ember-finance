@@ -69,12 +69,41 @@ const steps: WaterfallStep[] = [
   },
 ];
 
+/** Sum per-member tax breakdowns and surface the tax-table year stamp. */
+function aggregateTaxes(w: HouseholdWaterfall) {
+  const sum = (fn: (m: (typeof w.members)[number]) => number) =>
+    w.members.reduce((acc, m) => acc + fn(m), 0);
+
+  // All auto-mode members carry the same table year; manual overrides carry null
+  const taxYear = w.members.map((m) => m.tax_breakdown.tax_year).find((y) => y != null) ?? null;
+  const anyManual = w.members.some((m) => m.tax_breakdown.tax_year == null);
+
+  return {
+    federal: sum((m) => m.tax_breakdown.federal),
+    state: sum((m) => m.tax_breakdown.state),
+    fica: sum((m) => m.tax_breakdown.fica_total),
+    taxYear,
+    anyManual,
+  };
+}
+
 export function WaterfallSummary({ waterfall }: WaterfallSummaryProps) {
+  const taxes = aggregateTaxes(waterfall);
+
   return (
     <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 lg:grid-cols-7">
       {steps.map((step) => {
         const value = step.getValue(waterfall);
         const isDeficit = step.highlight && value < 0;
+        const isTaxStep = step.key === 'taxes';
+
+        const tip = isTaxStep
+          ? `Federal ${fmt(taxes.federal)} · State ${fmt(taxes.state)} · FICA ${fmt(taxes.fica)}. ` +
+            (taxes.taxYear != null
+              ? `Estimated from the ${taxes.taxYear} tax tables${taxes.anyManual ? ' (some members use a manual rate)' : ''} — view and edit them in Planning → Assumptions.`
+              : 'Estimated from manual effective-rate overrides.')
+          : step.tip;
+
         return (
           <div
             key={step.key}
@@ -86,7 +115,7 @@ export function WaterfallSummary({ waterfall }: WaterfallSummaryProps) {
           >
             <div className="flex items-center gap-1 text-xs text-muted-foreground">
               {isDeficit ? 'Shortfall' : step.label}
-              <InfoTip content={step.tip} size={13} />
+              <InfoTip content={tip} size={13} />
             </div>
             <div
               className={cn(
@@ -98,6 +127,11 @@ export function WaterfallSummary({ waterfall }: WaterfallSummaryProps) {
             >
               {fmt(Math.abs(value))}
             </div>
+            {isTaxStep && (
+              <div className="text-xs text-muted-foreground">
+                {taxes.taxYear != null ? `effective ${taxes.taxYear}` : 'manual rate'}
+              </div>
+            )}
           </div>
         );
       })}

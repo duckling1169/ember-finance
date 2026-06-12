@@ -163,6 +163,55 @@ Notes:
 
 `hide` endpoints accept optional body `{ "reason": "manual" }`.
 
+## Holdings — Portfolio Composition
+
+### `GET /api/portfolio/:householdId/composition`
+
+Cross-account allocation snapshot: five buckets (stock/bond/intl/cash/alt)
+with pct, target band, drift, and drift alerts; per-position classification
+with provenance (`override | intl_heuristic | asset_class | fallback`);
+asset-location matrix by account `tax_treatment`. Targets and symbol
+overrides come from the assumptions system (`allocation.targets`,
+`allocation.symbol_overrides`).
+
+## Planning
+
+All planning routes require authenticated member context (no `:householdId`
+in path).
+
+### Income Sources / Cashflow Items / Expense Categories / Scenarios
+
+- `GET/POST/PATCH/DELETE /api/planning/income-sources[/:id]`
+- `GET/POST/PATCH/DELETE /api/planning/flows[/:id]`
+- `GET/POST/PATCH/DELETE /api/planning/expense-categories[/:id]`
+- `GET/POST/PATCH /api/planning/scenarios[/:id]` (name/is_base only —
+  assumptions live in the assumptions API)
+
+### Assumptions
+
+- `GET /api/planning/assumptions?scenario_id=` — every assumption resolved
+  at today's date with value, effective date, source layer
+  (`default | household | scenario`), and record id
+- `GET /api/planning/assumptions/:key/history?scenario_id=` — full history
+  (records + shipped defaults), newest first
+- `POST /api/planning/assumptions` — append a dated record
+  `{ key, value, effective_date?, scenario_id?, note? }`. Per-key boundary
+  validation (rates are decimals; the four engine-critical tax keys are
+  structurally validated). Records posted against the base scenario are
+  stored household-level (Decision 031).
+- `DELETE /api/planning/assumptions/records/:recordId` — remove one record
+  (resolution reverts to the next layer)
+
+### Computed (read-only)
+
+- `GET /api/planning/cashflow-summary?scenario_id=` — household waterfall;
+  each member's `tax_breakdown` carries a `tax_year` stamp
+- `GET /api/planning/projections?scenario_id=`
+- `GET /api/planning/metrics?scenario_id=`
+
+All three include `assumptions_detail` — per-key provenance for every
+assumption behind the numbers.
+
 ## Validation Highlights
 
 - `birthday`: valid past date

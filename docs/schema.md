@@ -101,7 +101,25 @@ This doc is an implementation summary of the current schema.
 
 ### `planning_scenario`
 
-- household-level scenarios with `assumptions` JSONB
+- household-level scenarios (`name`, `is_base`); assumptions live in the
+  assumptions system below, not on the scenario row
+
+### `assumption_default`
+
+- global Ember-shipped dated reference values (no household scoping;
+  RLS select-only for authenticated users)
+- `key`, `value` (jsonb), `effective_date`, `source` (citation)
+- seeded by migration: planning knobs, federal brackets, standard
+  deduction, FICA, state rates, retirement limits, RMD ages, ACA,
+  IRMAA, NIIT, AMT, Roth-conversion inputs, allocation targets/overrides
+
+### `assumption_record`
+
+- household/scenario-scoped, **append-only** assumption edits
+- `household_id`, `scenario_id?` (null = household baseline), `key`,
+  `value` (jsonb), `effective_date`, `note`, `created_by`
+- resolution: scenario > household > default; latest
+  `effective_date <= as-of` wins (Decision 031)
 
 ### `expense_category`
 

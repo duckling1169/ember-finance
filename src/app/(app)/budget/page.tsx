@@ -210,8 +210,8 @@ export default function BudgetPage() {
       </div>
 
       {/* Totals bar */}
-      <div className="flex gap-3">
-        <Card size="sm" className="flex-1">
+      <div className="flex flex-wrap gap-3">
+        <Card size="sm" className="min-w-[140px] flex-1">
           <CardContent className="py-2">
             <p className="text-sm text-muted-foreground">Essentials</p>
             <p className="font-mono tabular-nums text-xl font-semibold">
@@ -220,7 +220,7 @@ export default function BudgetPage() {
             </p>
           </CardContent>
         </Card>
-        <Card size="sm" className="flex-1">
+        <Card size="sm" className="min-w-[140px] flex-1">
           <CardContent className="py-2">
             <p className="text-sm text-muted-foreground">Non-essentials</p>
             <p className="font-mono tabular-nums text-xl font-semibold">
@@ -229,7 +229,7 @@ export default function BudgetPage() {
             </p>
           </CardContent>
         </Card>
-        <Card size="sm" className="flex-1">
+        <Card size="sm" className="min-w-[140px] flex-1">
           <CardContent className="py-2">
             <p className="text-sm text-muted-foreground">Total</p>
             <p className="font-mono tabular-nums text-xl font-semibold">

@@ -174,57 +174,59 @@ export function IncomeSourcesCard({ memberId }: IncomeSourcesCardProps) {
         )}
 
         {tableRows.length > 0 && (
-          <Table>
-            <TableHeader>
-              <TableRow>
-                {columns.map((col) => (
-                  <TableHead
-                    key={col.key}
-                    className={`cursor-pointer select-none hover:text-foreground transition-colors ${col.align === 'right' ? 'text-right' : ''}`}
-                    onClick={() => toggleSort(col.key)}
-                  >
-                    <span className="inline-flex items-center gap-1">
-                      {col.label}
-                      <SortIcon field={col.key} sortKey={sortKey} sortDir={sortDir} />
-                    </span>
-                  </TableHead>
-                ))}
-                <TableHead className="w-16" />
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {tableRows.map((src) => (
-                <TableRow key={src.id}>
-                  <TableCell className="font-medium">{src.name}</TableCell>
-                  <TableCell>{TYPE_LABELS[src.type]}</TableCell>
-                  <TableCell className="text-right font-mono tabular-nums">
-                    {fmt(src.gross_amount)}
-                  </TableCell>
-                  <TableCell>{FREQ_LABELS[src.frequency]}</TableCell>
-                  <TableCell className="text-right">
-                    <div className="flex justify-end gap-1">
-                      <Button
-                        variant="ghost"
-                        size="icon-xs"
-                        onClick={() => setEditingId(src.id)}
-                        aria-label={`Edit ${src.name}`}
-                      >
-                        <IconPencil size={14} stroke={1.5} />
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="icon-xs"
-                        onClick={() => handleDelete(src.id)}
-                        aria-label={`Delete ${src.name}`}
-                      >
-                        <IconTrash size={14} stroke={1.5} />
-                      </Button>
-                    </div>
-                  </TableCell>
+          <div className="-mx-4 overflow-x-auto sm:mx-0">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  {columns.map((col) => (
+                    <TableHead
+                      key={col.key}
+                      className={`cursor-pointer select-none hover:text-foreground transition-colors ${col.align === 'right' ? 'text-right' : ''}`}
+                      onClick={() => toggleSort(col.key)}
+                    >
+                      <span className="inline-flex items-center gap-1">
+                        {col.label}
+                        <SortIcon field={col.key} sortKey={sortKey} sortDir={sortDir} />
+                      </span>
+                    </TableHead>
+                  ))}
+                  <TableHead className="w-16" />
                 </TableRow>
-              ))}
-            </TableBody>
-          </Table>
+              </TableHeader>
+              <TableBody>
+                {tableRows.map((src) => (
+                  <TableRow key={src.id}>
+                    <TableCell className="font-medium">{src.name}</TableCell>
+                    <TableCell>{TYPE_LABELS[src.type]}</TableCell>
+                    <TableCell className="text-right font-mono tabular-nums">
+                      {fmt(src.gross_amount)}
+                    </TableCell>
+                    <TableCell>{FREQ_LABELS[src.frequency]}</TableCell>
+                    <TableCell className="text-right">
+                      <div className="flex justify-end gap-1">
+                        <Button
+                          variant="ghost"
+                          size="icon-xs"
+                          onClick={() => setEditingId(src.id)}
+                          aria-label={`Edit ${src.name}`}
+                        >
+                          <IconPencil size={14} stroke={1.5} />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon-xs"
+                          onClick={() => handleDelete(src.id)}
+                          aria-label={`Delete ${src.name}`}
+                        >
+                          <IconTrash size={14} stroke={1.5} />
+                        </Button>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
         )}
 
         {editingSource && (

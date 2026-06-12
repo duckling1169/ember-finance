@@ -188,9 +188,10 @@
 
 ### 3.3 Mobile Optimization
 
-- Sidebar sheet overlay works, but tables and charts need responsive polish
-- Card-collapse for tables on small screens (or horizontal scroll refinement)
-- Touch-friendly chart interactions
+**Status:** DONE (June 2026) — mobile shell layout fixed (full-width top bar),
+full-bleed table scroll with hidden secondary columns, compact Sankey mode,
+width-aware chart ticks, coarse-pointer touch targets. Remaining nice-to-have:
+card-collapse table variants, real-device QA pass.
 
 ### 3.4 Light Mode Polish
 
@@ -229,9 +230,22 @@
 
 ### 4.4 Rebalancing
 
-- Target allocation by asset class
-- Drift analysis (current vs target)
-- Suggested trades to rebalance
+- ~~Target allocation by asset class~~ DONE (June 2026) — five-bucket targets
+  with bands as assumption records (Decision 033)
+- ~~Drift analysis (current vs target)~~ DONE (June 2026) — drift alerts on
+  the Holdings → Allocation view
+- Suggested trades to rebalance (still open)
+
+### 4.6 Fund Overlap / X-Ray Look-Through
+
+**Status:** Blocked on a data-source decision (Adam). Needs an external
+underlying-holdings dataset for ETFs/mutual funds. Research (June 2026)
+ranked SEC EDGAR N-PORT filings as the best MVP source ($0, public domain,
+covers mutual funds, 60–150-day lag, immutable accession numbers = auditable),
+optionally adding ETF Global daily constituents (~$99/mo via Massive/Polygon)
+for freshness later. FMP Ultimate ($139/mo) is the single-vendor alternative
+but requires a separately-priced display license. Avoid issuer-site scraping
+(ToU) and EODHD personal plans (license + delete-on-exit clause).
 
 ### 4.5 Multi-Currency Support
 

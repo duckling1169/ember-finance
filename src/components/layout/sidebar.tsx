@@ -183,7 +183,7 @@ export function Sidebar() {
       </div>
 
       {/* Mobile sidebar */}
-      <div className="lg:hidden">{mounted && <MobileHeader />}</div>
+      <div className="sticky top-0 z-30 lg:hidden">{mounted && <MobileHeader />}</div>
     </>
   );
 }
@@ -196,7 +196,7 @@ function MobileHeader() {
     pathname === '/' ? 'Home' : navItems.find((n) => pathname.startsWith(n.href))?.label || 'Ember';
 
   return (
-    <div className="sticky top-0 z-30 flex h-14 items-center gap-3 bg-background px-4">
+    <div className="flex h-14 items-center gap-3 bg-background px-4">
       <Sheet open={open} onOpenChange={setOpen}>
         <SheetTrigger render={<Button variant="ghost" size="icon" />}>
           <IconMenu2 size={20} stroke={1.5} />

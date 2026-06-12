@@ -12,28 +12,25 @@ import type {
   TaxTreatment,
   USState,
   TaxMode,
+  AssumptionDefault,
+  AssumptionRecord,
+  ResolvedAssumption,
 } from '../types/index.js';
 import type {
   WaterfallMemberInput,
   HouseholdWaterfallInput,
   HouseholdWaterfall,
+  TaxParams,
 } from '../engine/types.js';
 import type { FIMetricsInput } from '../engine/metrics.js';
 import type { ProjectionInput, AccountContribution } from '../engine/projections.js';
 import type { SavingsRateInput } from '../engine/savings.js';
 import { resolveItemAnnual } from '../engine/resolve-amount.js';
-
-// ── Default Assumptions ──
-
-const DEFAULT_ASSUMPTIONS: Required<ScenarioAssumptions> = {
-  gross_return_rate: 0.09,
-  inflation_rate: 0.03,
-  real_return_rate: 0.06,
-  withdrawal_rate: 0.04,
-  retirement_annual_spend_override: null,
-  contribution_growth_mode: 'none',
-  contribution_growth_rate: null,
-};
+import {
+  resolveAssumptionValues,
+  buildScenarioAssumptions,
+  buildTaxParams,
+} from '../engine/assumptions.js';
 
 // ── DB Fetch ──
 
@@ -57,6 +54,8 @@ interface PlanningData {
   fi_account_ids: Set<string>;
   /** Map from account ID → tax_treatment for determining pre-tax vs post-tax */
   account_tax_treatments: Map<string, TaxTreatment>;
+  assumption_defaults: AssumptionDefault[];
+  assumption_records: AssumptionRecord[];
 }
 
 export async function fetchPlanningData(
@@ -65,36 +64,46 @@ export async function fetchPlanningData(
   scenarioId?: string,
 ): Promise<PlanningData> {
   // Run all queries in parallel
-  const [membersRes, householdRes, incomesRes, itemsRes, scenarioRes, accountsRes] =
-    await Promise.all([
-      db
-        .from('member')
-        .select(
-          'id, display_name, birthday, target_retirement_age, state, tax_mode, effective_tax_rate_override',
-        )
-        .eq('household_id', householdId),
-      db.from('household').select('tax_filing_status').eq('id', householdId).single(),
-      db.from('income_source').select('*').eq('household_id', householdId),
-      db.from('cashflow_item').select('*').eq('household_id', householdId),
-      scenarioId
-        ? db
-            .from('planning_scenario')
-            .select('*')
-            .eq('id', scenarioId)
-            .eq('household_id', householdId)
-            .single()
-        : db
-            .from('planning_scenario')
-            .select('*')
-            .eq('household_id', householdId)
-            .eq('is_base', true)
-            .single(),
-      db
-        .from('account')
-        .select('id, include_in_fi_portfolio, tax_treatment')
-        .eq('household_id', householdId)
-        .eq('is_active', true),
-    ]);
+  const [
+    membersRes,
+    householdRes,
+    incomesRes,
+    itemsRes,
+    scenarioRes,
+    accountsRes,
+    defaultsRes,
+    recordsRes,
+  ] = await Promise.all([
+    db
+      .from('member')
+      .select(
+        'id, display_name, birthday, target_retirement_age, state, tax_mode, effective_tax_rate_override',
+      )
+      .eq('household_id', householdId),
+    db.from('household').select('tax_filing_status').eq('id', householdId).single(),
+    db.from('income_source').select('*').eq('household_id', householdId),
+    db.from('cashflow_item').select('*').eq('household_id', householdId),
+    scenarioId
+      ? db
+          .from('planning_scenario')
+          .select('*')
+          .eq('id', scenarioId)
+          .eq('household_id', householdId)
+          .single()
+      : db
+          .from('planning_scenario')
+          .select('*')
+          .eq('household_id', householdId)
+          .eq('is_base', true)
+          .single(),
+    db
+      .from('account')
+      .select('id, include_in_fi_portfolio, tax_treatment')
+      .eq('household_id', householdId)
+      .eq('is_active', true),
+    db.from('assumption_default').select('*'),
+    db.from('assumption_record').select('*').eq('household_id', householdId),
+  ]);
 
   // Throw on critical errors
   if (membersRes.error) throw new Error(`Failed to fetch members: ${membersRes.error.message}`);
@@ -104,6 +113,10 @@ export async function fetchPlanningData(
     throw new Error(`Failed to fetch income sources: ${incomesRes.error.message}`);
   if (itemsRes.error) throw new Error(`Failed to fetch cashflow items: ${itemsRes.error.message}`);
   if (accountsRes.error) throw new Error(`Failed to fetch accounts: ${accountsRes.error.message}`);
+  if (defaultsRes.error)
+    throw new Error(`Failed to fetch assumption defaults: ${defaultsRes.error.message}`);
+  if (recordsRes.error)
+    throw new Error(`Failed to fetch assumption records: ${recordsRes.error.message}`);
 
   // Scenario: auto-create a base scenario if none exists. Concurrent
   // requests can race here — the partial unique index on (household_id)
@@ -119,7 +132,6 @@ export async function fetchPlanningData(
         household_id: householdId,
         name: 'Base',
         is_base: true,
-        assumptions: {},
       })
       .select()
       .single();
@@ -204,16 +216,48 @@ export async function fetchPlanningData(
     fi_portfolio_value: fiPortfolioValue,
     fi_account_ids: fiAccountIds,
     account_tax_treatments: accountTaxTreatments,
+    assumption_defaults: defaultsRes.data ?? [],
+    assumption_records: recordsRes.data ?? [],
   };
 }
 
 // ── Assembly Helpers ──
 
-export function resolveAssumptions(scenario: PlanningScenario): Required<ScenarioAssumptions> {
-  return { ...DEFAULT_ASSUMPTIONS, ...scenario.assumptions };
+export interface ResolvedPlanningAssumptions {
+  /** Planning knobs in the legacy ScenarioAssumptions shape */
+  assumptions: Required<ScenarioAssumptions>;
+  /** Versioned tax tables for the engine */
+  tax_params: TaxParams;
+  /** Full per-key provenance (value, effective date, source layer) */
+  detail: ResolvedAssumption[];
 }
 
-export function assembleWaterfallInput(data: PlanningData): HouseholdWaterfallInput {
+/**
+ * Resolve every assumption for a scenario at an as-of date
+ * (default today — consistent with age computation elsewhere).
+ */
+export function resolvePlanningAssumptions(
+  data: PlanningData,
+  asOf: string = new Date().toISOString().slice(0, 10),
+): ResolvedPlanningAssumptions {
+  const resolved = resolveAssumptionValues(
+    data.assumption_defaults,
+    data.assumption_records,
+    data.scenario.id,
+    asOf,
+  );
+
+  return {
+    assumptions: buildScenarioAssumptions(resolved),
+    tax_params: buildTaxParams(resolved),
+    detail: Array.from(resolved.values()).sort((a, b) => a.key.localeCompare(b.key)),
+  };
+}
+
+export function assembleWaterfallInput(
+  data: PlanningData,
+  taxParams: TaxParams,
+): HouseholdWaterfallInput {
   const members: WaterfallMemberInput[] = data.members.map((m) => ({
     id: m.id,
     display_name: m.display_name,
@@ -232,6 +276,7 @@ export function assembleWaterfallInput(data: PlanningData): HouseholdWaterfallIn
   return {
     tax_filing_status: data.household.tax_filing_status,
     members,
+    tax_params: taxParams,
   };
 }
 

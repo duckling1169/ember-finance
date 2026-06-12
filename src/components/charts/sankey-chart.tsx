@@ -4,6 +4,7 @@ import { ResponsiveSankey } from '@nivo/sankey';
 import { useNivoTheme } from './theme';
 import { ChartTooltip } from './chart-tooltip';
 import { fmt } from '@/lib/formatters';
+import { useContainerWidth } from '@/lib/use-container-width';
 import type { SankeyData, SankeyNode } from '@/lib/sankey-transform';
 import { SANKEY_CATEGORY_COLORS } from '@/lib/sankey-transform';
 
@@ -16,17 +17,47 @@ interface SankeyChartProps {
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
-/** Custom label layer: renders name + amount + % of gross outside each node */
-function makeStackedLabels(grossAnnual: number) {
+/**
+ * Custom label layer.
+ *
+ * Desktop: renders name + amount + % of gross outside each node.
+ * Compact (narrow containers): renders the name only, anchored inward so
+ * labels sit over the diagram instead of requiring wide side margins; the
+ * amount stays available in the tooltip.
+ */
+function makeStackedLabels(grossAnnual: number, compact: boolean) {
   return function StackedLabels({ nodes, width }: { nodes: readonly any[]; width: number }) {
     return (
       <g>
         {nodes.map((node: any) => {
           const midX = (node.x0 + node.x1) / 2;
           const isLeft = midX < width / 2;
+          const labelY = (node.y0 + node.y1) / 2;
+
+          if (compact) {
+            // Name only, rendered inward over the diagram
+            const labelX = isLeft ? node.x1 + 6 : node.x0 - 6;
+            const anchor = isLeft ? 'start' : 'end';
+            return (
+              <g key={node.id} transform={`translate(${labelX}, ${labelY})`}>
+                <text
+                  textAnchor={anchor}
+                  dominantBaseline="central"
+                  style={{
+                    fill: node.color,
+                    fontSize: 10,
+                    fontWeight: 500,
+                    filter: 'brightness(1.3)',
+                  }}
+                >
+                  {node.label}
+                </text>
+              </g>
+            );
+          }
+
           const labelX = isLeft ? node.x0 - 12 : node.x1 + 12;
           const anchor = isLeft ? 'end' : 'start';
-          const labelY = (node.y0 + node.y1) / 2;
 
           // Hub nodes may have a displayValue override (correct inflow amount
           // when outflows exceed inflows, e.g. shortfall scenarios).
@@ -76,8 +107,12 @@ function makeStackedLabels(grossAnnual: number) {
 
 export function SankeyChart({ data, className, height }: SankeyChartProps) {
   const theme = useNivoTheme();
+  const { ref, width } = useContainerWidth<HTMLDivElement>();
 
   if (!theme || data.nodes.length === 0) return null;
+
+  // Compact mode below ~640px container width; until measured, render desktop
+  const compact = width !== null && width < 640;
 
   // Build id→label lookup from our data so tooltips always resolve correctly
   const labelById = new Map(data.nodes.map((n) => [n.id, n.label]));
@@ -89,13 +124,16 @@ export function SankeyChart({ data, className, height }: SankeyChartProps) {
   };
 
   // Dynamic height: scale with node count so items don't get squished
-  const autoHeight = Math.max(550, data.nodes.length * 55);
+  const autoHeight = compact
+    ? Math.min(480, Math.max(360, data.nodes.length * 40))
+    : Math.max(550, data.nodes.length * 55);
   const chartHeight = height ?? autoHeight;
 
-  const StackedLabels = makeStackedLabels(data.grossAnnual);
+  const StackedLabels = makeStackedLabels(data.grossAnnual, compact);
 
   return (
     <div
+      ref={ref}
       className={className}
       style={{ height: chartHeight }}
       role="img"
@@ -108,13 +146,17 @@ export function SankeyChart({ data, className, height }: SankeyChartProps) {
           const sankeyNode = node as unknown as SankeyNode;
           return SANKEY_CATEGORY_COLORS[sankeyNode.category] ?? '#8a3ffc';
         }}
-        margin={{ top: 16, right: 140, bottom: 16, left: 140 }}
+        margin={
+          compact
+            ? { top: 12, right: 12, bottom: 12, left: 12 }
+            : { top: 16, right: 140, bottom: 16, left: 140 }
+        }
         sort="input"
         align="justify"
         nodeOpacity={1}
         nodeHoverOthersOpacity={0.35}
-        nodeThickness={18}
-        nodeSpacing={14}
+        nodeThickness={compact ? 14 : 18}
+        nodeSpacing={compact ? 8 : 14}
         nodeBorderWidth={0}
         nodeBorderRadius={3}
         linkOpacity={0.3}

@@ -27,6 +27,15 @@ import { fmt } from '@/lib/formatters';
 import { TAX_TREATMENT_LABELS } from '@/lib/constants';
 import { GainCell, PctCell } from '@/components/common/financial-cells';
 import { SortIcon, type SortDir } from '@/components/common/sort-icon';
+import { AllocationView, AssetLocationView } from './_components/composition-view';
+
+type View = 'positions' | 'allocation' | 'location';
+
+const VIEW_TABS: { key: View; label: string }[] = [
+  { key: 'positions', label: 'Positions' },
+  { key: 'allocation', label: 'Allocation' },
+  { key: 'location', label: 'Asset Location' },
+];
 
 const INVESTMENT_TYPES: Set<string> = new Set(INVESTMENT_ACCOUNT_TYPES);
 
@@ -105,6 +114,7 @@ export default function HoldingsPage() {
     [selectedAccountIds, accountList],
   );
 
+  const [view, setView] = useState<View>('positions');
   const [sortKey, setSortKey] = useState<SortKey | null>('value');
   const [sortDir, setSortDir] = useState<SortDir>('desc');
   const [expandedSymbol, setExpandedSymbol] = useState<string | null>(null);
@@ -191,8 +201,8 @@ export default function HoldingsPage() {
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-semibold">Holdings</h1>
 
-        {/* Account filter */}
-        <div className="relative">
+        {/* Account filter (positions view only) */}
+        <div className={view === 'positions' ? 'relative' : 'hidden'}>
           <button
             onClick={() => setFilterOpen((p) => !p)}
             className="inline-flex items-center gap-2 rounded-md border border-border px-3 py-1.5 text-sm text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-colors"
@@ -246,119 +256,147 @@ export default function HoldingsPage() {
         </div>
       </div>
 
-      {/* Summary */}
-      <div className="grid gap-3 sm:grid-cols-3">
-        <Card size="sm">
-          <CardContent>
-            <p className="text-sm text-muted-foreground">Total Value</p>
-            <p className="mt-1 text-xl font-semibold font-mono tabular-nums">{fmt(totalValue)}</p>
-          </CardContent>
-        </Card>
-        <Card size="sm">
-          <CardContent>
-            <p className="text-sm text-muted-foreground">Cost Basis</p>
-            <p className="mt-1 text-xl font-semibold font-mono tabular-nums">{fmt(totalCost)}</p>
-          </CardContent>
-        </Card>
-        <Card size="sm">
-          <CardContent>
-            <p className="text-sm text-muted-foreground">Unrealized Gain/Loss</p>
-            <div className="mt-1 flex items-baseline gap-2">
-              <span className="text-xl font-semibold">
-                <GainCell value={totalGain} />
-              </span>
-              <PctCell value={totalGainPct} />
-            </div>
-          </CardContent>
-        </Card>
+      {/* View tabs */}
+      <div className="flex gap-1 overflow-x-auto border-b border-border">
+        {VIEW_TABS.map((tab) => (
+          <button
+            key={tab.key}
+            onClick={() => setView(tab.key)}
+            className={`-mb-px shrink-0 whitespace-nowrap border-b-2 px-4 py-2 text-sm font-medium transition-colors ${
+              view === tab.key
+                ? 'border-primary text-foreground'
+                : 'border-transparent text-muted-foreground hover:text-foreground'
+            }`}
+          >
+            {tab.label}
+          </button>
+        ))}
       </div>
 
-      {/* Allocation bar */}
-      {holdings.length > 0 && (
-        <Card size="sm">
-          <CardContent>
-            <p className="text-sm text-muted-foreground mb-3">Allocation</p>
-            <div className="flex gap-0.5 h-4 rounded-full overflow-hidden">
-              {holdings.map((h, i) => (
-                <div
-                  key={h.symbol}
-                  style={{
-                    width: `${(h.value / totalValue) * 100}%`,
-                    backgroundColor: `var(--chart-${(i % 14) + 1})`,
-                  }}
-                />
-              ))}
-            </div>
-            <div className="mt-2.5 flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
-              {holdings.map((h, i) => (
-                <span key={h.symbol} className="inline-flex items-center gap-1.5">
-                  <span
-                    className="h-2 w-2 rounded-sm"
-                    style={{ backgroundColor: `var(--chart-${(i % 14) + 1})` }}
-                  />
-                  <span className="font-medium text-foreground">{h.symbol}</span>
-                  <span className="ml-auto font-mono tabular-nums">
-                    {((h.value / totalValue) * 100).toFixed(0)}%
+      {view === 'allocation' && <AllocationView />}
+      {view === 'location' && <AssetLocationView />}
+
+      {view === 'positions' && (
+        <>
+          {/* Summary */}
+          <div className="grid gap-3 sm:grid-cols-3">
+            <Card size="sm">
+              <CardContent>
+                <p className="text-sm text-muted-foreground">Total Value</p>
+                <p className="mt-1 text-xl font-semibold font-mono tabular-nums">
+                  {fmt(totalValue)}
+                </p>
+              </CardContent>
+            </Card>
+            <Card size="sm">
+              <CardContent>
+                <p className="text-sm text-muted-foreground">Cost Basis</p>
+                <p className="mt-1 text-xl font-semibold font-mono tabular-nums">
+                  {fmt(totalCost)}
+                </p>
+              </CardContent>
+            </Card>
+            <Card size="sm">
+              <CardContent>
+                <p className="text-sm text-muted-foreground">Unrealized Gain/Loss</p>
+                <div className="mt-1 flex items-baseline gap-2">
+                  <span className="text-xl font-semibold">
+                    <GainCell value={totalGain} />
                   </span>
-                </span>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
-      )}
+                  <PctCell value={totalGainPct} />
+                </div>
+              </CardContent>
+            </Card>
+          </div>
 
-      {/* Holdings table */}
-      <Card size="sm">
-        <CardContent>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead className="w-8" />
-                {columns.map((col) => (
-                  <TableHead
-                    key={col.key}
-                    className={`cursor-pointer select-none hover:text-foreground transition-colors ${col.align === 'right' ? 'text-right' : ''}`}
-                    onClick={() => toggleSort(col.key)}
-                  >
-                    <span className="inline-flex items-center gap-1">
-                      {col.label}
-                      <SortIcon field={col.key} sortKey={sortKey} sortDir={sortDir} />
+          {/* Allocation bar */}
+          {holdings.length > 0 && (
+            <Card size="sm">
+              <CardContent>
+                <p className="text-sm text-muted-foreground mb-3">Allocation</p>
+                <div className="flex gap-0.5 h-4 rounded-full overflow-hidden">
+                  {holdings.map((h, i) => (
+                    <div
+                      key={h.symbol}
+                      style={{
+                        width: `${(h.value / totalValue) * 100}%`,
+                        backgroundColor: `var(--chart-${(i % 14) + 1})`,
+                      }}
+                    />
+                  ))}
+                </div>
+                <div className="mt-2.5 flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
+                  {holdings.map((h, i) => (
+                    <span key={h.symbol} className="inline-flex items-center gap-1.5">
+                      <span
+                        className="h-2 w-2 rounded-sm"
+                        style={{ backgroundColor: `var(--chart-${(i % 14) + 1})` }}
+                      />
+                      <span className="font-medium text-foreground">{h.symbol}</span>
+                      <span className="ml-auto font-mono tabular-nums">
+                        {((h.value / totalValue) * 100).toFixed(0)}%
+                      </span>
                     </span>
-                  </TableHead>
-                ))}
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {holdings.map((h) => {
-                const isExpanded = expandedSymbol === h.symbol;
-                return (
-                  <HoldingRow
-                    key={h.symbol}
-                    holding={h}
-                    isExpanded={isExpanded}
-                    onToggleExpand={() => setExpandedSymbol(isExpanded ? null : h.symbol)}
-                    onOpenSheet={() => setSheetSymbol(h.symbol)}
-                    accountName={accountName}
-                  />
-                );
-              })}
-            </TableBody>
-          </Table>
-        </CardContent>
-      </Card>
-
-      {/* Detail sidebar */}
-      <Sheet open={!!sheetHolding} onOpenChange={(open) => !open && setSheetSymbol(null)}>
-        <SheetContent side="right" className="sm:max-w-md overflow-y-auto">
-          {sheetHolding && (
-            <LotDetailPanel
-              holding={sheetHolding}
-              accountName={accountName}
-              accountTaxTreatment={accountTaxTreatment}
-            />
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
           )}
-        </SheetContent>
-      </Sheet>
+
+          {/* Holdings table */}
+          <Card size="sm">
+            <CardContent>
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="w-8" />
+                    {columns.map((col) => (
+                      <TableHead
+                        key={col.key}
+                        className={`cursor-pointer select-none hover:text-foreground transition-colors ${col.align === 'right' ? 'text-right' : ''}`}
+                        onClick={() => toggleSort(col.key)}
+                      >
+                        <span className="inline-flex items-center gap-1">
+                          {col.label}
+                          <SortIcon field={col.key} sortKey={sortKey} sortDir={sortDir} />
+                        </span>
+                      </TableHead>
+                    ))}
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {holdings.map((h) => {
+                    const isExpanded = expandedSymbol === h.symbol;
+                    return (
+                      <HoldingRow
+                        key={h.symbol}
+                        holding={h}
+                        isExpanded={isExpanded}
+                        onToggleExpand={() => setExpandedSymbol(isExpanded ? null : h.symbol)}
+                        onOpenSheet={() => setSheetSymbol(h.symbol)}
+                        accountName={accountName}
+                      />
+                    );
+                  })}
+                </TableBody>
+              </Table>
+            </CardContent>
+          </Card>
+
+          {/* Detail sidebar */}
+          <Sheet open={!!sheetHolding} onOpenChange={(open) => !open && setSheetSymbol(null)}>
+            <SheetContent side="right" className="sm:max-w-md overflow-y-auto">
+              {sheetHolding && (
+                <LotDetailPanel
+                  holding={sheetHolding}
+                  accountName={accountName}
+                  accountTaxTreatment={accountTaxTreatment}
+                />
+              )}
+            </SheetContent>
+          </Sheet>
+        </>
+      )}
     </div>
   );
 }

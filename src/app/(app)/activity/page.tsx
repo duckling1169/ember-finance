@@ -255,10 +255,10 @@ export default function ActivityPage() {
 
   return (
     <div className="space-y-3">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-center justify-between gap-3">
         <h1 className="text-2xl font-semibold">Activity</h1>
 
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center gap-3">
           {/* Date range */}
           <div className="flex items-center gap-2 text-sm">
             <Input
@@ -351,63 +351,67 @@ export default function ActivityPage() {
               No activity found for the selected accounts and date range.
             </div>
           ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead className="w-10 text-muted-foreground">Account</TableHead>
-                  {visibleColumns.map((col) => (
-                    <TableHead
-                      key={col.key}
-                      className={`cursor-pointer select-none hover:text-foreground transition-colors ${col.align === 'right' ? 'text-right' : ''}`}
-                      onClick={() => toggleSort(col.key)}
-                    >
-                      <span className="inline-flex items-center gap-1">
-                        {col.label}
-                        <SortIcon field={col.key} sortKey={sortKey} sortDir={sortDir} />
-                      </span>
+            <div className="-mx-4 overflow-x-auto sm:mx-0">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="hidden w-10 text-muted-foreground sm:table-cell">
+                      Account
                     </TableHead>
-                  ))}
-                  {showInvestmentCols && (
-                    <>
-                      <TableHead className="text-right">Qty</TableHead>
-                      <TableHead className="text-right">Price</TableHead>
-                    </>
-                  )}
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {rows.map((row) => (
-                  <TableRow key={row.id} className="hover:bg-primary/5">
-                    <TableCell className="text-xs text-muted-foreground truncate max-w-[120px]">
-                      {accountName(row.account_id)}
-                    </TableCell>
-                    <TableCell className="font-mono tabular-nums text-sm">{row.date}</TableCell>
-                    <TableCell>
-                      <TypeBadge row={row} />
-                    </TableCell>
-                    <TableCell className="text-sm max-w-[300px] truncate">
-                      {row.description}
-                    </TableCell>
-                    {showInvestmentCols && (
-                      <TableCell className="font-mono text-sm">{row.symbol || ''}</TableCell>
-                    )}
-                    <TableCell className="text-right">
-                      <GainCell value={row.amount} />
-                    </TableCell>
+                    {visibleColumns.map((col) => (
+                      <TableHead
+                        key={col.key}
+                        className={`cursor-pointer select-none hover:text-foreground transition-colors ${col.align === 'right' ? 'text-right' : ''}`}
+                        onClick={() => toggleSort(col.key)}
+                      >
+                        <span className="inline-flex items-center gap-1">
+                          {col.label}
+                          <SortIcon field={col.key} sortKey={sortKey} sortDir={sortDir} />
+                        </span>
+                      </TableHead>
+                    ))}
                     {showInvestmentCols && (
                       <>
-                        <TableCell className="text-right font-mono tabular-nums text-sm text-muted-foreground">
-                          {row.quantity != null ? row.quantity : ''}
-                        </TableCell>
-                        <TableCell className="text-right font-mono tabular-nums text-sm text-muted-foreground">
-                          {row.price != null ? fmt(row.price) : ''}
-                        </TableCell>
+                        <TableHead className="text-right">Qty</TableHead>
+                        <TableHead className="text-right">Price</TableHead>
                       </>
                     )}
                   </TableRow>
-                ))}
-              </TableBody>
-            </Table>
+                </TableHeader>
+                <TableBody>
+                  {rows.map((row) => (
+                    <TableRow key={row.id} className="hover:bg-primary/5">
+                      <TableCell className="hidden text-xs text-muted-foreground truncate max-w-[120px] sm:table-cell">
+                        {accountName(row.account_id)}
+                      </TableCell>
+                      <TableCell className="font-mono tabular-nums text-sm">{row.date}</TableCell>
+                      <TableCell>
+                        <TypeBadge row={row} />
+                      </TableCell>
+                      <TableCell className="text-sm max-w-[300px] truncate">
+                        {row.description}
+                      </TableCell>
+                      {showInvestmentCols && (
+                        <TableCell className="font-mono text-sm">{row.symbol || ''}</TableCell>
+                      )}
+                      <TableCell className="text-right">
+                        <GainCell value={row.amount} />
+                      </TableCell>
+                      {showInvestmentCols && (
+                        <>
+                          <TableCell className="text-right font-mono tabular-nums text-sm text-muted-foreground">
+                            {row.quantity != null ? row.quantity : ''}
+                          </TableCell>
+                          <TableCell className="text-right font-mono tabular-nums text-sm text-muted-foreground">
+                            {row.price != null ? fmt(row.price) : ''}
+                          </TableCell>
+                        </>
+                      )}
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
           )}
         </CardContent>
       </Card>

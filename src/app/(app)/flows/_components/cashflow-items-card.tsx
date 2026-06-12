@@ -222,38 +222,40 @@ export function CashflowItemsCard({ memberId }: CashflowItemsCardProps) {
             <div key={group.label}>
               <h4 className="mb-1 text-xs font-medium text-muted-foreground">{group.label}</h4>
               {tableItems.length > 0 && (
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      {groupColumns.map((col) => (
-                        <TableHead
-                          key={col.key}
-                          className={`cursor-pointer select-none hover:text-foreground transition-colors ${col.align === 'right' ? 'text-right' : ''}`}
-                          onClick={() => toggleSort(col.key)}
-                        >
-                          <span className="inline-flex items-center gap-1">
-                            {col.label}
-                            <SortIcon field={col.key} sortKey={sortKey} sortDir={sortDir} />
-                          </span>
-                        </TableHead>
+                <div className="-mx-4 overflow-x-auto sm:mx-0">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        {groupColumns.map((col) => (
+                          <TableHead
+                            key={col.key}
+                            className={`cursor-pointer select-none hover:text-foreground transition-colors ${col.align === 'right' ? 'text-right' : ''}`}
+                            onClick={() => toggleSort(col.key)}
+                          >
+                            <span className="inline-flex items-center gap-1">
+                              {col.label}
+                              <SortIcon field={col.key} sortKey={sortKey} sortDir={sortDir} />
+                            </span>
+                          </TableHead>
+                        ))}
+                        {showAccount && <TableHead>Account</TableHead>}
+                        <TableHead className="w-16" />
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {tableItems.map((item) => (
+                        <ItemTableRow
+                          key={item.id}
+                          item={item}
+                          accounts={accounts}
+                          showAccount={showAccount}
+                          onEdit={() => setEditingId(item.id)}
+                          onDelete={() => handleDelete(item.id)}
+                        />
                       ))}
-                      {showAccount && <TableHead>Account</TableHead>}
-                      <TableHead className="w-16" />
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {tableItems.map((item) => (
-                      <ItemTableRow
-                        key={item.id}
-                        item={item}
-                        accounts={accounts}
-                        showAccount={showAccount}
-                        onEdit={() => setEditingId(item.id)}
-                        onDelete={() => handleDelete(item.id)}
-                      />
-                    ))}
-                  </TableBody>
-                </Table>
+                    </TableBody>
+                  </Table>
+                </div>
               )}
               {editingItem && (
                 <ItemInlineForm
@@ -511,8 +513,8 @@ function ItemInlineForm({
 
   return (
     <form onSubmit={handleSubmit} className="space-y-2 rounded-md bg-muted/30 p-2">
-      <div className="flex items-end gap-1.5">
-        <div className="min-w-0 flex-1">
+      <div className="flex flex-wrap items-end gap-1.5">
+        <div className="min-w-[120px] flex-1">
           <label className="text-xs text-muted-foreground">Name</label>
           <Input
             value={name}

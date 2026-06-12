@@ -4,6 +4,7 @@ import {
   CASHFLOW_BUCKETS,
   CASHFLOW_FREQUENCIES,
   INCOME_SOURCE_TYPES,
+  ASSUMPTION_KEY_SET,
   type CashflowBucket,
   type CashflowFrequency,
   type CashflowDirection,
@@ -16,6 +17,10 @@ import {
   type UpdatePlanningScenarioInput,
   type CreateExpenseCategoryInput,
   type UpdateExpenseCategoryInput,
+  type CreateAssumptionRecordInput,
+  type AssumptionDefault,
+  type AssumptionRecord,
+  type AssumptionHistoryEntry,
 } from '../types/index.js';
 import type { AuthEnv } from '../middleware/auth.js';
 import { computeHouseholdWaterfall } from '../engine/household.js';
@@ -24,13 +29,16 @@ import { computeProjection } from '../engine/projections.js';
 import { computeSavingsRates } from '../engine/savings.js';
 import {
   fetchPlanningData,
-  resolveAssumptions,
+  resolvePlanningAssumptions,
   assembleWaterfallInput,
   assembleFIMetricsInput,
   assembleProjectionInput,
   assembleSavingsRateInput,
   computeCurrentAge,
 } from '../services/planning-engine.js';
+import { validateAssumptionValue } from '../lib/assumption-validation.js';
+import { resolveAssumptionValues } from '../engine/assumptions.js';
+import type { SupabaseClient } from '@supabase/supabase-js';
 
 export const planningRoute = new Hono<AuthEnv>();
 
@@ -517,7 +525,6 @@ planningRoute.post('/scenarios', async (c) => {
       household_id: householdId,
       name: body.name,
       is_base: body.is_base ?? false,
-      assumptions: body.assumptions ?? {},
     })
     .select()
     .single();
@@ -535,7 +542,6 @@ planningRoute.patch('/scenarios/:scenarioId', async (c) => {
   const update: Record<string, unknown> = { updated_at: new Date().toISOString() };
   if (body.name !== undefined) update.name = body.name;
   if (body.is_base !== undefined) update.is_base = body.is_base;
-  if (body.assumptions !== undefined) update.assumptions = body.assumptions;
 
   if (Object.keys(update).length === 1) {
     return c.json({ error: 'No valid fields to update' }, 400);
@@ -556,6 +562,188 @@ planningRoute.patch('/scenarios/:scenarioId', async (c) => {
   return c.json(data);
 });
 
+// ── Assumptions ──
+
+const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
+
+/**
+ * Normalize a scenario reference for assumption operations.
+ *
+ * Base-scenario edits are stored as household-baseline records
+ * (scenario_id null) so every scenario inherits them; only non-base
+ * scenarios get scenario-scoped overrides. Reads resolve against the
+ * base scenario when none is given, matching the computation endpoints.
+ */
+async function resolveScenarioRef(
+  db: SupabaseClient,
+  householdId: string,
+  scenarioId: string | null | undefined,
+): Promise<{ readScenarioId: string | null; writeScenarioId: string | null } | { error: string }> {
+  if (!scenarioId) {
+    const { data } = await db
+      .from('planning_scenario')
+      .select('id')
+      .eq('household_id', householdId)
+      .eq('is_base', true)
+      .maybeSingle();
+    return { readScenarioId: data?.id ?? null, writeScenarioId: null };
+  }
+
+  const { data, error } = await db
+    .from('planning_scenario')
+    .select('id, is_base')
+    .eq('id', scenarioId)
+    .eq('household_id', householdId)
+    .maybeSingle();
+
+  if (error || !data) return { error: 'Scenario not found' };
+  return {
+    readScenarioId: data.id,
+    writeScenarioId: data.is_base ? null : data.id,
+  };
+}
+
+planningRoute.get('/assumptions', async (c) => {
+  const householdId = c.get('householdId');
+  const db = c.get('userClient');
+  const scenarioParam = c.req.query('scenario_id');
+
+  const ref = await resolveScenarioRef(db, householdId, scenarioParam);
+  if ('error' in ref) return c.json({ error: ref.error }, 404);
+
+  const asOf = new Date().toISOString().slice(0, 10);
+
+  const [defaultsRes, recordsRes] = await Promise.all([
+    db.from('assumption_default').select('*'),
+    db.from('assumption_record').select('*').eq('household_id', householdId),
+  ]);
+
+  if (defaultsRes.error) return c.json({ error: defaultsRes.error.message }, 500);
+  if (recordsRes.error) return c.json({ error: recordsRes.error.message }, 500);
+
+  const resolved = resolveAssumptionValues(
+    (defaultsRes.data ?? []) as AssumptionDefault[],
+    (recordsRes.data ?? []) as AssumptionRecord[],
+    ref.readScenarioId,
+    asOf,
+  );
+
+  return c.json({
+    scenario_id: ref.readScenarioId,
+    as_of: asOf,
+    assumptions: Array.from(resolved.values()).sort((a, b) => a.key.localeCompare(b.key)),
+  });
+});
+
+planningRoute.get('/assumptions/:key/history', async (c) => {
+  const householdId = c.get('householdId');
+  const db = c.get('userClient');
+  const key = c.req.param('key');
+  const scenarioParam = c.req.query('scenario_id');
+
+  if (!ASSUMPTION_KEY_SET.has(key)) {
+    return c.json({ error: `Unknown assumption key: ${key}` }, 400);
+  }
+
+  const ref = await resolveScenarioRef(db, householdId, scenarioParam);
+  if ('error' in ref) return c.json({ error: ref.error }, 404);
+
+  const [defaultsRes, recordsRes] = await Promise.all([
+    db.from('assumption_default').select('*').eq('key', key),
+    db.from('assumption_record').select('*').eq('household_id', householdId).eq('key', key),
+  ]);
+
+  if (defaultsRes.error) return c.json({ error: defaultsRes.error.message }, 500);
+  if (recordsRes.error) return c.json({ error: recordsRes.error.message }, 500);
+
+  const records = ((recordsRes.data ?? []) as AssumptionRecord[]).filter(
+    (r) => r.scenario_id === null || r.scenario_id === ref.readScenarioId,
+  );
+
+  const history: AssumptionHistoryEntry[] = [
+    ...records.map((r) => ({
+      id: r.id,
+      value: r.value,
+      effective_date: r.effective_date,
+      source: (r.scenario_id ? 'scenario' : 'household') as 'scenario' | 'household',
+      scenario_id: r.scenario_id,
+      note: r.note,
+      created_at: r.created_at,
+    })),
+    ...((defaultsRes.data ?? []) as AssumptionDefault[]).map((d) => ({
+      id: null,
+      value: d.value,
+      effective_date: d.effective_date,
+      source: 'default' as const,
+      scenario_id: null,
+      note: d.source,
+      created_at: d.created_at,
+    })),
+  ].sort(
+    (a, b) =>
+      b.effective_date.localeCompare(a.effective_date) || b.created_at.localeCompare(a.created_at),
+  );
+
+  return c.json({ key, history });
+});
+
+planningRoute.post('/assumptions', async (c) => {
+  const householdId = c.get('householdId');
+  const memberId = c.get('memberId');
+  const db = c.get('userClient');
+  const body = await c.req.json<CreateAssumptionRecordInput>();
+
+  if (!body.key || !ASSUMPTION_KEY_SET.has(body.key)) {
+    return c.json({ error: `Unknown assumption key: ${body.key}` }, 400);
+  }
+  if (body.value === undefined) {
+    return c.json({ error: 'value is required' }, 400);
+  }
+  const valueError = validateAssumptionValue(body.key, body.value);
+  if (valueError) return c.json({ error: valueError }, 400);
+
+  const effectiveDate = body.effective_date ?? new Date().toISOString().slice(0, 10);
+  if (!ISO_DATE.test(effectiveDate) || Number.isNaN(Date.parse(effectiveDate))) {
+    return c.json({ error: 'effective_date must be a valid YYYY-MM-DD date' }, 400);
+  }
+
+  const ref = await resolveScenarioRef(db, householdId, body.scenario_id);
+  if ('error' in ref) return c.json({ error: ref.error }, 404);
+
+  const { data, error } = await db
+    .from('assumption_record')
+    .insert({
+      household_id: householdId,
+      scenario_id: ref.writeScenarioId,
+      key: body.key,
+      value: body.value,
+      effective_date: effectiveDate,
+      note: body.note ?? null,
+      created_by: memberId,
+    })
+    .select()
+    .single();
+
+  if (error) return c.json({ error: error.message }, 500);
+  return c.json(data, 201);
+});
+
+planningRoute.delete('/assumptions/records/:recordId', async (c) => {
+  const householdId = c.get('householdId');
+  const recordId = c.req.param('recordId');
+  const db = c.get('userClient');
+
+  const { error, count } = await db
+    .from('assumption_record')
+    .delete({ count: 'exact' })
+    .eq('id', recordId)
+    .eq('household_id', householdId);
+
+  if (error) return c.json({ error: error.message }, 500);
+  if (count === 0) return c.json({ error: 'Assumption record not found' }, 404);
+  return c.json({ success: true });
+});
+
 // ── Computation Endpoints ──
 
 planningRoute.get('/cashflow-summary', async (c) => {
@@ -565,12 +753,13 @@ planningRoute.get('/cashflow-summary', async (c) => {
 
   try {
     const planningData = await fetchPlanningData(db, householdId, scenarioId);
-    const waterfallInput = assembleWaterfallInput(planningData);
+    const { assumptions, tax_params, detail } = resolvePlanningAssumptions(planningData);
+    const waterfallInput = assembleWaterfallInput(planningData, tax_params);
     const waterfall = computeHouseholdWaterfall(waterfallInput);
-    const assumptions = resolveAssumptions(planningData.scenario);
 
     return c.json({
       scenario: { id: planningData.scenario.id, name: planningData.scenario.name, assumptions },
+      assumptions_detail: detail,
       waterfall,
     });
   } catch (err) {
@@ -586,9 +775,9 @@ planningRoute.get('/projections', async (c) => {
 
   try {
     const planningData = await fetchPlanningData(db, householdId, scenarioId);
-    const waterfallInput = assembleWaterfallInput(planningData);
+    const { assumptions, tax_params, detail } = resolvePlanningAssumptions(planningData);
+    const waterfallInput = assembleWaterfallInput(planningData, tax_params);
     const waterfall = computeHouseholdWaterfall(waterfallInput);
-    const assumptions = resolveAssumptions(planningData.scenario);
     const projectionInput = assembleProjectionInput(waterfall, planningData, assumptions);
 
     const primaryMember = planningData.members[0];
@@ -598,6 +787,7 @@ planningRoute.get('/projections', async (c) => {
 
     return c.json({
       scenario: { id: planningData.scenario.id, name: planningData.scenario.name, assumptions },
+      assumptions_detail: detail,
       fi_portfolio_value: planningData.fi_portfolio_value,
       projection,
     });
@@ -614,9 +804,9 @@ planningRoute.get('/metrics', async (c) => {
 
   try {
     const planningData = await fetchPlanningData(db, householdId, scenarioId);
-    const waterfallInput = assembleWaterfallInput(planningData);
+    const { assumptions, tax_params, detail } = resolvePlanningAssumptions(planningData);
+    const waterfallInput = assembleWaterfallInput(planningData, tax_params);
     const waterfall = computeHouseholdWaterfall(waterfallInput);
-    const assumptions = resolveAssumptions(planningData.scenario);
 
     const metricsInput = assembleFIMetricsInput(waterfall, planningData, assumptions);
     if (!metricsInput) {
@@ -632,6 +822,7 @@ planningRoute.get('/metrics', async (c) => {
 
     return c.json({
       scenario: { id: planningData.scenario.id, name: planningData.scenario.name, assumptions },
+      assumptions_detail: detail,
       fi_portfolio_value: planningData.fi_portfolio_value,
       inputs: metricsInput,
       metrics,

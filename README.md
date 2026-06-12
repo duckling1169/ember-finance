@@ -30,8 +30,19 @@ Implemented:
 - Money flow engine: per-member cashflow waterfall, tax estimation
   (federal brackets + state + FICA, joint filing), FI metrics (FIRE
   number, CoastFI, SecurityFI, years to FI), deterministic projections
+- Assumptions system: every assumption (returns, inflation, withdrawal
+  rate, tax tables, ACA/IRMAA/NIIT/AMT parameters) is a date-stamped,
+  user-editable record with shipped dated defaults, layered scenario
+  overrides, and append-only edit history; tax outputs carry an
+  "effective as of [year]" stamp
+- Portfolio composition: cross-account allocation (stock/bond/intl/cash/alt)
+  with target bands + drift alerts, per-symbol classification overrides,
+  and an asset-location view by tax treatment
+- Progressive onboarding: a 3-input quick-start that seeds real records
+  and shows a headline FI number from the real metrics engine
 - Frontend: dashboard, accounts, holdings, activity, flows (Sankey),
-  planning (metrics + projections), budget, settings
+  planning (metrics + projections + assumptions panel), budget, settings;
+  responsive down to phone widths
 
 Post-MVP (not yet built):
 
@@ -105,7 +116,8 @@ pnpm run db:migrate
 
 - **Database**: apply `supabase/migrations/*.sql` to a Supabase project
   (`pnpm run db:migrate` with a linked project). Migrations 001+002 are a
-  consolidated baseline (Decision 030).
+  consolidated baseline (Decision 030); 003 adds the assumptions system
+  and its seeded defaults.
 - **API**: any Node 22+ host. Build with `pnpm --dir api run build`, run
   `node api/dist/index.js`. Set the three Supabase vars plus
   `CORS_ORIGIN=<frontend origin>` and optionally `TIINGO_API_KEY` / `API_PORT`.

@@ -6,6 +6,7 @@ import { useNivoTheme, CHART_COLORS } from './theme';
 import { createAreaGradientLayer } from './gradient-layer';
 import { ChartTooltip } from './chart-tooltip';
 import { fmt, fmtAxisK } from '@/lib/formatters';
+import { useContainerWidth } from '@/lib/use-container-width';
 
 const AreaGradientLayer = createAreaGradientLayer('area-gradient');
 
@@ -16,6 +17,9 @@ interface AreaChartProps {
 
 export function AreaChart({ data, className }: AreaChartProps) {
   const theme = useNivoTheme();
+  const { ref, width } = useContainerWidth<HTMLDivElement>();
+  // Sparser x-axis ticks on narrow containers so labels don't crowd
+  const isNarrow = width !== null && width < 640;
 
   const nivoData = useMemo(
     () => [
@@ -30,7 +34,7 @@ export function AreaChart({ data, className }: AreaChartProps) {
   if (!theme || data.length === 0) return null;
 
   return (
-    <div className={className}>
+    <div ref={ref} className={className}>
       <ResponsiveLine
         data={nivoData}
         theme={theme}
@@ -43,7 +47,7 @@ export function AreaChart({ data, className }: AreaChartProps) {
           tickSize: 0,
           tickPadding: 8,
           format: (v: Date) => v.toLocaleString('en-US', { month: 'short' }),
-          tickValues: 'every 1 month',
+          tickValues: isNarrow ? 'every 3 months' : 'every 1 month',
         }}
         axisLeft={{
           tickSize: 0,

@@ -598,7 +598,6 @@ export interface PlanningScenario {
   household_id: string;
   name: string;
   is_base: boolean;
-  assumptions: ScenarioAssumptions;
   created_at: string;
   updated_at: string;
 }
@@ -672,13 +671,11 @@ export interface UpdateExpenseCategoryInput {
 export interface CreatePlanningScenarioInput {
   name: string;
   is_base?: boolean;
-  assumptions?: ScenarioAssumptions;
 }
 
 export interface UpdatePlanningScenarioInput {
   name?: string;
   is_base?: boolean;
-  assumptions?: ScenarioAssumptions;
 }
 
 // ── Engine Output Types (mirrored from api/src/engine/types.ts for frontend use) ──
@@ -691,6 +688,8 @@ export interface TaxBreakdown {
   fica_total: number;
   total: number;
   effective_rate: number;
+  /** Tax-table year the figures were computed with; null for manual flat-rate overrides */
+  tax_year: number | null;
 }
 
 export interface IncomeSourceSummary {
@@ -799,11 +798,14 @@ export interface ResolvedScenario {
 
 export interface CashflowSummaryResponse {
   scenario: ResolvedScenario;
+  /** Per-key provenance for every resolved assumption (audit trail) */
+  assumptions_detail: ResolvedAssumption[];
   waterfall: HouseholdWaterfall;
 }
 
 export interface MetricsResponse {
   scenario: ResolvedScenario;
+  assumptions_detail: ResolvedAssumption[];
   fi_portfolio_value: number;
   inputs: FIMetricsInput;
   metrics: FIMetrics;
@@ -812,6 +814,7 @@ export interface MetricsResponse {
 
 export interface ProjectionResponse {
   scenario: ResolvedScenario;
+  assumptions_detail: ResolvedAssumption[];
   fi_portfolio_value: number;
   projection: ProjectionResult;
 }
@@ -830,4 +833,328 @@ export interface DeltaSyncResponse {
     cashflow_items: CashflowItem[];
     planning_scenarios: PlanningScenario[];
   };
+}
+
+// ── Assumptions System ──
+//
+// Every assumption that drives projections — planning knobs and
+// rule-shaped tax parameters — is an individually date-stamped record.
+// Resolution layers (highest wins): scenario record > household record
+// > Ember-shipped dated default. assumption_record is append-only;
+// edits insert new rows, so history is the audit trail.
+
+export type AssumptionSource = 'default' | 'household' | 'scenario';
+
+/** Global Ember-shipped dated default (assumption_default table) */
+export interface AssumptionDefault {
+  id: string;
+  key: string;
+  value: unknown;
+  effective_date: string;
+  source: string;
+  created_at: string;
+}
+
+/** Household/scenario-scoped, append-only record (assumption_record table) */
+export interface AssumptionRecord {
+  id: string;
+  household_id: string;
+  scenario_id: string | null;
+  key: string;
+  value: unknown;
+  effective_date: string;
+  note: string | null;
+  created_by: string | null;
+  created_at: string;
+}
+
+/** One assumption after layer resolution at an as-of date */
+export interface ResolvedAssumption {
+  key: string;
+  value: unknown;
+  effective_date: string;
+  source: AssumptionSource;
+  /** assumption_record id when source != 'default' */
+  record_id: string | null;
+}
+
+export interface CreateAssumptionRecordInput {
+  key: string;
+  value: unknown;
+  /** defaults to today */
+  effective_date?: string;
+  /** null/omitted = household baseline; set = scenario override */
+  scenario_id?: string | null;
+  note?: string | null;
+}
+
+export interface AssumptionsResponse {
+  scenario_id: string | null;
+  as_of: string;
+  assumptions: ResolvedAssumption[];
+}
+
+export interface AssumptionHistoryEntry {
+  id: string | null;
+  value: unknown;
+  effective_date: string;
+  source: AssumptionSource;
+  scenario_id: string | null;
+  note: string | null;
+  created_at: string;
+}
+
+export interface AssumptionHistoryResponse {
+  key: string;
+  history: AssumptionHistoryEntry[];
+}
+
+// ── Assumption Key Registry ──
+
+export type AssumptionGroup =
+  | 'returns'
+  | 'retirement'
+  | 'tax_core'
+  | 'tax_limits'
+  | 'tax_rules'
+  | 'allocation';
+
+export type AssumptionValueKind = 'rate' | 'currency' | 'enum' | 'table';
+
+export interface AssumptionKeyMeta {
+  key: string;
+  label: string;
+  group: AssumptionGroup;
+  kind: AssumptionValueKind;
+  description: string;
+  /** valid values when kind = 'enum' */
+  enum_options?: readonly string[];
+  /** value may be null (e.g. optional overrides) */
+  nullable?: boolean;
+}
+
+export const ASSUMPTION_GROUP_LABELS: Record<AssumptionGroup, string> = {
+  returns: 'Returns & Inflation',
+  retirement: 'Retirement & Contributions',
+  tax_core: 'Tax Tables',
+  tax_limits: 'Contribution Limits & RMD',
+  tax_rules: 'Tax Rules (ACA, IRMAA, NIIT, AMT, Roth)',
+  allocation: 'Portfolio Allocation',
+};
+
+export const ASSUMPTION_KEYS: readonly AssumptionKeyMeta[] = [
+  {
+    key: 'gross_return_rate',
+    label: 'Gross Return Rate',
+    group: 'returns',
+    kind: 'rate',
+    description: 'Expected nominal annual portfolio return before inflation.',
+  },
+  {
+    key: 'inflation_rate',
+    label: 'Inflation Rate',
+    group: 'returns',
+    kind: 'rate',
+    description: 'Expected long-run annual inflation.',
+  },
+  {
+    key: 'real_return_rate',
+    label: 'Real Return Rate',
+    group: 'returns',
+    kind: 'rate',
+    description: 'Inflation-adjusted annual return. Drives all FI metrics and projections.',
+  },
+  {
+    key: 'withdrawal_rate',
+    label: 'Withdrawal Rate',
+    group: 'retirement',
+    kind: 'rate',
+    description: 'Safe withdrawal rate used to derive the FIRE number.',
+  },
+  {
+    key: 'retirement_annual_spend_override',
+    label: 'Retirement Annual Spend Override',
+    group: 'retirement',
+    kind: 'currency',
+    description: 'Overrides budget-derived expenses for retirement spending. Blank = use budget.',
+    nullable: true,
+  },
+  {
+    key: 'contribution_growth_mode',
+    label: 'Contribution Growth Mode',
+    group: 'retirement',
+    kind: 'enum',
+    description: 'How projected contributions grow over time.',
+    enum_options: ['none', 'inflation', 'fixed_rate'],
+  },
+  {
+    key: 'contribution_growth_rate',
+    label: 'Contribution Growth Rate',
+    group: 'retirement',
+    kind: 'rate',
+    description: 'Annual contribution growth when mode is fixed_rate.',
+    nullable: true,
+  },
+  {
+    key: 'tax.federal_brackets',
+    label: 'Federal Tax Brackets',
+    group: 'tax_core',
+    kind: 'table',
+    description: 'Progressive federal income tax brackets by filing status, year-stamped.',
+  },
+  {
+    key: 'tax.standard_deduction',
+    label: 'Standard Deduction',
+    group: 'tax_core',
+    kind: 'table',
+    description: 'Federal standard deduction by filing status.',
+  },
+  {
+    key: 'tax.fica',
+    label: 'FICA (Social Security & Medicare)',
+    group: 'tax_core',
+    kind: 'table',
+    description: 'Social Security rate and wage cap, Medicare rates and surtax thresholds.',
+  },
+  {
+    key: 'tax.state_rates',
+    label: 'State Effective Tax Rates',
+    group: 'tax_core',
+    kind: 'table',
+    description: 'Simplified flat effective income tax rate per state.',
+  },
+  {
+    key: 'tax.retirement_limits',
+    label: 'Retirement Contribution Limits',
+    group: 'tax_limits',
+    kind: 'table',
+    description: '401(k)/IRA/HSA contribution limits and catch-up amounts.',
+  },
+  {
+    key: 'tax.rmd_ages',
+    label: 'RMD Start Ages',
+    group: 'tax_limits',
+    kind: 'table',
+    description: 'Required minimum distribution start ages by birth year (SECURE 2.0).',
+  },
+  {
+    key: 'tax.aca',
+    label: 'ACA Subsidy Parameters',
+    group: 'tax_rules',
+    kind: 'table',
+    description: 'Premium tax credit applicable percentages, FPL table, and 400% FPL cliff.',
+  },
+  {
+    key: 'tax.irmaa',
+    label: 'Medicare IRMAA Tiers',
+    group: 'tax_rules',
+    kind: 'table',
+    description: 'Income-related Medicare premium surcharge tiers.',
+  },
+  {
+    key: 'tax.niit',
+    label: 'Net Investment Income Tax',
+    group: 'tax_rules',
+    kind: 'table',
+    description: 'NIIT rate and MAGI thresholds by filing status.',
+  },
+  {
+    key: 'tax.amt',
+    label: 'Alternative Minimum Tax',
+    group: 'tax_rules',
+    kind: 'table',
+    description: 'AMT exemption amounts, phaseout thresholds, and rates.',
+  },
+  {
+    key: 'tax.roth_conversion',
+    label: 'Roth Conversion Plan',
+    group: 'tax_rules',
+    kind: 'table',
+    description: 'Planned annual Roth conversion amount and target bracket ceiling.',
+  },
+  {
+    key: 'allocation.targets',
+    label: 'Target Allocation Bands',
+    group: 'allocation',
+    kind: 'table',
+    description: 'Target percentage and drift band per allocation bucket.',
+  },
+  {
+    key: 'allocation.symbol_overrides',
+    label: 'Symbol Classification Overrides',
+    group: 'allocation',
+    kind: 'table',
+    description: 'Per-symbol allocation bucket overrides (stock/bond/intl/cash/alt).',
+  },
+];
+
+export const ASSUMPTION_KEY_SET: ReadonlySet<string> = new Set(ASSUMPTION_KEYS.map((k) => k.key));
+
+// ── Allocation Buckets ──
+
+export const ALLOCATION_BUCKETS = ['stock', 'bond', 'intl', 'cash', 'alt'] as const;
+export type AllocationBucket = (typeof ALLOCATION_BUCKETS)[number];
+
+export interface AllocationTarget {
+  bucket: AllocationBucket;
+  /** decimal 0–1 */
+  target_pct: number;
+  /** allowed absolute drift before alerting, decimal (e.g. 0.05 = ±5pp) */
+  band_pct: number;
+}
+
+// ── Portfolio Composition ──
+
+/**
+ * Why a position landed in its bucket. Every position is tagged so the
+ * UI can always explain a classification — never classify silently.
+ */
+export type ClassificationSource = 'override' | 'intl_heuristic' | 'asset_class' | 'fallback';
+
+export interface CompositionBucket {
+  bucket: AllocationBucket;
+  value: number;
+  /** share of total portfolio value, decimal 0–1 (0 when total is 0) */
+  pct: number;
+  target_pct: number | null;
+  band_pct: number | null;
+  /** pct - target_pct; null when no target is set for this bucket */
+  drift: number | null;
+  /** |drift| > band_pct; false when no target is set */
+  drift_alert: boolean;
+}
+
+export interface CompositionPosition {
+  symbol: string;
+  name: string | null;
+  value: number;
+  /** share of total portfolio value, decimal 0–1 */
+  pct: number;
+  bucket: AllocationBucket;
+  classification_source: ClassificationSource;
+  account_id: string;
+}
+
+/** One row of the asset-location matrix (bucket value by tax treatment). */
+export interface AssetLocationRow {
+  tax_treatment: TaxTreatment;
+  total_value: number;
+  by_bucket: Record<AllocationBucket, number>;
+}
+
+/** Pure engine output — what computeComposition returns. */
+export interface PortfolioComposition {
+  total_value: number;
+  buckets: CompositionBucket[];
+  positions: CompositionPosition[];
+  asset_location: AssetLocationRow[];
+}
+
+export interface PortfolioCompositionResponse extends PortfolioComposition {
+  /** ISO date the composition was resolved at */
+  as_of: string;
+  /** effective_date of the resolved allocation.targets assumption */
+  targets_effective_date: string | null;
+  /** which layer the resolved allocation.targets came from */
+  targets_source: AssumptionSource;
 }

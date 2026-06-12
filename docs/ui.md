@@ -103,9 +103,43 @@ Important current nuance:
 - Member management and invite management
 - Theme switching
 
+## Planning
+
+- `/planning` — Projections tab (metric cards, projection chart/table, tax-year
+  provenance stamp) and Assumptions tab
+- **Assumptions panel** (`planning/_components/assumptions-panel.tsx`) is the
+  audit-the-math surface: every assumption grouped (returns, retirement, tax
+  tables, limits/RMD, tax rules, allocation), each row showing value, effective
+  date, source badge (Default / Edited / Scenario), inline dated editing with
+  notes, and per-key history with record removal. The panel header shows the
+  tax-table year stamp.
+- `/flows` waterfall Taxes step shows the federal/state/FICA breakdown and an
+  "effective [year]" stamp (or "manual rate")
+
+## Holdings
+
+- Three views: Positions (existing table + lots), Allocation (true cross-account
+  buckets with target bands, drift alerts, per-symbol classification editing),
+  Asset Location (bucket × tax-treatment matrix)
+
+## Onboarding
+
+- `/onboarding` (household + profile) → `/onboarding/quick-start`: three numbers
+  produce a headline FI number via the real metrics engine by seeding real
+  records (income source, expense item, starter account). Skippable.
+
+## Mobile
+
+- Mobile shell: full-width sticky top bar + sheet navigation (`flex-col lg:flex-row`)
+- Tables: full-bleed horizontal scroll below `sm` (projection-table precedent),
+  secondary columns hidden at small breakpoints
+- Charts: Sankey compact mode below 640px container width (inward labels, small
+  margins); line charts use sparser ticks at narrow widths
+- Touch: `pointer-coarse:size-8` on small icon buttons via the Button primitive
+
 ## UI Priorities for Next Phase
 
 - Replace remaining mock-backed dashboard history with persisted production data
 - Add explicit sync/ingest status visibility in account workflows
 - Align manual-entry UI payload shape with backend ingest contract
-- Introduce dedicated accumulation and drawdown planning surfaces
+- Fund overlap / X-ray view (pending external data-source decision)

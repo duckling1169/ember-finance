@@ -18,7 +18,7 @@ type Tab = 'projections' | 'settings';
 
 const tabs: { key: Tab; label: string }[] = [
   { key: 'projections', label: 'Projections' },
-  { key: 'settings', label: 'Settings' },
+  { key: 'settings', label: 'Assumptions' },
 ];
 
 export default function PlanningPage() {
@@ -45,6 +45,12 @@ export default function PlanningPage() {
   }
 
   const loading = metricsLoading || projLoading;
+
+  const bracketsDetail = metricsData?.assumptions_detail?.find(
+    (a) => a.key === 'tax.federal_brackets',
+  );
+  const bracketsValue = bracketsDetail?.value as { year?: number } | undefined;
+  const taxYear = typeof bracketsValue?.year === 'number' ? bracketsValue.year : null;
 
   return (
     <div className="space-y-3">
@@ -136,6 +142,14 @@ export default function PlanningPage() {
 
           {/* Projection Table */}
           {projData?.projection && <ProjectionTable projection={projData.projection} />}
+
+          {/* Provenance stamp */}
+          {taxYear != null && (
+            <p className="text-xs text-muted-foreground">
+              Computed with {taxYear} tax tables. Every input is visible and editable in the
+              Assumptions tab.
+            </p>
+          )}
         </>
       )}
 
@@ -156,10 +170,9 @@ export default function PlanningPage() {
             </div>
           )}
 
-          {/* Assumptions */}
-          {metricsData?.scenario && (
-            <AssumptionsPanel scenario={metricsData.scenario} defaultOpen />
-          )}
+          {/* Assumptions — render even when metrics fail (e.g. missing birthday):
+              the audit surface must stay reachable */}
+          <AssumptionsPanel scenarioId={scenarioId} defaultOpen />
 
           {/* FI Portfolio Value + Savings Rates */}
           {metricsData && (

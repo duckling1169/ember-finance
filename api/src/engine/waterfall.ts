@@ -5,6 +5,7 @@ import type {
   IncomeSourceSummary,
   ContributionSummary,
   TaxBreakdown,
+  TaxParams,
 } from './types.js';
 import { toMonthly, monthlyToAnnual } from './normalize.js';
 import { resolveItemMonthly } from './resolve-amount.js';
@@ -17,7 +18,10 @@ import { estimateTaxes } from './tax.js';
  *       net income → post-tax contributions → disposable income →
  *       expenses → residual
  */
-export function computeMemberWaterfall(member: WaterfallMemberInput): MemberWaterfall {
+export function computeMemberWaterfall(
+  member: WaterfallMemberInput,
+  taxParams: TaxParams,
+): MemberWaterfall {
   // 1. Gross inflows — sum all active income sources, normalized to monthly
   const incomeSources = member.income_sources.filter((source) => source.is_active);
   const totalGrossMonthly = incomeSources.reduce(
@@ -83,19 +87,23 @@ export function computeMemberWaterfall(member: WaterfallMemberInput): MemberWate
       fica_total: 0,
       total: totalTaxAnnual,
       effective_rate: rate,
+      tax_year: null,
     };
   } else {
     // Auto mode: full estimation
     const grossEarnedIncomeAnnual = monthlyToAnnual(totalGrossMonthly);
     const isSelfEmployed = incomeSources.some((source) => source.type === 'self_employment');
 
-    taxBreakdown = estimateTaxes({
-      taxable_income: taxableIncomeAnnual,
-      gross_earned_income: grossEarnedIncomeAnnual,
-      filing_status: 'single', // per-member is always single; household handles joint
-      state: member.state,
-      is_self_employed: isSelfEmployed,
-    });
+    taxBreakdown = estimateTaxes(
+      {
+        taxable_income: taxableIncomeAnnual,
+        gross_earned_income: grossEarnedIncomeAnnual,
+        filing_status: 'single', // per-member is always single; household handles joint
+        state: member.state,
+        is_self_employed: isSelfEmployed,
+      },
+      taxParams,
+    );
     taxMonthly = taxBreakdown.total / 12;
   }
 
