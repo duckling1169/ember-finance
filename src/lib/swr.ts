@@ -38,6 +38,11 @@ function getCachedHouseholdId(): string | undefined {
 export function useHousehold() {
   const result = useSWR('household', () => getHousehold() as Promise<Household | null>, {
     revalidateOnFocus: false,
+    // "No household yet" comes back as a thrown 404. That's a terminal state,
+    // not a transient error — retrying it on a loop flips isLoading on/off and
+    // makes RequireAuth flash its full-screen loader, remounting (and wiping)
+    // the onboarding form. Treat the error as final.
+    shouldRetryOnError: false,
   });
 
   // Cache householdId for fast subsequent loads
