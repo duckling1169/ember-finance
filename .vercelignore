@@ -1,8 +1,10 @@
-# The Hono API source (api/src) is bundled into the Next.js build via the
-# /api catch-all route, so it MUST be uploaded. Only exclude what the build
-# does not need.
+# The Hono API source (server/src) is bundled into the Next.js build via the
+# /api catch-all route, so it MUST be uploaded. The backend dir is named
+# `server/` (NOT `api/`) on purpose: Vercel's zero-config convention turns a
+# root-level `api/**/*.ts` into one Serverless Function per file, which blows
+# the Hobby 12-function cap. Only exclude what the build does not need.
 supabase/
 docs/
-api/tests/
-api/dist/
-api/node_modules/
+server/tests/
+server/dist/
+server/node_modules/

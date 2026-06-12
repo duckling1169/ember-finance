@@ -1,5 +1,5 @@
 import { handle } from 'hono/vercel';
-import app from '../../../../api/src/app';
+import app from '../../../../server/src/app';
 
 // The entire Hono API is served by this single Vercel Function. Mounting the
 // app behind one optional catch-all route keeps the deployment at ONE function
