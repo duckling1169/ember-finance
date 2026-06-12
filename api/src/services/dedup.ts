@@ -1,4 +1,4 @@
-import { supabase } from '../lib/supabase.js';
+import { supabase } from '../lib/supabase';
 
 // Source authority ranking — higher number = more authoritative.
 // When dupes are found, the less authoritative record gets hidden.

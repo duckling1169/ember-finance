@@ -1,7 +1,7 @@
 import { Hono } from 'hono';
-import { supabase } from '../lib/supabase.js';
-import { env } from '../lib/env.js';
-import type { AuthEnv } from '../middleware/auth.js';
+import { supabase } from '../lib/supabase';
+import { env } from '../lib/env';
+import type { AuthEnv } from '../middleware/auth';
 
 interface TiingoEOD {
   adjClose: number;

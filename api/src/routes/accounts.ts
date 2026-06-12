@@ -6,9 +6,9 @@ import {
   TAX_TREATMENTS,
   type AccountType,
   type TaxTreatment,
-} from '../types/index.js';
-import type { AuthEnv } from '../middleware/auth.js';
-import { clampPagination } from '../lib/pagination.js';
+} from '../types/index';
+import type { AuthEnv } from '../middleware/auth';
+import { clampPagination } from '../lib/pagination';
 
 export const accountsRoute = new Hono<AuthEnv>();
 

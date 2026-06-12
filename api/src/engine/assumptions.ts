@@ -6,8 +6,8 @@ import type {
   ContributionGrowthMode,
   TaxFilingStatus,
   USState,
-} from '../types/index.js';
-import type { TaxParams, FederalBracket, FICAParams } from './types.js';
+} from '../types/index';
+import type { TaxParams, FederalBracket, FICAParams } from './types';
 
 /**
  * Pure assumption resolution.

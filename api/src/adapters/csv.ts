@@ -7,7 +7,7 @@ import type {
   ActivityType,
   AssetClass,
   AccountType,
-} from '../types/index.js';
+} from '../types/index';
 
 // Known CSV formats from common institutions
 type CsvFormat =

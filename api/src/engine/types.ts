@@ -5,7 +5,7 @@ import type {
   TaxTreatment,
   USState,
   TaxMode,
-} from '../types/index.js';
+} from '../types/index';
 
 // ── Engine Input Types ──
 

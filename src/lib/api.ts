@@ -42,7 +42,11 @@ import type {
   UpdateExpenseCategoryInput,
 } from '@shared/types';
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
+// Empty default = same-origin. The API ships in the same Vercel deployment under
+// /api (Hono catch-all route), so no cross-origin base URL is needed. Local
+// `next dev` serves /api too; set NEXT_PUBLIC_API_URL only to target a separate
+// API host (e.g. the standalone `npm run dev:api` server on :3001).
+const API_URL = process.env.NEXT_PUBLIC_API_URL || '';
 
 async function getToken(): Promise<string | null> {
   // Import dynamically to avoid circular deps

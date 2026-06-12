@@ -1,7 +1,7 @@
 import { Hono } from 'hono';
-import type { AuthEnv } from '../middleware/auth.js';
-import { resolveAssumptionValues } from '../engine/assumptions.js';
-import { computeComposition } from '../engine/composition.js';
+import type { AuthEnv } from '../middleware/auth';
+import { resolveAssumptionValues } from '../engine/assumptions';
+import { computeComposition } from '../engine/composition';
 import type {
   Account,
   AllocationBucket,
@@ -9,7 +9,7 @@ import type {
   AssumptionDefault,
   AssumptionRecord,
   PortfolioCompositionResponse,
-} from '../types/index.js';
+} from '../types/index';
 
 export const portfolioRoute = new Hono<AuthEnv>();
 

@@ -7,7 +7,7 @@ import type {
   NormalizedBalance,
   NormalizedHolding,
   ProviderAdapter,
-} from '../types/index.js';
+} from '../types/index';
 
 // Manual entry — the user provides the data directly via the API.
 // This adapter just passes through the normalized shapes.

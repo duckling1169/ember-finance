@@ -5,7 +5,7 @@
  * and per-account contribution routing.
  */
 
-import type { ContributionGrowthMode } from '../types/index.js';
+import type { ContributionGrowthMode } from '../types/index';
 
 export interface ProjectionInput {
   fi_portfolio_value: number;

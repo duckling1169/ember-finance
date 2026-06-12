@@ -1,11 +1,9 @@
 import type { NextConfig } from 'next';
 
 const nextConfig: NextConfig = {
-  // Fully static client SPA (data comes from the separate Hono API over HTTP),
-  // so we export to static HTML. This produces ZERO serverless functions, which
-  // keeps the deployment under Vercel's Hobby 12-function limit. Any dynamic
-  // detail views read their id from the query string (e.g. /accounts/view?id=).
-  output: 'export',
+  // Single deployment: the client-SPA pages prerender as static content (0
+  // functions) and the Hono API is mounted as one Vercel Function via the
+  // /api catch-all route, keeping us well under Vercel's Hobby 12-function cap.
   images: { unoptimized: true },
 };
 

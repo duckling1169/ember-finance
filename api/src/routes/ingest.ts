@@ -1,11 +1,11 @@
 import { Hono } from 'hono';
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { persistIngest } from '../services/ingest.js';
-import { ManualAdapter } from '../adapters/manual.js';
-import { CsvAdapter, detectCsvFormat } from '../adapters/csv.js';
-import type { Account, AccountSource } from '../types/index.js';
-import type { AuthEnv } from '../middleware/auth.js';
-import { validateManualIngest } from '../lib/validation.js';
+import { persistIngest } from '../services/ingest';
+import { ManualAdapter } from '../adapters/manual';
+import { CsvAdapter, detectCsvFormat } from '../adapters/csv';
+import type { Account, AccountSource } from '../types/index';
+import type { AuthEnv } from '../middleware/auth';
+import { validateManualIngest } from '../lib/validation';
 
 export const ingestRoute = new Hono<AuthEnv>();
 

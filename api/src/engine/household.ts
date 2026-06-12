@@ -1,7 +1,7 @@
-import type { HouseholdWaterfallInput, HouseholdWaterfall, MemberWaterfall } from './types.js';
-import { computeMemberWaterfall } from './waterfall.js';
-import { estimateTaxes } from './tax.js';
-import { monthlyToAnnual } from './normalize.js';
+import type { HouseholdWaterfallInput, HouseholdWaterfall, MemberWaterfall } from './types';
+import { computeMemberWaterfall } from './waterfall';
+import { estimateTaxes } from './tax';
+import { monthlyToAnnual } from './normalize';
 
 /**
  * Compute the household-level cashflow waterfall.

@@ -1,8 +1,8 @@
 import { Hono } from 'hono';
-import { supabase } from '../lib/supabase.js';
-import { env } from '../lib/env.js';
-import type { AuthEnv } from '../middleware/auth.js';
-import { validateHouseholdSettings, validateMemberProfile } from '../lib/validation.js';
+import { supabase } from '../lib/supabase';
+import { env } from '../lib/env';
+import type { AuthEnv } from '../middleware/auth';
+import { validateHouseholdSettings, validateMemberProfile } from '../lib/validation';
 
 export const settingsRoute = new Hono<AuthEnv>();
 

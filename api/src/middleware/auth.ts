@@ -1,6 +1,6 @@
 import type { Context, Next } from 'hono';
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { createUserClient, supabase } from '../lib/supabase.js';
+import { createUserClient, supabase } from '../lib/supabase';
 
 export interface AuthUser {
   id: string;

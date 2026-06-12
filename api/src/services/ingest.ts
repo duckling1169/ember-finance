@@ -1,7 +1,7 @@
-import { supabase } from '../lib/supabase.js';
-import { transactionFingerprint, investmentActivityFingerprint } from '../lib/fingerprint.js';
-import { detectDuplicateTransactions, detectDuplicateActivity } from './dedup.js';
-import type { IngestResult } from '../types/index.js';
+import { supabase } from '../lib/supabase';
+import { transactionFingerprint, investmentActivityFingerprint } from '../lib/fingerprint';
+import { detectDuplicateTransactions, detectDuplicateActivity } from './dedup';
+import type { IngestResult } from '../types/index';
 
 interface IngestContext {
   householdId: string;

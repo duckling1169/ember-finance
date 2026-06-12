@@ -1,5 +1,5 @@
 import { Hono } from 'hono';
-import type { AuthEnv } from '../middleware/auth.js';
+import type { AuthEnv } from '../middleware/auth';
 
 export const syncRoute = new Hono<AuthEnv>();
 

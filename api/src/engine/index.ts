@@ -1,4 +1,4 @@
-export { toMonthly, toAnnual, monthlyToAnnual, annualToMonthly } from './normalize.js';
+export { toMonthly, toAnnual, monthlyToAnnual, annualToMonthly } from './normalize';
 export {
   computeFederalTax,
   getStandardDeduction,
@@ -6,10 +6,10 @@ export {
   getStateRate,
   computeFICA,
   estimateTaxes,
-} from './tax.js';
-export { resolveItemMonthly, resolveItemAnnual } from './resolve-amount.js';
-export { computeMemberWaterfall } from './waterfall.js';
-export { computeHouseholdWaterfall } from './household.js';
+} from './tax';
+export { resolveItemMonthly, resolveItemAnnual } from './resolve-amount';
+export { computeMemberWaterfall } from './waterfall';
+export { computeHouseholdWaterfall } from './household';
 export {
   fiNumber,
   securityFI,
@@ -18,28 +18,24 @@ export {
   progressToFI,
   yearsToFI,
   computeFIMetrics,
-} from './metrics.js';
-export { computeProjection } from './projections.js';
-export { computeSavingsRates } from './savings.js';
-export {
-  resolveAssumptionValues,
-  buildScenarioAssumptions,
-  buildTaxParams,
-} from './assumptions.js';
-export { classifySymbol, computeComposition } from './composition.js';
-export type * from './types.js';
-export type { FIMetricsInput, FIMetrics } from './metrics.js';
+} from './metrics';
+export { computeProjection } from './projections';
+export { computeSavingsRates } from './savings';
+export { resolveAssumptionValues, buildScenarioAssumptions, buildTaxParams } from './assumptions';
+export { classifySymbol, computeComposition } from './composition';
+export type * from './types';
+export type { FIMetricsInput, FIMetrics } from './metrics';
 export type {
   ProjectionInput,
   ProjectionResult,
   ProjectionYear,
   AccountContribution,
-} from './projections.js';
-export type { SavingsRateInput, SavingsRates } from './savings.js';
+} from './projections';
+export type { SavingsRateInput, SavingsRates } from './savings';
 export type {
   CompositionInput,
   CompositionPositionInput,
   CompositionCashAccountInput,
   CompositionAccountInput,
   SymbolClassification,
-} from './composition.js';
+} from './composition';

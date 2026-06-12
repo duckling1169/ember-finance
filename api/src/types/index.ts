@@ -1,1 +1,1 @@
-export * from '../../../shared/types/index.js';
+export * from '../../../shared/types/index';

@@ -1,5 +1,5 @@
-import type { CashflowItem, IncomeSource } from '../types/index.js';
-import { toMonthly, toAnnual } from './normalize.js';
+import type { CashflowItem, IncomeSource } from '../types/index';
+import { toMonthly, toAnnual } from './normalize';
 
 /**
  * Resolve a cashflow item's amount to a monthly dollar value.

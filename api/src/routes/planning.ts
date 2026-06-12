@@ -21,12 +21,12 @@ import {
   type AssumptionDefault,
   type AssumptionRecord,
   type AssumptionHistoryEntry,
-} from '../types/index.js';
-import type { AuthEnv } from '../middleware/auth.js';
-import { computeHouseholdWaterfall } from '../engine/household.js';
-import { computeFIMetrics } from '../engine/metrics.js';
-import { computeProjection } from '../engine/projections.js';
-import { computeSavingsRates } from '../engine/savings.js';
+} from '../types/index';
+import type { AuthEnv } from '../middleware/auth';
+import { computeHouseholdWaterfall } from '../engine/household';
+import { computeFIMetrics } from '../engine/metrics';
+import { computeProjection } from '../engine/projections';
+import { computeSavingsRates } from '../engine/savings';
 import {
   fetchPlanningData,
   resolvePlanningAssumptions,
@@ -35,9 +35,9 @@ import {
   assembleProjectionInput,
   assembleSavingsRateInput,
   computeCurrentAge,
-} from '../services/planning-engine.js';
-import { validateAssumptionValue } from '../lib/assumption-validation.js';
-import { resolveAssumptionValues } from '../engine/assumptions.js';
+} from '../services/planning-engine';
+import { validateAssumptionValue } from '../lib/assumption-validation';
+import { resolveAssumptionValues } from '../engine/assumptions';
 import type { SupabaseClient } from '@supabase/supabase-js';
 
 export const planningRoute = new Hono<AuthEnv>();

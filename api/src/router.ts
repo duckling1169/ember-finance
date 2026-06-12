@@ -1,22 +1,22 @@
 import { Hono } from 'hono';
-import { accountsRoute } from './routes/accounts.js';
-import { holdingsRoute } from './routes/holdings.js';
-import { ingestRoute } from './routes/ingest.js';
-import { activityRoute } from './routes/activity.js';
-import { duplicatesRoute } from './routes/duplicates.js';
-import { onboardingRoute } from './routes/onboarding.js';
-import { settingsRoute } from './routes/settings.js';
-import { planningRoute } from './routes/planning.js';
-import { portfolioRoute } from './routes/portfolio.js';
-import { syncRoute } from './routes/sync.js';
-import { quotesRoute } from './routes/quotes.js';
+import { accountsRoute } from './routes/accounts';
+import { holdingsRoute } from './routes/holdings';
+import { ingestRoute } from './routes/ingest';
+import { activityRoute } from './routes/activity';
+import { duplicatesRoute } from './routes/duplicates';
+import { onboardingRoute } from './routes/onboarding';
+import { settingsRoute } from './routes/settings';
+import { planningRoute } from './routes/planning';
+import { portfolioRoute } from './routes/portfolio';
+import { syncRoute } from './routes/sync';
+import { quotesRoute } from './routes/quotes';
 import {
   requireAuth,
   requireMember,
   requireHouseholdMember,
   requireRecordOwnership,
-} from './middleware/auth.js';
-import { rateLimit } from './middleware/rate-limit.js';
+} from './middleware/auth';
+import { rateLimit } from './middleware/rate-limit';
 
 /**
  * Creates a fully-configured API router with all middleware and routes.

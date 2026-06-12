@@ -1,5 +1,5 @@
 import { Hono } from 'hono';
-import { supabase } from '../lib/supabase.js';
+import { supabase } from '../lib/supabase';
 
 export const healthRoute = new Hono();
 

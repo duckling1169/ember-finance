@@ -1,4 +1,4 @@
-import type { CashflowFrequency } from '../types/index.js';
+import type { CashflowFrequency } from '../types/index';
 
 /**
  * Cadence normalization — convert any cashflow frequency to monthly or annual amounts.

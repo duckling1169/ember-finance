@@ -1,6 +1,6 @@
 import { Hono } from 'hono';
-import type { AuthEnv } from '../middleware/auth.js';
-import { clampPagination } from '../lib/pagination.js';
+import type { AuthEnv } from '../middleware/auth';
+import { clampPagination } from '../lib/pagination';
 
 export const activityRoute = new Hono<AuthEnv>();
 

@@ -11,7 +11,7 @@ import {
   type AssetLocationRow,
   type PortfolioComposition,
   type TaxTreatment,
-} from '../types/index.js';
+} from '../types/index';
 
 /**
  * Pure portfolio-composition engine.

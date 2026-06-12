@@ -1,9 +1,4 @@
-import {
-  TAX_FILING_STATUSES,
-  EMPLOYMENT_TYPES,
-  RISK_TOLERANCES,
-  US_STATES,
-} from '../types/index.js';
+import { TAX_FILING_STATUSES, EMPLOYMENT_TYPES, RISK_TOLERANCES, US_STATES } from '../types/index';
 
 type ValidationError = { field: string; message: string };
 

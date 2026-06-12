@@ -1,5 +1,5 @@
 import { createClient } from '@supabase/supabase-js';
-import { env } from './env.js';
+import { env } from './env';
 
 // Service role client — bypasses RLS, for server-side operations only
 export const supabase = createClient(env.supabaseUrl, env.supabaseSecretKey);

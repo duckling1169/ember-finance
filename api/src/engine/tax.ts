@@ -1,5 +1,5 @@
-import type { TaxFilingStatus, USState } from '../types/index.js';
-import type { TaxInput, TaxBreakdown, TaxParams } from './types.js';
+import type { TaxFilingStatus, USState } from '../types/index';
+import type { TaxInput, TaxBreakdown, TaxParams } from './types';
 
 /**
  * Tax computation engine.

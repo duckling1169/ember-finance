@@ -1,4 +1,4 @@
-import type { CashflowItem } from '../types/index.js';
+import type { CashflowItem } from '../types/index';
 import type {
   WaterfallMemberInput,
   MemberWaterfall,
@@ -6,10 +6,10 @@ import type {
   ContributionSummary,
   TaxBreakdown,
   TaxParams,
-} from './types.js';
-import { toMonthly, monthlyToAnnual } from './normalize.js';
-import { resolveItemMonthly } from './resolve-amount.js';
-import { estimateTaxes } from './tax.js';
+} from './types';
+import { toMonthly, monthlyToAnnual } from './normalize';
+import { resolveItemMonthly } from './resolve-amount';
+import { estimateTaxes } from './tax';
 
 /**
  * Compute the per-member cashflow waterfall.

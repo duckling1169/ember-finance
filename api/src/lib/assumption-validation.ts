@@ -3,7 +3,7 @@ import {
   ALLOCATION_BUCKETS,
   US_STATES,
   type AssumptionKeyMeta,
-} from '../types/index.js';
+} from '../types/index';
 
 /**
  * Boundary validation for user-submitted assumption values.

@@ -15,22 +15,22 @@ import type {
   AssumptionDefault,
   AssumptionRecord,
   ResolvedAssumption,
-} from '../types/index.js';
+} from '../types/index';
 import type {
   WaterfallMemberInput,
   HouseholdWaterfallInput,
   HouseholdWaterfall,
   TaxParams,
-} from '../engine/types.js';
-import type { FIMetricsInput } from '../engine/metrics.js';
-import type { ProjectionInput, AccountContribution } from '../engine/projections.js';
-import type { SavingsRateInput } from '../engine/savings.js';
-import { resolveItemAnnual } from '../engine/resolve-amount.js';
+} from '../engine/types';
+import type { FIMetricsInput } from '../engine/metrics';
+import type { ProjectionInput, AccountContribution } from '../engine/projections';
+import type { SavingsRateInput } from '../engine/savings';
+import { resolveItemAnnual } from '../engine/resolve-amount';
 import {
   resolveAssumptionValues,
   buildScenarioAssumptions,
   buildTaxParams,
-} from '../engine/assumptions.js';
+} from '../engine/assumptions';
 
 // ── DB Fetch ──
 

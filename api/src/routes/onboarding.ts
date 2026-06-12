@@ -1,7 +1,7 @@
 import { Hono } from 'hono';
-import { supabase } from '../lib/supabase.js';
-import type { AuthEnv } from '../middleware/auth.js';
-import { validateOnboarding, validateMemberProfile } from '../lib/validation.js';
+import { supabase } from '../lib/supabase';
+import type { AuthEnv } from '../middleware/auth';
+import { validateOnboarding, validateMemberProfile } from '../lib/validation';
 
 export const onboardingRoute = new Hono<AuthEnv>();
 
