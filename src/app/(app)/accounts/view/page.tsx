@@ -1,7 +1,8 @@
 'use client';
 
 import { PageSkeleton } from '@/components/common/page-skeleton';
-import { use, useState, useRef } from 'react';
+import { Suspense, useState, useRef } from 'react';
+import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import type { AccountDetailResponse } from '@shared/types';
 import {
@@ -137,8 +138,16 @@ function mapApiDetail(
   return { account, history, balanceHistory };
 }
 
-export default function AccountDetailPage({ params }: { params: Promise<{ id: string }> }) {
-  const { id } = use(params);
+export default function AccountDetailPage() {
+  return (
+    <Suspense fallback={<PageSkeleton rows={3} />}>
+      <AccountDetail />
+    </Suspense>
+  );
+}
+
+function AccountDetail() {
+  const id = useSearchParams().get('id') ?? '';
   const [activeTab, setActiveTab] = useState<Tab>('overview');
 
   const { householdId } = useAccounts();

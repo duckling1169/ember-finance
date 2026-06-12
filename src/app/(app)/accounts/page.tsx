@@ -201,7 +201,7 @@ function AccountsContent() {
               sortKey={sortKey}
               sortDir={sortDir}
               onSort={toggleSort}
-              onRowClick={(id) => router.push(`/accounts/${id}`)}
+              onRowClick={(id) => router.push(`/accounts/view?id=${id}`)}
             />
           )}
         </CardContent>
