@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, type ReactNode } from 'react';
 import {
   useTransactions,
   useInvestmentActivity,
@@ -11,24 +11,20 @@ import {
 import { hideTransaction, unhideTransaction, hideActivity, unhideActivity } from '@/lib/api';
 import { useToast } from '@/components/ui/toast';
 import { Card, CardHeader, CardTitle, CardAction, CardContent } from '@/components/ui/card';
-import {
-  Table,
-  TableHeader,
-  TableBody,
-  TableRow,
-  TableHead,
-  TableCell,
-} from '@/components/ui/table';
+import { DataTable, type DataTableColumn } from '@/components/ui/data-table';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Skeleton } from '@/components/ui/skeleton';
+import { Alert } from '@/components/ui/alert';
+import { GainCell } from '@/components/common/financial-cells';
 import { IconEye, IconEyeOff, IconChevronLeft, IconChevronRight } from '@tabler/icons-react';
 import { fmt } from '@/lib/formatters';
-import { cn } from '@/lib/utils';
 import type { Transaction, InvestmentActivity } from '@shared/types';
 
 const PAGE_SIZE = 50;
+
+type HiddenableTransaction = Transaction & { _hidden?: boolean };
+type HiddenableActivity = InvestmentActivity & { _hidden?: boolean };
 
 interface TransactionsTabProps {
   accountId: string;
@@ -49,6 +45,7 @@ function TransactionTable({ accountId }: { accountId: string }) {
   const [offset, setOffset] = useState(0);
   const [search, setSearch] = useState('');
   const [showHidden, setShowHidden] = useState(false);
+  const [actionError, setActionError] = useState('');
   const toast = useToast();
 
   const { data: visible, isLoading } = useTransactions({
@@ -58,7 +55,7 @@ function TransactionTable({ accountId }: { accountId: string }) {
   });
   const { data: hidden } = useHiddenTransactions(showHidden ? accountId : undefined);
 
-  const rows: (Transaction & { _hidden?: boolean })[] = [
+  const rows: HiddenableTransaction[] = [
     ...(visible ?? []),
     ...(showHidden ? (hidden ?? []).map((t) => ({ ...t, _hidden: true })) : []),
   ]
@@ -70,7 +67,7 @@ function TransactionTable({ accountId }: { accountId: string }) {
     )
     .sort((a, b) => b.date.localeCompare(a.date));
 
-  async function toggleHidden(txn: Transaction & { _hidden?: boolean }) {
+  async function toggleHidden(txn: HiddenableTransaction) {
     try {
       if (txn._hidden) {
         await unhideTransaction(txn.id);
@@ -79,15 +76,65 @@ function TransactionTable({ accountId }: { accountId: string }) {
         await hideTransaction(txn.id);
         toast('success', 'Transaction hidden');
       }
+      setActionError('');
       await mutateActivity();
     } catch (err) {
-      toast('error', err instanceof Error ? err.message : 'Failed to update transaction');
+      setActionError(err instanceof Error ? err.message : 'Failed to update transaction');
     }
   }
 
-  if (isLoading) return <TableSkeleton />;
-
   const hasMore = (visible?.length ?? 0) === PAGE_SIZE;
+
+  const columns: DataTableColumn<HiddenableTransaction>[] = [
+    {
+      key: 'date',
+      header: 'Date',
+      cell: (t) => <Dim hidden={t._hidden}>{t.date}</Dim>,
+      cellClassName: 'whitespace-nowrap font-mono tabular-nums text-muted-foreground',
+    },
+    {
+      key: 'description',
+      header: 'Description',
+      cell: (t) => <Dim hidden={t._hidden}>{t.description}</Dim>,
+      cellClassName: 'max-w-[280px] truncate font-medium',
+    },
+    {
+      key: 'category',
+      header: 'Category',
+      priority: 2,
+      cell: (t) => <Dim hidden={t._hidden}>{t.category || '—'}</Dim>,
+      cellClassName: 'text-muted-foreground',
+    },
+    {
+      key: 'amount',
+      header: 'Amount',
+      numeric: true,
+      cell: (t) => (
+        <Dim hidden={t._hidden}>
+          <GainCell value={t.amount} />
+        </Dim>
+      ),
+    },
+    {
+      key: 'actions',
+      header: '',
+      align: 'right',
+      headerClassName: 'w-10',
+      cell: (t) => (
+        <Dim hidden={t._hidden}>
+          <Button
+            variant="ghost"
+            size="icon-sm"
+            onClick={() => toggleHidden(t)}
+            aria-label={t._hidden ? 'Restore transaction' : 'Hide transaction'}
+            title={t._hidden ? 'Restore (was hidden as duplicate)' : 'Hide as duplicate'}
+          >
+            {t._hidden ? <IconEye size={14} stroke={1.5} /> : <IconEyeOff size={14} stroke={1.5} />}
+          </Button>
+        </Dim>
+      ),
+    },
+  ];
 
   return (
     <Card>
@@ -109,65 +156,22 @@ function TransactionTable({ accountId }: { accountId: string }) {
         </CardAction>
       </CardHeader>
       <CardContent>
-        {rows.length === 0 ? (
-          <p className="py-8 text-center text-sm text-muted-foreground">
-            {search ? 'No transactions match your search.' : 'No transactions yet.'}
-          </p>
-        ) : (
-          <div className="-mx-6 overflow-x-auto sm:mx-0">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Date</TableHead>
-                  <TableHead>Description</TableHead>
-                  <TableHead className="hidden sm:table-cell">Category</TableHead>
-                  <TableHead className="text-right">Amount</TableHead>
-                  <TableHead className="w-10" />
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {rows.map((t) => (
-                  <TableRow key={t.id} className={cn(t._hidden && 'opacity-50')}>
-                    <TableCell className="whitespace-nowrap text-muted-foreground">
-                      {t.date}
-                    </TableCell>
-                    <TableCell className="max-w-[280px] truncate font-medium">
-                      {t.description}
-                    </TableCell>
-                    <TableCell className="hidden text-muted-foreground sm:table-cell">
-                      {t.category || '—'}
-                    </TableCell>
-                    <TableCell
-                      className={cn(
-                        'text-right font-mono tabular-nums',
-                        t.amount > 0 ? 'text-gain' : undefined,
-                      )}
-                    >
-                      {fmt(t.amount)}
-                    </TableCell>
-                    <TableCell>
-                      <Button
-                        variant="ghost"
-                        size="icon-xs"
-                        onClick={() => toggleHidden(t)}
-                        aria-label={t._hidden ? 'Restore transaction' : 'Hide transaction'}
-                        title={
-                          t._hidden ? 'Restore (was hidden as duplicate)' : 'Hide as duplicate'
-                        }
-                      >
-                        {t._hidden ? (
-                          <IconEye size={14} stroke={1.5} />
-                        ) : (
-                          <IconEyeOff size={14} stroke={1.5} />
-                        )}
-                      </Button>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </div>
+        {actionError && (
+          <Alert variant="error" className="mb-3" onDismiss={() => setActionError('')}>
+            {actionError}
+          </Alert>
         )}
+        <DataTable
+          columns={columns}
+          rows={rows}
+          rowKey={(t) => t.id}
+          density="wide"
+          mobile="priority"
+          loading={isLoading}
+          empty={{
+            title: search ? 'No transactions match your search.' : 'No transactions yet.',
+          }}
+        />
         <Pager offset={offset} hasMore={hasMore} onChange={setOffset} />
       </CardContent>
     </Card>
@@ -180,6 +184,7 @@ function ActivityTable({ accountId }: { accountId: string }) {
   const [offset, setOffset] = useState(0);
   const [search, setSearch] = useState('');
   const [showHidden, setShowHidden] = useState(false);
+  const [actionError, setActionError] = useState('');
   const toast = useToast();
 
   const { data: visible, isLoading } = useInvestmentActivity({
@@ -189,7 +194,7 @@ function ActivityTable({ accountId }: { accountId: string }) {
   });
   const { data: hidden } = useHiddenActivity(showHidden ? accountId : undefined);
 
-  const rows: (InvestmentActivity & { _hidden?: boolean })[] = [
+  const rows: HiddenableActivity[] = [
     ...(visible ?? []),
     ...(showHidden ? (hidden ?? []).map((a) => ({ ...a, _hidden: true })) : []),
   ]
@@ -202,7 +207,7 @@ function ActivityTable({ accountId }: { accountId: string }) {
     )
     .sort((a, b) => b.date.localeCompare(a.date));
 
-  async function toggleHidden(act: InvestmentActivity & { _hidden?: boolean }) {
+  async function toggleHidden(act: HiddenableActivity) {
     try {
       if (act._hidden) {
         await unhideActivity(act.id);
@@ -211,15 +216,76 @@ function ActivityTable({ accountId }: { accountId: string }) {
         await hideActivity(act.id);
         toast('success', 'Activity hidden');
       }
+      setActionError('');
       await mutateActivity();
     } catch (err) {
-      toast('error', err instanceof Error ? err.message : 'Failed to update activity');
+      setActionError(err instanceof Error ? err.message : 'Failed to update activity');
     }
   }
 
-  if (isLoading) return <TableSkeleton />;
-
   const hasMore = (visible?.length ?? 0) === PAGE_SIZE;
+
+  const columns: DataTableColumn<HiddenableActivity>[] = [
+    {
+      key: 'date',
+      header: 'Date',
+      cell: (a) => <Dim hidden={a._hidden}>{a.date}</Dim>,
+      cellClassName: 'whitespace-nowrap font-mono tabular-nums text-muted-foreground',
+    },
+    {
+      key: 'type',
+      header: 'Type',
+      cell: (a) => <Dim hidden={a._hidden}>{a.activity_type.replace(/_/g, ' ')}</Dim>,
+      cellClassName: 'capitalize',
+    },
+    {
+      key: 'symbol',
+      header: 'Symbol',
+      cell: (a) => <Dim hidden={a._hidden}>{a.symbol || '—'}</Dim>,
+      cellClassName: 'font-medium',
+    },
+    {
+      key: 'quantity',
+      header: 'Qty',
+      numeric: true,
+      cell: (a) => <Dim hidden={a._hidden}>{a.quantity != null ? a.quantity : '—'}</Dim>,
+    },
+    {
+      key: 'price',
+      header: 'Price',
+      numeric: true,
+      cell: (a) => <Dim hidden={a._hidden}>{a.price != null ? fmt(a.price) : '—'}</Dim>,
+    },
+    {
+      key: 'amount',
+      header: 'Amount',
+      numeric: true,
+      cell: (a) => (
+        <Dim hidden={a._hidden}>
+          <GainCell value={a.amount} />
+        </Dim>
+      ),
+    },
+    {
+      key: 'actions',
+      header: '',
+      align: 'right',
+      headerClassName: 'w-10',
+      cell: (a) => (
+        <Dim hidden={a._hidden}>
+          <Button
+            variant="ghost"
+            size="icon-sm"
+            onClick={() => toggleHidden(a)}
+            aria-label={a._hidden ? 'Restore activity' : 'Hide activity'}
+            title={a._hidden ? 'Restore (was hidden as duplicate)' : 'Hide as duplicate'}
+          >
+            {a._hidden ? <IconEye size={14} stroke={1.5} /> : <IconEyeOff size={14} stroke={1.5} />}
+          </Button>
+        </Dim>
+      ),
+    },
+  ];
 
   return (
     <Card>
@@ -241,71 +307,22 @@ function ActivityTable({ accountId }: { accountId: string }) {
         </CardAction>
       </CardHeader>
       <CardContent>
-        {rows.length === 0 ? (
-          <p className="py-8 text-center text-sm text-muted-foreground">
-            {search ? 'No activity matches your search.' : 'No investment activity yet.'}
-          </p>
-        ) : (
-          <div className="-mx-6 overflow-x-auto sm:mx-0">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Date</TableHead>
-                  <TableHead>Type</TableHead>
-                  <TableHead>Symbol</TableHead>
-                  <TableHead className="text-right">Qty</TableHead>
-                  <TableHead className="text-right">Price</TableHead>
-                  <TableHead className="text-right">Amount</TableHead>
-                  <TableHead className="w-10" />
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {rows.map((a) => (
-                  <TableRow key={a.id} className={cn(a._hidden && 'opacity-50')}>
-                    <TableCell className="whitespace-nowrap text-muted-foreground">
-                      {a.date}
-                    </TableCell>
-                    <TableCell className="capitalize">
-                      {a.activity_type.replace(/_/g, ' ')}
-                    </TableCell>
-                    <TableCell className="font-medium">{a.symbol || '—'}</TableCell>
-                    <TableCell className="text-right font-mono tabular-nums">
-                      {a.quantity != null ? a.quantity : '—'}
-                    </TableCell>
-                    <TableCell className="text-right font-mono tabular-nums">
-                      {a.price != null ? fmt(a.price) : '—'}
-                    </TableCell>
-                    <TableCell
-                      className={cn(
-                        'text-right font-mono tabular-nums',
-                        a.amount > 0 ? 'text-gain' : undefined,
-                      )}
-                    >
-                      {fmt(a.amount)}
-                    </TableCell>
-                    <TableCell>
-                      <Button
-                        variant="ghost"
-                        size="icon-xs"
-                        onClick={() => toggleHidden(a)}
-                        aria-label={a._hidden ? 'Restore activity' : 'Hide activity'}
-                        title={
-                          a._hidden ? 'Restore (was hidden as duplicate)' : 'Hide as duplicate'
-                        }
-                      >
-                        {a._hidden ? (
-                          <IconEye size={14} stroke={1.5} />
-                        ) : (
-                          <IconEyeOff size={14} stroke={1.5} />
-                        )}
-                      </Button>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </div>
+        {actionError && (
+          <Alert variant="error" className="mb-3" onDismiss={() => setActionError('')}>
+            {actionError}
+          </Alert>
         )}
+        <DataTable
+          columns={columns}
+          rows={rows}
+          rowKey={(a) => a.id}
+          density="wide"
+          mobile="priority"
+          loading={isLoading}
+          empty={{
+            title: search ? 'No activity matches your search.' : 'No investment activity yet.',
+          }}
+        />
         <Pager offset={offset} hasMore={hasMore} onChange={setOffset} />
       </CardContent>
     </Card>
@@ -313,6 +330,11 @@ function ActivityTable({ accountId }: { accountId: string }) {
 }
 
 // ── Shared bits ──
+
+/** Hidden rows keep their reduced-opacity treatment cell-by-cell (DataTable has no row-class hook). */
+function Dim({ hidden, children }: { hidden?: boolean; children: ReactNode }) {
+  return <span className={hidden ? 'opacity-50' : undefined}>{children}</span>;
+}
 
 function Pager({
   offset,
@@ -328,7 +350,7 @@ function Pager({
     <div className="mt-3 flex items-center justify-end gap-2 text-xs text-muted-foreground">
       <Button
         variant="ghost"
-        size="icon-xs"
+        size="icon-sm"
         disabled={offset === 0}
         onClick={() => onChange(Math.max(0, offset - PAGE_SIZE))}
         aria-label="Previous page"
@@ -340,7 +362,7 @@ function Pager({
       </span>
       <Button
         variant="ghost"
-        size="icon-xs"
+        size="icon-sm"
         disabled={!hasMore}
         onClick={() => onChange(offset + PAGE_SIZE)}
         aria-label="Next page"
@@ -348,17 +370,5 @@ function Pager({
         <IconChevronRight size={14} stroke={1.5} />
       </Button>
     </div>
-  );
-}
-
-function TableSkeleton() {
-  return (
-    <Card>
-      <CardContent className="space-y-2 py-4">
-        {Array.from({ length: 6 }).map((_, i) => (
-          <Skeleton key={i} className="h-8 w-full" />
-        ))}
-      </CardContent>
-    </Card>
   );
 }

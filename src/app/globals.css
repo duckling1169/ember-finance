@@ -29,6 +29,8 @@
   --color-loss: var(--loss);
   --color-warning: var(--warning);
   --color-neutral: var(--neutral);
+  --color-info: var(--info);
+  --color-scenario: var(--scenario);
 
   --color-chart-1: var(--chart-1);
   --color-chart-2: var(--chart-2);
@@ -88,10 +90,13 @@
   --input: #d4d4d8;
   --ring: #ea580c;
 
-  --gain: #16a34a;
+  /* Semantic financial colors — light values tuned for >=4.5:1 small text on #fafafa */
+  --gain: #15803d;
   --loss: #dc2626;
-  --warning: #d97706;
+  --warning: #b45309;
   --neutral: #71717a;
+  --info: #1d4ed8;
+  --scenario: #7c3aed;
 
   --chart-1: #8a3ffc;
   --chart-2: #33b1ff;
@@ -142,10 +147,13 @@
   --input: #3f3f46;
   --ring: #fb923c;
 
+  /* Semantic financial colors — dark values tuned for >=4.5:1 small text on #09090b */
   --gain: #22c55e;
   --loss: #ef4444;
   --warning: #f59e0b;
   --neutral: #a1a1aa;
+  --info: #60a5fa;
+  --scenario: #a78bfa;
 
   --chart-1: #8a3ffc;
   --chart-2: #33b1ff;

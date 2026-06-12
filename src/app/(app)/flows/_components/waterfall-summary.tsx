@@ -100,7 +100,7 @@ export function WaterfallSummary({ waterfall }: WaterfallSummaryProps) {
         const tip = isTaxStep
           ? `Federal ${fmt(taxes.federal)} · State ${fmt(taxes.state)} · FICA ${fmt(taxes.fica)}. ` +
             (taxes.taxYear != null
-              ? `Estimated from the ${taxes.taxYear} tax tables${taxes.anyManual ? ' (some members use a manual rate)' : ''} — view and edit them in Planning → Assumptions.`
+              ? `Estimated from the ${taxes.taxYear} tax tables${taxes.anyManual ? ' (some members use a manual rate)' : ''} — view and edit them in Assumptions.`
               : 'Estimated from manual effective-rate overrides.')
           : step.tip;
 

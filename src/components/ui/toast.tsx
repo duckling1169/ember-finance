@@ -1,10 +1,16 @@
 'use client';
 
 import { createContext, useCallback, useContext, useRef, useState } from 'react';
-import { IconCircleCheck, IconAlertCircle, IconX } from '@tabler/icons-react';
+import { IconCircleCheck, IconInfoCircle, IconX } from '@tabler/icons-react';
 import { cn } from '@/lib/utils';
 
-export type ToastType = 'success' | 'error';
+/**
+ * Two-channel feedback convention (design principle 2):
+ * Toasts confirm completed, NON-critical actions and auto-dismiss.
+ * Errors, validation, and anything requiring a decision must use a persistent
+ * inline <Alert> instead — so 'error' is intentionally not a ToastType.
+ */
+export type ToastType = 'success' | 'info';
 
 interface Toast {
   id: number;
@@ -18,7 +24,8 @@ interface ToastContextValue {
 
 const ToastContext = createContext<ToastContextValue | null>(null);
 
-const TOAST_DURATION = 4000;
+const TOAST_DURATION = 5000;
+const MAX_TOASTS = 3;
 
 export function useToast() {
   const ctx = useContext(ToastContext);
@@ -37,7 +44,7 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
   const toast = useCallback(
     (type: ToastType, message: string) => {
       const id = nextId.current++;
-      setToasts((prev) => [...prev, { id, type, message }]);
+      setToasts((prev) => [...prev, { id, type, message }].slice(-MAX_TOASTS));
       setTimeout(() => dismiss(id), TOAST_DURATION);
     },
     [dismiss],
@@ -48,7 +55,7 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
       {children}
       <div
         aria-live="polite"
-        className="pointer-events-none fixed bottom-4 right-4 z-50 flex w-full max-w-sm flex-col gap-2"
+        className="pointer-events-none fixed top-4 right-4 z-50 flex w-full max-w-sm flex-col gap-2"
       >
         {toasts.map((t) => (
           <div
@@ -58,13 +65,13 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
               'pointer-events-auto flex items-start gap-2 rounded-md border px-4 py-3 text-sm shadow-lg backdrop-blur',
               t.type === 'success'
                 ? 'border-gain/50 bg-gain/10 text-gain'
-                : 'border-destructive/50 bg-destructive/10 text-destructive',
+                : 'border-info/50 bg-info/10 text-info',
             )}
           >
             {t.type === 'success' ? (
               <IconCircleCheck size={18} className="mt-px shrink-0" />
             ) : (
-              <IconAlertCircle size={18} className="mt-px shrink-0" />
+              <IconInfoCircle size={18} className="mt-px shrink-0" />
             )}
             <span className="flex-1">{t.message}</span>
             <button

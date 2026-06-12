@@ -1,9 +1,10 @@
 'use client';
 
 import { useMemo, useState } from 'react';
-import { useSearchParams, useRouter } from 'next/navigation';
+import Link from 'next/link';
 import { Card, CardContent } from '@/components/ui/card';
 import { Alert } from '@/components/ui/alert';
+import { EmptyState } from '@/components/ui/states';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Select } from '@/components/ui/select';
 import dynamic from 'next/dynamic';
@@ -12,10 +13,11 @@ const SankeyChart = dynamic(
   () => import('@/components/charts/sankey-chart').then((m) => ({ default: m.SankeyChart })),
   { ssr: false },
 );
-import { ScenarioSelector } from '@/components/planning/scenario-selector';
+import { MobileFlowList } from '@/components/charts/mobile-flow-list';
 import { WaterfallSummary } from './_components/waterfall-summary';
 import { IncomeSourcesCard } from './_components/income-sources-card';
 import { CashflowItemsCard } from './_components/cashflow-items-card';
+import { useScenario } from '@/lib/scenario-context';
 import {
   useCashflowSummary,
   useCashflowItems,
@@ -27,9 +29,7 @@ import {
 import { buildSankeyData } from '@/lib/sankey-transform';
 
 export default function FlowsPage() {
-  const router = useRouter();
-  const searchParams = useSearchParams();
-  const scenarioId = searchParams.get('scenario') ?? undefined;
+  const { scenarioId } = useScenario();
 
   const { data: profile } = useProfile();
   const { data: members } = useMembers();
@@ -59,47 +59,43 @@ export default function FlowsPage() {
     return buildSankeyData(summary.waterfall, cashflowItems, incomeSources, accounts, filterSet);
   }, [summary, cashflowItems, incomeSources, accounts, filterSourceId]);
 
-  function handleScenarioChange(id: string | undefined) {
-    const params = new URLSearchParams(searchParams.toString());
-    if (id) {
-      params.set('scenario', id);
-    } else {
-      params.delete('scenario');
-    }
-    router.push(`/flows?${params.toString()}`);
-  }
-
   return (
     <div className="space-y-3">
-      {/* Header */}
+      {/* Header — scenario selection lives in the global top bar */}
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-semibold">Money Flows</h1>
-        <div className="flex items-center gap-2">
-          {/* Filter by income source */}
-          {incomeSources && incomeSources.length > 1 && (
-            <Select
-              value={filterSourceId ?? ''}
-              onChange={(e) => setFilterSourceId(e.target.value || undefined)}
-              className="h-8 w-auto"
-            >
-              <option value="">All income</option>
-              {incomeSources.map((s) => (
-                <option key={s.id} value={s.id}>
-                  {s.name}
-                </option>
-              ))}
-            </Select>
-          )}
-          <ScenarioSelector value={scenarioId} onChange={handleScenarioChange} />
-        </div>
+        {/* Filter by income source */}
+        {incomeSources && incomeSources.length > 1 && (
+          <Select
+            value={filterSourceId ?? ''}
+            onChange={(e) => setFilterSourceId(e.target.value || undefined)}
+            aria-label="Filter by income source"
+            className="h-8 w-auto"
+          >
+            <option value="">All income</option>
+            {incomeSources.map((s) => (
+              <option key={s.id} value={s.id}>
+                {s.name}
+              </option>
+            ))}
+          </Select>
+        )}
       </div>
 
-      {/* Error state */}
+      {/* Error state — persistent banner */}
       {summaryError && !summaryLoading && (
-        <Alert variant="error" size="sm">
-          {summaryError.message?.includes('birthday')
-            ? 'Add your birthday in Settings to compute your money flows.'
-            : `Error loading flows: ${summaryError.message}`}
+        <Alert size="sm">
+          {summaryError.message?.includes('birthday') ? (
+            <>
+              Add your birthday in{' '}
+              <Link href="/settings" className="underline">
+                Settings
+              </Link>{' '}
+              to compute your money flows.
+            </>
+          ) : (
+            `Error loading flows: ${summaryError.message}`
+          )}
         </Alert>
       )}
 
@@ -113,17 +109,26 @@ export default function FlowsPage() {
       )}
       {summary?.waterfall && <WaterfallSummary waterfall={summary.waterfall} />}
 
-      {/* Sankey chart */}
+      {/* Flow diagram: Sankey on >=sm, stacked tap-to-expand list on phones */}
       <Card>
         <CardContent>
           {summaryLoading ? (
             <Skeleton className="h-[400px]" />
           ) : sankeyData.nodes.length === 0 ? (
-            <div className="flex h-[400px] items-center justify-center text-sm text-muted-foreground">
-              Add income sources and cashflow items to see your money flows.
-            </div>
+            <EmptyState
+              title="No money flows yet"
+              description="Add income sources and cashflow items to see your money flows."
+              className="h-[400px] justify-center"
+            />
           ) : (
-            <SankeyChart data={sankeyData} />
+            <>
+              <div className="hidden sm:block">
+                <SankeyChart data={sankeyData} />
+              </div>
+              <div className="sm:hidden">
+                <MobileFlowList data={sankeyData} />
+              </div>
+            </>
           )}
         </CardContent>
       </Card>

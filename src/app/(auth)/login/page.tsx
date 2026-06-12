@@ -16,6 +16,7 @@ export default function LoginPage() {
   const [password, setPassword] = useState('');
   const [isSignUp, setIsSignUp] = useState(false);
   const [error, setError] = useState('');
+  const [notice, setNotice] = useState('');
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
@@ -25,6 +26,7 @@ export default function LoginPage() {
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError('');
+    setNotice('');
     setLoading(true);
 
     const { error: authError } = isSignUp
@@ -39,7 +41,7 @@ export default function LoginPage() {
     }
 
     if (isSignUp) {
-      setError('Check your email to confirm your account, then log in.');
+      setNotice('Check your email to confirm your account, then log in.');
       setIsSignUp(false);
       return;
     }
@@ -82,14 +84,17 @@ export default function LoginPage() {
             </div>
 
             {error && (
-              <p
-                className={`text-sm ${error.includes('Check your email') ? 'text-gain' : 'text-destructive'}`}
-              >
+              <p role="alert" className="text-sm text-destructive">
                 {error}
               </p>
             )}
+            {notice && (
+              <p role="status" className="text-sm text-gain">
+                {notice}
+              </p>
+            )}
 
-            <Button type="submit" variant="primary-outline" disabled={loading} className="w-full">
+            <Button type="submit" variant="primary" disabled={loading} className="w-full">
               {loading ? '...' : isSignUp ? 'Sign Up' : 'Sign In'}
             </Button>
           </form>

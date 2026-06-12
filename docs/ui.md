@@ -3,18 +3,21 @@
 ## Scope
 
 This doc describes the current frontend implementation in `src/` (not aspirational design specs).
+The design laws behind it are in `docs/EMBER_DESIGN_PRINCIPLES.md`; the concrete decisions and
+thresholds chosen during the June 2026 overhaul are in `docs/ui-overhaul-notes.md`.
 
 ## Product UX Context
 
 UI supports the current household investment manager workflows:
 
-- Authentication and onboarding
+- Authentication and onboarding (+ quick-start FI estimate)
 - Dashboard overview
 - Accounts list and account detail
-- Household holdings view
+- Household holdings (positions / allocation / asset location)
+- Activity, Money flows, Budget
+- Accumulation planning (projections + FI metrics)
+- Assumptions (first-class audit surface)
 - Settings (profile, household, members, invites, theme)
-
-Planning-heavy FIRE tooling is a product direction and is not fully implemented in the current UI yet.
 
 ## Frontend Stack
 
@@ -24,118 +27,144 @@ Planning-heavy FIRE tooling is a product direction and is not fully implemented 
 | Styling       | Tailwind 4 + CSS variables in `src/app/globals.css`  |
 | Components    | Local shadcn-style primitives in `src/components/ui` |
 | Data fetching | SWR hooks in `src/lib/swr.ts`                        |
-| Charts        | Nivo (`@nivo/line`, `@nivo/pie`)                     |
+| Charts        | Nivo (`@nivo/line`, `@nivo/pie`, `@nivo/sankey`)     |
 | Icons         | Tabler Icons                                         |
 
 ## Theme and Tokens
 
-Theme state is managed via `ThemeProvider` (`light`, `dark`, `system`) and stored in local storage (`ember-theme`).
+Theme state via `ThemeProvider` (`light`, `dark`, `system`), stored in localStorage
+(`ember-theme`). Default shell is dark; light mode is fully supported.
 
-Key points from current tokens:
+- Primary accent: orange (`--primary`)
+- Financial semantics: `--gain`, `--loss`, `--warning`, `--neutral`, `--info` — all tuned to
+  ≥4.5:1 small-text contrast in both themes
+- `--scenario` (violet): non-baseline scenario chrome (chip + top-bar band)
+- Chart palette: `--chart-*` tokens + `CHART_COLORS` in chart theme helpers
+- Gain/loss is never color-alone: `GainCell` renders a leading sign, `PctCell` renders ▲/▼-style
+  arrows (`src/components/common/financial-cells.tsx`)
 
-- Default app shell renders in dark mode (`<html className=\"dark\">`)
-- Primary accent is orange (`--primary`)
-- Financial semantics: `--gain`, `--loss`, `--neutral`
-- Chart palette uses `--chart-*` tokens and `CHART_COLORS` in chart theme helpers
+Source files: `src/app/globals.css`, `src/lib/theme-context.tsx`, `src/components/charts/theme.ts`.
 
-Source files:
+## Design-System Components
 
-- `src/app/globals.css`
-- `src/lib/theme-context.tsx`
-- `src/components/charts/theme.ts`
+- **`DataTable`** (`src/components/ui/data-table.tsx`) — the single table component used by every
+  list/table screen. Three densities (`compact` / `dense` / `wide`); `numeric: true` columns are
+  right-aligned `font-mono tabular-nums`; built-in sorting (keyboard-operable headers), a chevron
+  expand affordance for details-on-demand, column-shaped loading skeletons, and `empty` / `error`
+  props. Mobile behavior is configured per table: `priority` (cols hidden at 640/768 px),
+  `scroll` (horizontal scroll + frozen first column), or `cards`.
+- **Buttons** (`src/components/ui/button.tsx`) — taxonomy: emphasis `primary | secondary | ghost`,
+  semantic `danger | inverse`; sizes `sm | md | lg | icon-sm | icon-md | icon-lg`. Exactly one
+  `primary` per view (sheets/dialogs are their own view layer).
+- **Two-channel feedback** — `toast()` (`src/components/ui/toast.tsx`) accepts only
+  `'success' | 'info'`: top-right, 5 s auto-dismiss, max 3 stacked. Errors, validation, and
+  anything needing a decision use the persistent `Alert` banner
+  (`src/components/ui/alert.tsx`: `error | warning | info | success`, optional title/dismiss) or
+  field-level `FormField` errors.
+- **CRUD pattern** — entity create/edit happens in a right-side `Sheet`; visible labels via
+  `FormField` (never placeholder-only); validation on blur, cleared as soon as input is valid.
+  Destructive actions open `ConfirmDialog` (`src/components/ui/confirm-dialog.tsx`) with the
+  consequence named in the confirm button and Cancel focused by default.
+- **States** (`src/components/ui/states.tsx`) — shared `EmptyState`, `ErrorState`, `LoadingState`
+  used everywhere (no ad-hoc "Loading..." text).
 
 ## App Shell
 
-- Desktop: pinned/collapsible left sidebar with local persistence (`ember-sidebar-pinned`)
-- Mobile: sheet-based navigation
-- Main routes currently exposed in nav:
-  - `/accounts`
-  - `/holdings`
-  - `/settings`
-- Dashboard is `/`
+- Desktop: pinned/collapsible left sidebar (`ember-sidebar-pinned`) + a global top bar with
+  breadcrumbs (left) and the scenario chip (right)
+- Mobile: sticky top bar (menu + page title + scenario chip) + sheet navigation
+- Nav: Accounts, Holdings, Activity, Flows, Budget, Planning, **Assumptions**, Settings
 
-Source files:
+Source files: `src/components/layout/sidebar.tsx`, `src/components/layout/top-bar.tsx`,
+`src/components/layout/scenario-chip.tsx`, `src/app/(app)/layout.tsx`.
 
-- `src/components/layout/sidebar.tsx`
-- `src/app/(app)/layout.tsx`
+## Scenario Model
 
-## Data Flow and Rendering
-
-- API client wrappers in `src/lib/api.ts`
-- SWR hooks in `src/lib/swr.ts`
-- Auth gating via `RequireAuth` and `AuthProvider`
-- Dev bypass mode (`NEXT_PUBLIC_DEV_BYPASS_AUTH=true`) provides mock auth/data in development
-
-Important current nuance:
-
-- Some dashboard historical series are still mock-backed outside full production data paths
+`ScenarioProvider` (`src/lib/scenario-context.tsx`) holds the active scenario globally
+(localStorage `ember-scenario`), mirrored to `?scenario=` on /flows, /planning, /assumptions for
+shareable URLs. The chip shows "Base scenario" (quiet) or "Scenario: {name}" (filled violet) and
+the top bar gains a 2 px violet band when a non-base scenario is active. The chip menu states
+which data is scenario-specific (Flows, Planning, Assumption overrides) vs shared (accounts,
+holdings, activity, budget).
 
 ## Key Screens (Current Behavior)
 
-## Dashboard
+### Dashboard
 
-- Displays household/account-derived totals
-- Uses area and donut charts
-- Range controls are available, but historical line data is currently mock-backed in dev bypass mode
+Household totals, area + donut charts, range controls. Historical line data still mock-backed in
+dev bypass paths.
 
-## Accounts
+### Accounts
 
-- List enriched accounts (balance, linked state, last synced)
-- Add manual account
-- Open account detail
+DataTable (priority mobile mode) of enriched accounts; Add Account in a right-side sheet;
+row click opens account detail.
 
-## Account Detail
+### Account Detail
 
-- Overview tab: details + balance history chart
-- History tab: timeline and ingest actions
-- CSV upload triggers `/api/ingest/csv/...`
-- Manual entry UI exists, but payload contract still needs alignment with normalized manual ingest API shape
+Overview tab (details + balance history + account flows DataTable), History tab (timeline +
+ingest), Settings tab. CSV upload and manual entry open in sheets; manual-entry payload contract
+unchanged.
 
-## Holdings
+### Holdings
 
-- Household-level aggregate positions
-- Lot details and account filter controls
-- Uses holdings/lot views from API response
+Three views: Positions (DataTable, scroll mobile mode, expandable rows → tax lots + "view full
+detail" sheet), Allocation (target bands, drift alerts, per-symbol classification), Asset
+Location (bucket × tax-treatment matrix).
 
-## Settings
+### Activity
 
-- Profile and household settings
-- Member management and invite management
-- Theme switching
+DataTable (wide density, scroll mobile mode with frozen Date column), date/account filters,
+conditional investment columns, amounts through GainCell.
 
-## Planning
+### Flows
 
-- `/planning` — Projections tab (metric cards, projection chart/table, tax-year
-  provenance stamp) and Assumptions tab
-- **Assumptions panel** (`planning/_components/assumptions-panel.tsx`) is the
-  audit-the-math surface: every assumption grouped (returns, retirement, tax
-  tables, limits/RMD, tax rules, allocation), each row showing value, effective
-  date, source badge (Default / Edited / Scenario), inline dated editing with
-  notes, and per-key history with record removal. The panel header shows the
-  tax-table year stamp.
-- `/flows` waterfall Taxes step shows the federal/state/FICA breakdown and an
-  "effective [year]" stamp (or "manual rate")
+Waterfall summary cards (Taxes shows federal/state/FICA + tax-year stamp), Sankey on ≥640 px,
+vertically stacked tap-to-expand `MobileFlowList` below 640 px. Income sources + allocations are
+DataTable cards with sheet-based CRUD and confirm-dialog deletes.
 
-## Holdings
+### Budget
 
-- Three views: Positions (existing table + lots), Allocation (true cross-account
-  buckets with target bands, drift alerts, per-symbol classification editing),
-  Asset Location (bucket × tax-treatment matrix)
+Essential/non-essential totals; per-category compact DataTables; expense/category CRUD in sheets;
+category delete names the real consequence (expenses move to Uncategorized).
 
-## Onboarding
+### Planning
 
-- `/onboarding` (household + profile) → `/onboarding/quick-start`: three numbers
-  produce a headline FI number via the real metrics engine by seeding real
-  records (income source, expense item, starter account). Skippable.
+`/planning` (no tabs): FI Number / Years to FI / Savings Rate metric cards, projection chart,
+year-by-year DataTable (summary every-5th-year by default, "All years" on demand, Growth via
+GainCell), FI portfolio value, savings rates, FI metrics cards, tax-year provenance stamp linking
+to /assumptions.
+
+### Assumptions
+
+`/assumptions` — the audit-the-math surface, scenario-aware: six groups, every row shows value,
+effective date, source badge (Default / Edited / Scenario), inline dated editing with notes
+(one row open at a time), and per-key append-only history with confirm-dialog record removal.
+Page header states scope (household baseline vs scenario overrides) + tax-table year.
+
+### Settings
+
+Profile, household, members/invites (confirm-dialog removals), theme, sign out. Cross-links to
+/assumptions for planning assumptions. Successes toast; errors are card-scoped persistent alerts.
+
+### Onboarding
+
+`/onboarding` (household + profile) → `/onboarding/quick-start`: three numbers produce a headline
+FI number via the real metrics engine by seeding real records. Skippable.
 
 ## Mobile
 
-- Mobile shell: full-width sticky top bar + sheet navigation (`flex-col lg:flex-row`)
-- Tables: full-bleed horizontal scroll below `sm` (projection-table precedent),
-  secondary columns hidden at small breakpoints
-- Charts: Sankey compact mode below 640px container width (inward labels, small
-  margins); line charts use sparser ticks at narrow widths
+- Shell: full-width sticky top bar (with scenario chip) + sheet navigation
+- Tables: configured once in DataTable — column priority (640/768 px), horizontal scroll with
+  frozen first column, or card transform
+- Sankey: replaced below 640 px by the stacked tap-to-expand flow list; line charts use sparser
+  ticks at narrow widths
 - Touch: `pointer-coarse:size-8` on small icon buttons via the Button primitive
+
+## Verification Tooling
+
+`scripts/ui-screenshot.mjs` (playwright via `PLAYWRIGHT_DIR`) captures every route in dark+light
+at 1280×800 and 390×844 into `.screenshots/` (gitignored). Requires `npm run dev` +
+`npm run dev:api` and authenticates via the dev login.
 
 ## UI Priorities for Next Phase
 

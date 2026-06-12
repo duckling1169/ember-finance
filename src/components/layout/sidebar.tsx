@@ -11,6 +11,7 @@ import {
   IconArrowsSplit,
   IconReceipt,
   IconTargetArrow,
+  IconAdjustmentsHorizontal,
   IconSettings,
   IconMenu2,
   IconPin,
@@ -19,6 +20,8 @@ import {
 } from '@tabler/icons-react';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
 import { Button } from '@/components/ui/button';
+import { ScenarioChip } from '@/components/layout/scenario-chip';
+import { useScenario } from '@/lib/scenario-context';
 
 const SIDEBAR_KEY = 'ember-sidebar-pinned';
 const COLLAPSED_WIDTH = 'w-14';
@@ -31,6 +34,7 @@ const navItems = [
   { href: '/flows', label: 'Flows', icon: IconArrowsSplit },
   { href: '/budget', label: 'Budget', icon: IconReceipt },
   { href: '/planning', label: 'Planning', icon: IconTargetArrow },
+  { href: '/assumptions', label: 'Assumptions', icon: IconAdjustmentsHorizontal },
 ];
 
 function SidebarNav({
@@ -191,21 +195,28 @@ export function Sidebar() {
 function MobileHeader() {
   const [open, setOpen] = useState(false);
   const pathname = usePathname();
+  const { activeScenarioName } = useScenario();
 
   const pageTitle =
     pathname === '/' ? 'Home' : navItems.find((n) => pathname.startsWith(n.href))?.label || 'Ember';
 
   return (
-    <div className="flex h-14 items-center gap-3 bg-background px-4">
+    <div
+      className={cn(
+        'flex h-14 items-center gap-3 border-b bg-background px-4',
+        activeScenarioName ? 'border-b-2 border-scenario' : 'border-transparent',
+      )}
+    >
       <Sheet open={open} onOpenChange={setOpen}>
-        <SheetTrigger render={<Button variant="ghost" size="icon" />}>
+        <SheetTrigger render={<Button variant="ghost" size="icon-md" />}>
           <IconMenu2 size={20} stroke={1.5} />
         </SheetTrigger>
         <SheetContent side="left" showCloseButton={false} className="w-60 p-0">
           <SidebarNav onNavigate={() => setOpen(false)} />
         </SheetContent>
       </Sheet>
-      <span className="text-sm font-medium">{pageTitle}</span>
+      <span className="flex-1 text-sm font-medium">{pageTitle}</span>
+      <ScenarioChip />
     </div>
   );
 }

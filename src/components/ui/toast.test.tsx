@@ -1,8 +1,8 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, act } from '@testing-library/react';
-import { ToastProvider, useToast } from './toast';
+import { ToastProvider, useToast, type ToastType } from './toast';
 
-function Trigger({ type, message }: { type: 'success' | 'error'; message: string }) {
+function Trigger({ type, message }: { type: ToastType; message: string }) {
   const toast = useToast();
   return <button onClick={() => toast(type, message)}>fire</button>;
 }
@@ -15,7 +15,7 @@ describe('ToastProvider', () => {
     vi.useRealTimers();
   });
 
-  it('shows a toast when fired and auto-dismisses', async () => {
+  it('shows a toast when fired and auto-dismisses after 5s', async () => {
     render(
       <ToastProvider>
         <Trigger type="success" message="Saved!" />
@@ -36,19 +36,19 @@ describe('ToastProvider', () => {
   it('dismisses on click', () => {
     render(
       <ToastProvider>
-        <Trigger type="error" message="Boom" />
+        <Trigger type="info" message="Heads up" />
       </ToastProvider>,
     );
 
     act(() => {
       screen.getByText('fire').click();
     });
-    expect(screen.getByText('Boom')).toBeDefined();
+    expect(screen.getByText('Heads up')).toBeDefined();
 
     act(() => {
       screen.getByLabelText('Dismiss').click();
     });
-    expect(screen.queryByText('Boom')).toBeNull();
+    expect(screen.queryByText('Heads up')).toBeNull();
   });
 
   it('stacks multiple toasts', () => {
@@ -63,6 +63,22 @@ describe('ToastProvider', () => {
       screen.getByText('fire').click();
     });
     expect(screen.getAllByLabelText('Dismiss')).toHaveLength(2);
+  });
+
+  it('caps the stack at three toasts (oldest dropped)', () => {
+    render(
+      <ToastProvider>
+        <Trigger type="success" message="Again" />
+      </ToastProvider>,
+    );
+
+    act(() => {
+      screen.getByText('fire').click();
+      screen.getByText('fire').click();
+      screen.getByText('fire').click();
+      screen.getByText('fire').click();
+    });
+    expect(screen.getAllByLabelText('Dismiss')).toHaveLength(3);
   });
 
   it('throws when used outside a provider', () => {

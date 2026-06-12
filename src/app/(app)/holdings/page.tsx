@@ -1,19 +1,12 @@
 'use client';
 
-import { PageSkeleton } from '@/components/common/page-skeleton';
 import { useState, useMemo } from 'react';
 import type { HouseholdHoldingsResponse } from '@shared/types';
 import { useHouseholdHoldings, useAccounts } from '@/lib/swr';
 import { Card, CardContent } from '@/components/ui/card';
 import { Alert } from '@/components/ui/alert';
-import {
-  Table,
-  TableHeader,
-  TableBody,
-  TableRow,
-  TableHead,
-  TableCell,
-} from '@/components/ui/table';
+import { Skeleton } from '@/components/ui/skeleton';
+import { DataTable, type DataTableColumn } from '@/components/ui/data-table';
 import {
   Sheet,
   SheetContent,
@@ -21,12 +14,11 @@ import {
   SheetTitle,
   SheetDescription,
 } from '@/components/ui/sheet';
-import { IconChevronRight, IconChevronDown, IconCheck } from '@tabler/icons-react';
+import { IconChevronDown, IconCheck } from '@tabler/icons-react';
 import { INVESTMENT_ACCOUNT_TYPES } from '@shared/types';
 import { fmt } from '@/lib/formatters';
 import { TAX_TREATMENT_LABELS } from '@/lib/constants';
 import { GainCell, PctCell } from '@/components/common/financial-cells';
-import { SortIcon, type SortDir } from '@/components/common/sort-icon';
 import { AllocationView, AssetLocationView } from './_components/composition-view';
 
 type View = 'positions' | 'allocation' | 'location';
@@ -76,8 +68,6 @@ interface AccountInfo {
   is_active: boolean;
 }
 
-type SortKey = 'symbol' | 'name' | 'shares' | 'price' | 'value' | 'gain' | 'gain_pct';
-
 function computeHoldingPeriod(acquiredDate: string): 'short_term' | 'long_term' {
   const acquired = new Date(acquiredDate);
   const oneYearAgo = new Date();
@@ -115,16 +105,13 @@ export default function HoldingsPage() {
   );
 
   const [view, setView] = useState<View>('positions');
-  const [sortKey, setSortKey] = useState<SortKey | null>('value');
-  const [sortDir, setSortDir] = useState<SortDir>('desc');
-  const [expandedSymbol, setExpandedSymbol] = useState<string | null>(null);
   const [sheetSymbol, setSheetSymbol] = useState<string | null>(null);
   const [filterOpen, setFilterOpen] = useState(false);
 
   const holdings = useMemo(() => {
     if (!apiHoldings) return [];
-    return buildApiHoldings(apiHoldings, effectiveSelectedIds, sortKey, sortDir);
-  }, [apiHoldings, effectiveSelectedIds, sortKey, sortDir]);
+    return buildApiHoldings(apiHoldings, effectiveSelectedIds);
+  }, [apiHoldings, effectiveSelectedIds]);
 
   const loading = acctsLoading || holdingsLoading;
 
@@ -137,10 +124,6 @@ export default function HoldingsPage() {
 
   const fetchError = acctsError || holdingsError;
 
-  if (loading) {
-    return <PageSkeleton />;
-  }
-
   if (fetchError) {
     const msg = (acctsError || holdingsError)?.message || 'Please try again later.';
     return (
@@ -149,15 +132,6 @@ export default function HoldingsPage() {
         <Alert variant="error">Failed to load holdings data. {msg}</Alert>
       </div>
     );
-  }
-
-  function toggleSort(key: SortKey) {
-    if (sortKey === key) {
-      setSortDir((d) => (d === 'asc' ? 'desc' : 'asc'));
-    } else {
-      setSortKey(key);
-      setSortDir(key === 'symbol' || key === 'name' ? 'asc' : 'desc');
-    }
   }
 
   function toggleAccount(id: string) {
@@ -186,14 +160,56 @@ export default function HoldingsPage() {
     return accountList.find((a) => a.id === id)?.tax_treatment || 'taxable';
   }
 
-  const columns: { key: SortKey; label: string; align?: 'right' }[] = [
-    { key: 'symbol', label: 'Symbol' },
-    { key: 'name', label: 'Name' },
-    { key: 'shares', label: 'Shares', align: 'right' },
-    { key: 'price', label: 'Price', align: 'right' },
-    { key: 'value', label: 'Value', align: 'right' },
-    { key: 'gain', label: 'Gain/Loss', align: 'right' },
-    { key: 'gain_pct', label: '%', align: 'right' },
+  const columns: DataTableColumn<AggregatedHolding>[] = [
+    {
+      key: 'symbol',
+      header: 'Symbol',
+      sortValue: (h) => h.symbol,
+      cell: (h) => h.symbol,
+      cellClassName: 'font-mono font-medium',
+    },
+    {
+      key: 'name',
+      header: 'Name',
+      sortValue: (h) => h.name,
+      cell: (h) => h.name,
+      cellClassName: 'text-muted-foreground',
+    },
+    {
+      key: 'shares',
+      header: 'Shares',
+      numeric: true,
+      sortValue: (h) => h.shares,
+      cell: (h) => h.shares,
+    },
+    {
+      key: 'price',
+      header: 'Price',
+      numeric: true,
+      sortValue: (h) => h.price,
+      cell: (h) => fmt(h.price),
+    },
+    {
+      key: 'value',
+      header: 'Value',
+      numeric: true,
+      sortValue: (h) => h.value,
+      cell: (h) => fmt(h.value),
+    },
+    {
+      key: 'gain',
+      header: 'Gain/Loss',
+      numeric: true,
+      sortValue: (h) => h.gain,
+      cell: (h) => <GainCell value={h.gain} />,
+    },
+    {
+      key: 'gain_pct',
+      header: '%',
+      numeric: true,
+      sortValue: (h) => h.gain_pct,
+      cell: (h) => <PctCell value={h.gain_pct} />,
+    },
   ];
 
   return (
@@ -283,34 +299,46 @@ export default function HoldingsPage() {
             <Card size="sm">
               <CardContent>
                 <p className="text-sm text-muted-foreground">Total Value</p>
-                <p className="mt-1 text-xl font-semibold font-mono tabular-nums">
-                  {fmt(totalValue)}
-                </p>
+                {loading ? (
+                  <Skeleton className="mt-2 h-6 w-28" />
+                ) : (
+                  <p className="mt-1 text-xl font-semibold font-mono tabular-nums">
+                    {fmt(totalValue)}
+                  </p>
+                )}
               </CardContent>
             </Card>
             <Card size="sm">
               <CardContent>
                 <p className="text-sm text-muted-foreground">Cost Basis</p>
-                <p className="mt-1 text-xl font-semibold font-mono tabular-nums">
-                  {fmt(totalCost)}
-                </p>
+                {loading ? (
+                  <Skeleton className="mt-2 h-6 w-28" />
+                ) : (
+                  <p className="mt-1 text-xl font-semibold font-mono tabular-nums">
+                    {fmt(totalCost)}
+                  </p>
+                )}
               </CardContent>
             </Card>
             <Card size="sm">
               <CardContent>
                 <p className="text-sm text-muted-foreground">Unrealized Gain/Loss</p>
-                <div className="mt-1 flex items-baseline gap-2">
-                  <span className="text-xl font-semibold">
-                    <GainCell value={totalGain} />
-                  </span>
-                  <PctCell value={totalGainPct} />
-                </div>
+                {loading ? (
+                  <Skeleton className="mt-2 h-6 w-36" />
+                ) : (
+                  <div className="mt-1 flex items-baseline gap-2">
+                    <span className="text-xl font-semibold">
+                      <GainCell value={totalGain} />
+                    </span>
+                    <PctCell value={totalGainPct} />
+                  </div>
+                )}
               </CardContent>
             </Card>
           </div>
 
           {/* Allocation bar */}
-          {holdings.length > 0 && (
+          {!loading && holdings.length > 0 && (
             <Card size="sm">
               <CardContent>
                 <p className="text-sm text-muted-foreground mb-3">Allocation</p>
@@ -346,40 +374,71 @@ export default function HoldingsPage() {
           {/* Holdings table */}
           <Card size="sm">
             <CardContent>
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead className="w-8" />
-                    {columns.map((col) => (
-                      <TableHead
-                        key={col.key}
-                        className={`cursor-pointer select-none hover:text-foreground transition-colors ${col.align === 'right' ? 'text-right' : ''}`}
-                        onClick={() => toggleSort(col.key)}
-                      >
-                        <span className="inline-flex items-center gap-1">
-                          {col.label}
-                          <SortIcon field={col.key} sortKey={sortKey} sortDir={sortDir} />
-                        </span>
-                      </TableHead>
-                    ))}
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {holdings.map((h) => {
-                    const isExpanded = expandedSymbol === h.symbol;
-                    return (
-                      <HoldingRow
-                        key={h.symbol}
-                        holding={h}
-                        isExpanded={isExpanded}
-                        onToggleExpand={() => setExpandedSymbol(isExpanded ? null : h.symbol)}
-                        onOpenSheet={() => setSheetSymbol(h.symbol)}
-                        accountName={accountName}
-                      />
-                    );
-                  })}
-                </TableBody>
-              </Table>
+              <DataTable
+                density="dense"
+                mobile="scroll"
+                columns={columns}
+                rows={holdings}
+                rowKey={(h) => h.symbol}
+                defaultSort={{ key: 'value', dir: 'desc' }}
+                loading={loading}
+                empty={{
+                  title: 'No holdings yet',
+                  description:
+                    'Add holdings from one of your investment accounts to see positions here.',
+                }}
+                renderExpanded={(h) => (
+                  <div className="space-y-2">
+                    <table className="w-full text-xs">
+                      <thead className="sr-only">
+                        <tr>
+                          <th>Account</th>
+                          <th>Acquired</th>
+                          <th>Quantity</th>
+                          <th>Cost per share</th>
+                          <th>Market value</th>
+                          <th>Unrealized gain/loss</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {h.lots.map((lot) => (
+                          <tr key={lot.id}>
+                            <td className="py-1 pl-6 text-muted-foreground">
+                              {accountName(lot.account_id)}
+                            </td>
+                            <td className="py-1 text-muted-foreground">
+                              {lot.acquired_date}
+                              <span
+                                className={`ml-1.5 px-1 py-0.5 rounded text-xs font-medium ${lot.holding_period === 'long_term' ? 'bg-primary/10 text-primary' : 'bg-warning/15 text-warning'}`}
+                              >
+                                {lot.holding_period === 'long_term' ? 'LT' : 'ST'}
+                              </span>
+                            </td>
+                            <td className="py-1 text-right font-mono tabular-nums text-muted-foreground">
+                              {lot.quantity}
+                            </td>
+                            <td className="py-1 text-right font-mono tabular-nums text-muted-foreground">
+                              {fmt(lot.cost_basis_per_share)}
+                            </td>
+                            <td className="py-1 text-right font-mono tabular-nums text-muted-foreground">
+                              {fmt(lot.live_market_value)}
+                            </td>
+                            <td className="py-1 text-right">
+                              <GainCell value={lot.unrealized_gain_loss} />
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                    <button
+                      onClick={() => setSheetSymbol(h.symbol)}
+                      className="pl-6 text-xs text-primary hover:underline"
+                    >
+                      View full detail &rarr;
+                    </button>
+                  </div>
+                )}
+              />
             </CardContent>
           </Card>
 
@@ -406,8 +465,6 @@ export default function HoldingsPage() {
 function buildApiHoldings(
   data: HouseholdHoldingsResponse,
   selectedAccountIds: Set<string>,
-  sortKey: SortKey | null,
-  sortDir: SortDir,
 ): AggregatedHolding[] {
   const { summary, positions, lots: rawLots } = data;
 
@@ -484,113 +541,9 @@ function buildApiHoldings(
     });
   }
 
-  return sortHoldings(holdings, sortKey, sortDir);
-}
-
-function sortHoldings(
-  arr: AggregatedHolding[],
-  sortKey: SortKey | null,
-  sortDir: SortDir,
-): AggregatedHolding[] {
-  if (!sortKey) return arr;
-  return arr.sort((a, b) => {
-    const aVal = a[sortKey];
-    const bVal = b[sortKey];
-    if (typeof aVal === 'string' && typeof bVal === 'string') {
-      return sortDir === 'asc' ? aVal.localeCompare(bVal) : bVal.localeCompare(aVal);
-    }
-    return sortDir === 'asc' ? Number(aVal) - Number(bVal) : Number(bVal) - Number(aVal);
-  });
-}
-
-// -- Holding Row with inline lot expansion --
-
-function HoldingRow({
-  holding,
-  isExpanded,
-  onToggleExpand,
-  onOpenSheet,
-  accountName,
-}: {
-  holding: AggregatedHolding;
-  isExpanded: boolean;
-  onToggleExpand: () => void;
-  onOpenSheet: () => void;
-  accountName: (id: string) => string;
-}) {
-  const h = holding;
-  const Chevron = isExpanded ? IconChevronDown : IconChevronRight;
-
-  return (
-    <>
-      <TableRow className="cursor-pointer hover:bg-primary/5" onClick={onToggleExpand}>
-        <TableCell className="w-8 pr-0">
-          <Chevron size={14} className="text-muted-foreground" />
-        </TableCell>
-        <TableCell className="font-medium font-mono">{h.symbol}</TableCell>
-        <TableCell className="text-muted-foreground">{h.name}</TableCell>
-        <TableCell className="text-right font-mono tabular-nums">{h.shares}</TableCell>
-        <TableCell className="text-right font-mono tabular-nums">{fmt(h.price)}</TableCell>
-        <TableCell className="text-right font-mono tabular-nums">{fmt(h.value)}</TableCell>
-        <TableCell className="text-right">
-          <GainCell value={h.gain} />
-        </TableCell>
-        <TableCell className="text-right">
-          <PctCell value={h.gain_pct} />
-        </TableCell>
-      </TableRow>
-
-      {isExpanded && (
-        <>
-          {/* Inline lot summary */}
-          {h.lots.map((lot) => (
-            <TableRow key={lot.id} className="bg-muted/30">
-              <TableCell />
-              <TableCell className="text-xs text-muted-foreground pl-6">
-                {accountName(lot.account_id)}
-              </TableCell>
-              <TableCell className="text-xs text-muted-foreground">
-                {lot.acquired_date}
-                <span
-                  className={`ml-1.5 px-1 py-0.5 rounded text-xs font-medium ${lot.holding_period === 'long_term' ? 'bg-primary/10 text-primary' : 'bg-warning/15 text-warning'}`}
-                >
-                  {lot.holding_period === 'long_term' ? 'LT' : 'ST'}
-                </span>
-              </TableCell>
-              <TableCell className="text-right text-xs font-mono tabular-nums text-muted-foreground">
-                {lot.quantity}
-              </TableCell>
-              <TableCell className="text-right text-xs font-mono tabular-nums text-muted-foreground">
-                {fmt(lot.cost_basis_per_share)}
-              </TableCell>
-              <TableCell className="text-right text-xs font-mono tabular-nums text-muted-foreground">
-                {fmt(lot.live_market_value)}
-              </TableCell>
-              <TableCell className="text-right text-xs">
-                <GainCell value={lot.unrealized_gain_loss} />
-              </TableCell>
-              <TableCell />
-            </TableRow>
-          ))}
-          {/* Link to open sidebar */}
-          <TableRow className="bg-muted/30">
-            <TableCell />
-            <TableCell colSpan={7}>
-              <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onOpenSheet();
-                }}
-                className="text-xs text-primary hover:underline"
-              >
-                View full detail &rarr;
-              </button>
-            </TableCell>
-          </TableRow>
-        </>
-      )}
-    </>
-  );
+  // Stable base order (value desc) for the allocation bar/legend; the table
+  // sorts its own copy via DataTable sortValue.
+  return holdings.sort((a, b) => b.value - a.value);
 }
 
 // -- Sidebar detail panel --

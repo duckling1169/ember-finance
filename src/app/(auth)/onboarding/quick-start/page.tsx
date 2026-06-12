@@ -143,7 +143,7 @@ function QuickStartContent() {
             <Button className="w-full" onClick={() => router.push('/planning')}>
               Refine your plan
             </Button>
-            <Button variant="outline" className="w-full" onClick={() => router.push('/')}>
+            <Button variant="secondary" className="w-full" onClick={() => router.push('/')}>
               Go to dashboard
             </Button>
           </div>
@@ -164,7 +164,7 @@ function QuickStartContent() {
             name="annualIncome"
             type="number"
             min="1"
-            step="1000"
+            step="any"
             required
             placeholder="120,000"
             className="font-mono"
@@ -179,7 +179,7 @@ function QuickStartContent() {
             name="monthlySpend"
             type="number"
             min="1"
-            step="100"
+            step="any"
             required
             placeholder="4,000"
             className="font-mono"
@@ -194,7 +194,7 @@ function QuickStartContent() {
             name="invested"
             type="number"
             min="0"
-            step="1000"
+            step="any"
             placeholder="50,000 (0 is fine)"
             className="font-mono"
           />
@@ -209,7 +209,7 @@ function QuickStartContent() {
 
         {error && <p className="text-sm text-destructive">{error}</p>}
 
-        <Button type="submit" variant="primary-outline" disabled={loading} className="w-full">
+        <Button type="submit" variant="primary" disabled={loading} className="w-full">
           {loading ? 'Computing…' : 'Show my FI number'}
         </Button>
         <Button type="button" variant="ghost" className="w-full" onClick={() => router.push('/')}>

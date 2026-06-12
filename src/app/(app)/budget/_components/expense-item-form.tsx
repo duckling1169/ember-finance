@@ -5,7 +5,16 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select } from '@/components/ui/select';
 import { Checkbox } from '@/components/ui/checkbox';
-import { IconCheck, IconX } from '@tabler/icons-react';
+import { Alert } from '@/components/ui/alert';
+import { FormField } from '@/components/ui/form-field';
+import {
+  Sheet,
+  SheetContent,
+  SheetFooter,
+  SheetHeader,
+  SheetTitle,
+  SheetDescription,
+} from '@/components/ui/sheet';
 
 import type {
   CashflowItem,
@@ -23,25 +32,70 @@ const FREQ_LABELS: Record<CashflowFrequency, string> = {
 };
 
 interface ExpenseItemFormProps {
-  initial?: CashflowItem;
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  /** When set, the sheet edits this item; otherwise it creates a new expense. */
+  initial?: CashflowItem | null;
   categories: ExpenseCategory[];
   saving: boolean;
-  onSave: (data: CreateCashflowItemInput) => void;
-  onCancel: () => void;
+  /** Must throw on failure — the error is shown in an Alert inside the sheet. */
+  onSave: (data: CreateCashflowItemInput) => Promise<void>;
 }
 
 export function ExpenseItemForm({
+  open,
+  onOpenChange,
   initial,
   categories,
   saving,
   onSave,
-  onCancel,
 }: ExpenseItemFormProps) {
+  return (
+    <Sheet open={open} onOpenChange={onOpenChange}>
+      <SheetContent side="right">
+        {open && (
+          <ExpenseItemFormBody
+            key={initial?.id ?? 'new'}
+            onOpenChange={onOpenChange}
+            initial={initial}
+            categories={categories}
+            saving={saving}
+            onSave={onSave}
+          />
+        )}
+      </SheetContent>
+    </Sheet>
+  );
+}
+
+// Mounted only while the sheet is open and remounted (via key) when the editing
+// target changes, so all form state initializes fresh from `initial`.
+function ExpenseItemFormBody({
+  onOpenChange,
+  initial,
+  categories,
+  saving,
+  onSave,
+}: Omit<ExpenseItemFormProps, 'open'>) {
   const [name, setName] = useState(initial?.name ?? '');
-  const [amount, setAmount] = useState(initial?.amount?.toString() ?? '');
+  const [amount, setAmount] = useState(initial?.amount != null ? String(initial.amount) : '');
   const [frequency, setFrequency] = useState<CashflowFrequency>(initial?.frequency ?? 'monthly');
   const [category, setCategory] = useState(initial?.category ?? '');
   const [isEssential, setIsEssential] = useState(initial?.is_essential ?? true);
+  const [nameError, setNameError] = useState<string | null>(null);
+  const [amountError, setAmountError] = useState<string | null>(null);
+  const [submitError, setSubmitError] = useState<string | null>(null);
+
+  const isEditing = !!initial;
+
+  function validateName(value: string): string | null {
+    return value.trim() ? null : 'Name is required';
+  }
+
+  function validateAmount(value: string): string | null {
+    const parsed = parseFloat(value);
+    return !isNaN(parsed) && parsed > 0 ? null : 'Amount must be greater than 0';
+  }
 
   // When selecting a category, auto-set essential flag to match
   function handleCategoryChange(catName: string) {
@@ -50,95 +104,121 @@ export function ExpenseItemForm({
     if (cat) setIsEssential(cat.is_essential);
   }
 
-  function handleSubmit(e: React.FormEvent) {
+  async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    const parsed = parseFloat(amount);
-    if (!name.trim() || isNaN(parsed) || parsed <= 0) return;
+    const nErr = validateName(name);
+    const aErr = validateAmount(amount);
+    setNameError(nErr);
+    setAmountError(aErr);
+    if (nErr || aErr) return;
 
     const today = new Date().toISOString().split('T')[0];
-
-    onSave({
-      name: name.trim(),
-      direction: 'outflow',
-      bucket: 'expense',
-      amount: parsed,
-      frequency,
-      start_date: initial?.start_date ?? today,
-      category: category || null,
-      is_essential: isEssential,
-    });
+    setSubmitError(null);
+    try {
+      await onSave({
+        name: name.trim(),
+        direction: 'outflow',
+        bucket: 'expense',
+        amount: parseFloat(amount),
+        frequency,
+        start_date: initial?.start_date ?? today,
+        category: category || null,
+        is_essential: isEssential,
+      });
+    } catch (err) {
+      setSubmitError(err instanceof Error ? err.message : 'Failed to save expense');
+    }
   }
 
   return (
-    <form
-      onSubmit={handleSubmit}
-      className="flex flex-wrap items-end gap-2 rounded-md bg-muted/30 p-2"
-    >
-      <div className="min-w-[120px] flex-1">
-        <label className="text-xs text-muted-foreground">Name</label>
-        <Input
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-          placeholder="Expense name"
-          className="h-7 text-xs"
-          autoFocus
-        />
-      </div>
-      <div className="w-[100px]">
-        <label className="text-xs text-muted-foreground">Amount</label>
-        <Input
-          type="number"
-          step="0.01"
-          min="0"
-          value={amount}
-          onChange={(e) => setAmount(e.target.value)}
-          placeholder="0.00"
-          className="h-7 text-xs font-mono"
-        />
-      </div>
-      <div className="w-[100px]">
-        <label className="text-xs text-muted-foreground">Frequency</label>
-        <Select
-          value={frequency}
-          onChange={(e) => setFrequency(e.target.value as CashflowFrequency)}
-          className="h-7 px-2 text-xs"
-        >
-          {CASHFLOW_FREQUENCIES.map((f) => (
-            <option key={f} value={f}>
-              {FREQ_LABELS[f]}
-            </option>
-          ))}
-        </Select>
-      </div>
-      <div className="w-[130px]">
-        <label className="text-xs text-muted-foreground">Category</label>
-        <Select
-          value={category}
-          onChange={(e) => handleCategoryChange(e.target.value)}
-          className="h-7 px-2 text-xs"
-        >
-          <option value="">None</option>
-          {categories.map((c) => (
-            <option key={c.id} value={c.name}>
-              {c.name}
-            </option>
-          ))}
-        </Select>
-      </div>
-      <div className="flex h-7 items-center gap-1.5">
-        <label className="flex items-center gap-1.5 text-xs text-muted-foreground">
-          <Checkbox checked={isEssential} onChange={(e) => setIsEssential(e.target.checked)} />
-          Essential
-        </label>
-      </div>
-      <div className="flex h-7 items-center gap-1">
-        <Button type="submit" variant="ghost" size="icon-xs" disabled={saving}>
-          <IconCheck size={14} stroke={1.5} className="text-primary" />
-        </Button>
-        <Button type="button" variant="ghost" size="icon-xs" onClick={onCancel}>
-          <IconX size={14} stroke={1.5} />
-        </Button>
-      </div>
-    </form>
+    <>
+      <SheetHeader>
+        <SheetTitle>{isEditing ? 'Edit expense' : 'Add expense'}</SheetTitle>
+        <SheetDescription>
+          {isEditing
+            ? 'Update this expense. Changes apply to your budget immediately.'
+            : 'Add a recurring or one-time expense to your budget.'}
+        </SheetDescription>
+      </SheetHeader>
+      <form onSubmit={handleSubmit} className="flex min-h-0 flex-1 flex-col">
+        <div className="flex-1 space-y-4 overflow-y-auto px-4">
+          {submitError && (
+            <Alert variant="error" onDismiss={() => setSubmitError(null)}>
+              {submitError}
+            </Alert>
+          )}
+          <FormField label="Name" htmlFor="expense-name" required error={nameError}>
+            <Input
+              id="expense-name"
+              value={name}
+              onChange={(e) => {
+                setName(e.target.value);
+                if (nameError && e.target.value.trim()) setNameError(null);
+              }}
+              onBlur={() => setNameError(validateName(name))}
+              aria-invalid={!!nameError}
+              placeholder="e.g. Rent"
+              autoFocus
+            />
+          </FormField>
+          <FormField label="Amount" htmlFor="expense-amount" required error={amountError}>
+            <Input
+              id="expense-amount"
+              type="number"
+              step="0.01"
+              min="0"
+              value={amount}
+              onChange={(e) => {
+                setAmount(e.target.value);
+                if (amountError && !validateAmount(e.target.value)) setAmountError(null);
+              }}
+              onBlur={() => setAmountError(validateAmount(amount))}
+              aria-invalid={!!amountError}
+              placeholder="0.00"
+              className="font-mono"
+            />
+          </FormField>
+          <FormField label="Frequency" htmlFor="expense-frequency">
+            <Select
+              id="expense-frequency"
+              value={frequency}
+              onChange={(e) => setFrequency(e.target.value as CashflowFrequency)}
+            >
+              {CASHFLOW_FREQUENCIES.map((f) => (
+                <option key={f} value={f}>
+                  {FREQ_LABELS[f]}
+                </option>
+              ))}
+            </Select>
+          </FormField>
+          <FormField label="Category" htmlFor="expense-category">
+            <Select
+              id="expense-category"
+              value={category}
+              onChange={(e) => handleCategoryChange(e.target.value)}
+            >
+              <option value="">None</option>
+              {categories.map((c) => (
+                <option key={c.id} value={c.name}>
+                  {c.name}
+                </option>
+              ))}
+            </Select>
+          </FormField>
+          <label className="flex items-center gap-2 text-sm">
+            <Checkbox checked={isEssential} onChange={(e) => setIsEssential(e.target.checked)} />
+            Essential
+          </label>
+        </div>
+        <SheetFooter className="flex-row justify-end gap-2">
+          <Button type="button" variant="ghost" onClick={() => onOpenChange(false)}>
+            Cancel
+          </Button>
+          <Button type="submit" variant="primary" disabled={saving}>
+            {saving ? 'Saving…' : isEditing ? 'Save expense' : 'Add expense'}
+          </Button>
+        </SheetFooter>
+      </form>
+    </>
   );
 }

@@ -1,11 +1,23 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Checkbox } from '@/components/ui/checkbox';
-import { IconPlus, IconCheck, IconX } from '@tabler/icons-react';
+import { Alert } from '@/components/ui/alert';
+import { FormField } from '@/components/ui/form-field';
+import { ConfirmDialog } from '@/components/ui/confirm-dialog';
+import { EmptyState, LoadingState } from '@/components/ui/states';
+import {
+  Sheet,
+  SheetContent,
+  SheetFooter,
+  SheetHeader,
+  SheetTitle,
+  SheetDescription,
+} from '@/components/ui/sheet';
+import { IconPlus, IconReceipt2 } from '@tabler/icons-react';
 
 import { fmt } from '@/lib/formatters';
 import { useToast } from '@/components/ui/toast';
@@ -24,7 +36,7 @@ import {
   updateCashflowItem,
   deleteCashflowItem,
 } from '@/lib/api';
-import type { CashflowItem, CreateCashflowItemInput } from '@shared/types';
+import type { CashflowItem, CreateCashflowItemInput, ExpenseCategory } from '@shared/types';
 import { CategorySection, UncategorizedSection } from './_components/category-section';
 import { ExpenseItemForm } from './_components/expense-item-form';
 
@@ -39,17 +51,109 @@ function toMonthly(amount: number, frequency: string): number {
   return amount * (TO_MONTHLY[frequency] ?? 0);
 }
 
+type DeleteTarget =
+  | { kind: 'category'; id: string; name: string }
+  | { kind: 'expense'; id: string; name: string };
+
+interface CategorySheetProps {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  saving: boolean;
+  /** Must throw on failure — the error is shown in an Alert inside the sheet. */
+  onSave: (data: { name: string; is_essential: boolean }) => Promise<void>;
+}
+
+/** "Add category" side panel: Name + Essential. */
+function CategorySheet({ open, onOpenChange, saving, onSave }: CategorySheetProps) {
+  return (
+    <Sheet open={open} onOpenChange={onOpenChange}>
+      <SheetContent side="right">
+        {open && <CategorySheetBody onOpenChange={onOpenChange} saving={saving} onSave={onSave} />}
+      </SheetContent>
+    </Sheet>
+  );
+}
+
+// Mounted only while the sheet is open, so form state initializes fresh on every open.
+function CategorySheetBody({ onOpenChange, saving, onSave }: Omit<CategorySheetProps, 'open'>) {
+  const [name, setName] = useState('');
+  const [essential, setEssential] = useState(true);
+  const [nameError, setNameError] = useState<string | null>(null);
+  const [submitError, setSubmitError] = useState<string | null>(null);
+
+  function validateName(value: string): string | null {
+    return value.trim() ? null : 'Name is required';
+  }
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    const nErr = validateName(name);
+    setNameError(nErr);
+    if (nErr) return;
+    setSubmitError(null);
+    try {
+      await onSave({ name: name.trim(), is_essential: essential });
+    } catch (err) {
+      setSubmitError(err instanceof Error ? err.message : 'Failed to create category');
+    }
+  }
+
+  return (
+    <>
+      <SheetHeader>
+        <SheetTitle>Add category</SheetTitle>
+        <SheetDescription>Group your expenses under a named category.</SheetDescription>
+      </SheetHeader>
+      <form onSubmit={handleSubmit} className="flex min-h-0 flex-1 flex-col">
+        <div className="flex-1 space-y-4 overflow-y-auto px-4">
+          {submitError && (
+            <Alert variant="error" onDismiss={() => setSubmitError(null)}>
+              {submitError}
+            </Alert>
+          )}
+          <FormField label="Name" htmlFor="category-name" required error={nameError}>
+            <Input
+              id="category-name"
+              value={name}
+              onChange={(e) => {
+                setName(e.target.value);
+                if (nameError && e.target.value.trim()) setNameError(null);
+              }}
+              onBlur={() => setNameError(validateName(name))}
+              aria-invalid={!!nameError}
+              placeholder="e.g. Groceries"
+              autoFocus
+            />
+          </FormField>
+          <label className="flex items-center gap-2 text-sm">
+            <Checkbox checked={essential} onChange={(e) => setEssential(e.target.checked)} />
+            Essential
+          </label>
+        </div>
+        <SheetFooter className="flex-row justify-end gap-2">
+          <Button type="button" variant="ghost" onClick={() => onOpenChange(false)}>
+            Cancel
+          </Button>
+          <Button type="submit" variant="primary" disabled={saving}>
+            {saving ? 'Saving…' : 'Add category'}
+          </Button>
+        </SheetFooter>
+      </form>
+    </>
+  );
+}
+
 export default function BudgetPage() {
   const { data: categories, isLoading: catLoading } = useExpenseCategories();
   const { data: allItems, isLoading: itemsLoading } = useCashflowItems();
   const toast = useToast();
 
   const [saving, setSaving] = useState(false);
-  const [addingCategory, setAddingCategory] = useState(false);
-  const [newCatName, setNewCatName] = useState('');
-  const [newCatEssential, setNewCatEssential] = useState(true);
-  const [addingExpense, setAddingExpense] = useState(false);
+  const [categorySheetOpen, setCategorySheetOpen] = useState(false);
+  const [expenseSheetOpen, setExpenseSheetOpen] = useState(false);
   const [editingItemId, setEditingItemId] = useState<string | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<DeleteTarget | null>(null);
+  const [pageError, setPageError] = useState<string | null>(null);
 
   // Filter to expense items only
   const expenseItems = useMemo(
@@ -86,18 +190,45 @@ export default function BudgetPage() {
 
   const isLoading = catLoading || itemsLoading;
 
-  async function handleCreateCategory(e: React.FormEvent) {
-    e.preventDefault();
-    if (!newCatName.trim()) return;
+  const editingItem = editingItemId
+    ? (expenseItems.find((i) => i.id === editingItemId) ?? null)
+    : null;
+
+  function openAddExpense() {
+    setEditingItemId(null);
+    setExpenseSheetOpen(true);
+  }
+
+  function openEditExpense(id: string) {
+    setEditingItemId(id);
+    setExpenseSheetOpen(true);
+  }
+
+  // Throws on failure so the sheet can show the error inline.
+  async function handleSaveExpense(data: CreateCashflowItemInput) {
     setSaving(true);
     try {
-      await createExpenseCategory({ name: newCatName.trim(), is_essential: newCatEssential });
+      if (editingItem) {
+        await updateCashflowItem(editingItem.id, data);
+      } else {
+        await createCashflowItem(data);
+      }
+      await Promise.all([mutateCashflowItems(), mutatePlanningComputed()]);
+      toast('success', editingItem ? 'Expense updated' : 'Expense added');
+      setExpenseSheetOpen(false);
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  // Throws on failure so the sheet can show the error inline.
+  async function handleSaveCategory(data: { name: string; is_essential: boolean }) {
+    setSaving(true);
+    try {
+      await createExpenseCategory(data);
       await mutateExpenseCategories();
-      setAddingCategory(false);
-      setNewCatName('');
-      setNewCatEssential(true);
-    } catch (err) {
-      toast('error', err instanceof Error ? err.message : 'Failed to create category');
+      toast('success', 'Category added');
+      setCategorySheetOpen(false);
     } finally {
       setSaving(false);
     }
@@ -112,75 +243,43 @@ export default function BudgetPage() {
         mutateCashflowItems(),
         mutatePlanningComputed(),
       ]);
+      toast('success', 'Category updated');
     } catch (err) {
-      toast('error', err instanceof Error ? err.message : 'Failed to update category');
+      setPageError(err instanceof Error ? err.message : 'Failed to update category');
     } finally {
       setSaving(false);
     }
   }
 
-  async function handleDeleteCategory(id: string) {
+  async function handleConfirmDelete() {
+    if (!deleteTarget) return;
     setSaving(true);
     try {
-      await deleteExpenseCategory(id);
-      await Promise.all([mutateExpenseCategories(), mutateCashflowItems()]);
+      if (deleteTarget.kind === 'category') {
+        await deleteExpenseCategory(deleteTarget.id);
+        await Promise.all([mutateExpenseCategories(), mutateCashflowItems()]);
+        toast('success', 'Category deleted');
+      } else {
+        await deleteCashflowItem(deleteTarget.id);
+        await Promise.all([mutateCashflowItems(), mutatePlanningComputed()]);
+        toast('success', 'Expense deleted');
+      }
     } catch (err) {
-      toast('error', err instanceof Error ? err.message : 'Failed to delete category');
+      setPageError(
+        err instanceof Error
+          ? err.message
+          : `Failed to delete ${deleteTarget.kind === 'category' ? 'category' : 'expense'}`,
+      );
     } finally {
       setSaving(false);
+      setDeleteTarget(null);
     }
   }
 
-  async function handleCreateExpense(data: CreateCashflowItemInput) {
-    setSaving(true);
-    try {
-      await createCashflowItem(data);
-      await Promise.all([mutateCashflowItems(), mutatePlanningComputed()]);
-      setAddingExpense(false);
-    } catch (err) {
-      toast('error', err instanceof Error ? err.message : 'Failed to create expense');
-    } finally {
-      setSaving(false);
-    }
-  }
-
-  async function handleUpdateExpense(id: string, data: CreateCashflowItemInput) {
-    setSaving(true);
-    try {
-      await updateCashflowItem(id, data);
-      await Promise.all([mutateCashflowItems(), mutatePlanningComputed()]);
-      setEditingItemId(null);
-    } catch (err) {
-      toast('error', err instanceof Error ? err.message : 'Failed to update expense');
-    } finally {
-      setSaving(false);
-    }
-  }
-
-  async function handleDeleteExpense(id: string) {
-    setSaving(true);
-    try {
-      await deleteCashflowItem(id);
-      await Promise.all([mutateCashflowItems(), mutatePlanningComputed()]);
-    } catch (err) {
-      toast('error', err instanceof Error ? err.message : 'Failed to delete expense');
-    } finally {
-      setSaving(false);
-    }
-  }
-
-  function renderEditingItem(item: CashflowItem) {
-    return (
-      <ExpenseItemForm
-        key={item.id}
-        initial={item}
-        categories={categories ?? []}
-        saving={saving}
-        onSave={(data) => handleUpdateExpense(item.id, data)}
-        onCancel={() => setEditingItemId(null)}
-      />
-    );
-  }
+  const requestDeleteCategory = (category: ExpenseCategory) =>
+    setDeleteTarget({ kind: 'category', id: category.id, name: category.name });
+  const requestDeleteExpense = (item: CashflowItem) =>
+    setDeleteTarget({ kind: 'expense', id: item.id, name: item.name });
 
   return (
     <div className="space-y-3">
@@ -188,26 +287,22 @@ export default function BudgetPage() {
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-semibold">Budget</h1>
         <div className="flex items-center gap-2">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => setAddingCategory(true)}
-            disabled={addingCategory}
-          >
-            <IconPlus size={14} stroke={1.5} className="mr-1" />
-            Category
+          <Button variant="secondary" size="sm" onClick={() => setCategorySheetOpen(true)}>
+            <IconPlus size={14} stroke={1.5} />
+            Add category
           </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => setAddingExpense(true)}
-            disabled={addingExpense}
-          >
-            <IconPlus size={14} stroke={1.5} className="mr-1" />
-            Expense
+          <Button variant="primary" size="sm" onClick={openAddExpense}>
+            <IconPlus size={14} stroke={1.5} />
+            Add expense
           </Button>
         </div>
       </div>
+
+      {pageError && (
+        <Alert variant="error" onDismiss={() => setPageError(null)}>
+          {pageError}
+        </Alert>
+      )}
 
       {/* Totals bar */}
       <div className="flex flex-wrap gap-3">
@@ -240,76 +335,12 @@ export default function BudgetPage() {
         </Card>
       </div>
 
-      {/* Add category form */}
-      {addingCategory && (
-        <form
-          onSubmit={handleCreateCategory}
-          className="flex items-end gap-2 rounded-md bg-muted/30 p-2"
-        >
-          <div className="min-w-[160px] flex-1">
-            <label className="text-xs text-muted-foreground">Category Name</label>
-            <Input
-              value={newCatName}
-              onChange={(e) => setNewCatName(e.target.value)}
-              placeholder="e.g. Groceries"
-              className="h-7 text-xs"
-              autoFocus
-            />
-          </div>
-          <div className="flex h-7 items-center gap-1.5">
-            <label className="flex items-center gap-1.5 text-xs text-muted-foreground">
-              <Checkbox
-                checked={newCatEssential}
-                onChange={(e) => setNewCatEssential(e.target.checked)}
-              />
-              Essential
-            </label>
-          </div>
-          <div className="flex h-7 items-center gap-1">
-            <Button
-              type="submit"
-              variant="ghost"
-              size="icon-xs"
-              disabled={saving || !newCatName.trim()}
-            >
-              <IconCheck size={14} stroke={1.5} className="text-primary" />
-            </Button>
-            <Button
-              type="button"
-              variant="ghost"
-              size="icon-xs"
-              onClick={() => {
-                setAddingCategory(false);
-                setNewCatName('');
-              }}
-            >
-              <IconX size={14} stroke={1.5} />
-            </Button>
-          </div>
-        </form>
-      )}
-
-      {/* Add expense form */}
-      {addingExpense && (
-        <ExpenseItemForm
-          categories={categories ?? []}
-          saving={saving}
-          onSave={handleCreateExpense}
-          onCancel={() => setAddingExpense(false)}
-        />
-      )}
-
-      {/* Editing an existing item inline */}
-      {editingItemId &&
-        (() => {
-          const item = expenseItems.find((i) => i.id === editingItemId);
-          if (!item) return null;
-          return renderEditingItem(item);
-        })()}
-
-      {isLoading && <p className="text-sm text-muted-foreground">Loading...</p>}
-
-      {!isLoading && (
+      {isLoading ? (
+        <div className="grid gap-6 lg:grid-cols-2">
+          <LoadingState rows={4} />
+          <LoadingState rows={4} />
+        </div>
+      ) : (
         <div className="grid gap-6 lg:grid-cols-2">
           {/* Essentials column */}
           <div className="space-y-3">
@@ -322,19 +353,29 @@ export default function BudgetPage() {
                 category={cat}
                 items={itemsForCategory(cat.name)}
                 onEditCategory={handleUpdateCategory}
-                onDeleteCategory={handleDeleteCategory}
-                onEditItem={setEditingItemId}
-                onDeleteItem={handleDeleteExpense}
+                onDeleteCategory={requestDeleteCategory}
+                onEditItem={openEditExpense}
+                onDeleteItem={requestDeleteExpense}
                 saving={saving}
               />
             ))}
             <UncategorizedSection
               items={uncategorizedEssential}
-              onEditItem={setEditingItemId}
-              onDeleteItem={handleDeleteExpense}
+              onEditItem={openEditExpense}
+              onDeleteItem={requestDeleteExpense}
             />
             {essentialCats.length === 0 && uncategorizedEssential.length === 0 && (
-              <p className="text-sm text-muted-foreground">No essential expenses yet.</p>
+              <EmptyState
+                icon={IconReceipt2}
+                title="No essential expenses yet"
+                description="Track rent, groceries, utilities, and other must-pay costs."
+                action={
+                  <Button variant="secondary" size="sm" onClick={openAddExpense}>
+                    <IconPlus size={14} stroke={1.5} />
+                    Add expense
+                  </Button>
+                }
+              />
             )}
           </div>
 
@@ -349,23 +390,72 @@ export default function BudgetPage() {
                 category={cat}
                 items={itemsForCategory(cat.name)}
                 onEditCategory={handleUpdateCategory}
-                onDeleteCategory={handleDeleteCategory}
-                onEditItem={setEditingItemId}
-                onDeleteItem={handleDeleteExpense}
+                onDeleteCategory={requestDeleteCategory}
+                onEditItem={openEditExpense}
+                onDeleteItem={requestDeleteExpense}
                 saving={saving}
               />
             ))}
             <UncategorizedSection
               items={uncategorizedNonEssential}
-              onEditItem={setEditingItemId}
-              onDeleteItem={handleDeleteExpense}
+              onEditItem={openEditExpense}
+              onDeleteItem={requestDeleteExpense}
             />
             {nonEssentialCats.length === 0 && uncategorizedNonEssential.length === 0 && (
-              <p className="text-sm text-muted-foreground">No non-essential expenses yet.</p>
+              <EmptyState
+                icon={IconReceipt2}
+                title="No non-essential expenses yet"
+                description="Track dining out, subscriptions, hobbies, and other flexible spending."
+                action={
+                  <Button variant="secondary" size="sm" onClick={openAddExpense}>
+                    <IconPlus size={14} stroke={1.5} />
+                    Add expense
+                  </Button>
+                }
+              />
             )}
           </div>
         </div>
       )}
+
+      {/* Add / edit expense side panel */}
+      <ExpenseItemForm
+        open={expenseSheetOpen}
+        onOpenChange={setExpenseSheetOpen}
+        initial={editingItem}
+        categories={categories ?? []}
+        saving={saving}
+        onSave={handleSaveExpense}
+      />
+
+      {/* Add category side panel */}
+      <CategorySheet
+        open={categorySheetOpen}
+        onOpenChange={setCategorySheetOpen}
+        saving={saving}
+        onSave={handleSaveCategory}
+      />
+
+      {/* Delete confirmation */}
+      <ConfirmDialog
+        open={!!deleteTarget}
+        onOpenChange={(open) => {
+          if (!open) setDeleteTarget(null);
+        }}
+        title={
+          deleteTarget?.kind === 'category'
+            ? `Delete category "${deleteTarget.name}"?`
+            : `Delete expense "${deleteTarget?.name}"?`
+        }
+        description={
+          deleteTarget?.kind === 'category'
+            ? 'Expenses in this category are not deleted — they move to Uncategorized.'
+            : 'This permanently removes the expense from your budget.'
+        }
+        confirmLabel={deleteTarget?.kind === 'category' ? 'Delete category' : 'Delete expense'}
+        busy={saving}
+        onConfirm={handleConfirmDelete}
+      />
     </div>
   );
 }

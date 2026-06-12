@@ -29,7 +29,7 @@ export function ErrorFallback({ error, reset }: ErrorFallbackProps) {
             {error.message}
           </pre>
         )}
-        <Button variant="outline" onClick={reset}>
+        <Button variant="secondary" onClick={reset}>
           Try again
         </Button>
       </div>

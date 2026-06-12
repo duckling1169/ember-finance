@@ -15,6 +15,7 @@ import { cn } from '@/lib/utils';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Alert } from '@/components/ui/alert';
+import { EmptyState } from '@/components/ui/states';
 import dynamic from 'next/dynamic';
 import { CHART_COLORS } from '@/components/charts';
 
@@ -215,7 +216,7 @@ export default function DashboardPage() {
                   </div>
                 </div>
               ) : (
-                <p className="text-sm text-muted-foreground py-8 text-center">No accounts</p>
+                <EmptyState title="No accounts" className="py-4" />
               )}
             </CardContent>
           </Card>
@@ -248,7 +249,7 @@ export default function DashboardPage() {
                   </div>
                 </div>
               ) : (
-                <p className="text-sm text-muted-foreground py-8 text-center">No data</p>
+                <EmptyState title="No data" className="py-4" />
               )}
             </CardContent>
           </Card>
@@ -294,7 +295,7 @@ export default function DashboardPage() {
                   <div className="absolute bottom-0 left-0 right-0 h-6 bg-gradient-to-t from-card to-transparent pointer-events-none" />
                 </>
               ) : (
-                <p className="text-sm text-muted-foreground py-8 text-center">No data</p>
+                <EmptyState title="No data" className="py-4" />
               )}
             </CardContent>
           </Card>
@@ -333,7 +334,7 @@ export default function DashboardPage() {
                   </div>
                 </div>
               ) : (
-                <p className="text-sm text-muted-foreground py-8 text-center">No data</p>
+                <EmptyState title="No data" className="py-4" />
               )}
             </CardContent>
           </Card>

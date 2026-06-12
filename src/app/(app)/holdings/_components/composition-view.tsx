@@ -7,6 +7,8 @@ import { Input } from '@/components/ui/input';
 import { Select } from '@/components/ui/select';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Alert } from '@/components/ui/alert';
+import { FormField } from '@/components/ui/form-field';
+import { DataTable, type DataTableColumn } from '@/components/ui/data-table';
 import { InfoTip } from '@/components/ui/info-tip';
 import { IconAlertTriangle } from '@tabler/icons-react';
 import { useToast } from '@/components/ui/toast';
@@ -151,6 +153,10 @@ function TargetsEditor({ composition }: { composition: PortfolioCompositionRespo
   const toast = useToast();
   const [editing, setEditing] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
+  const [fieldErrors, setFieldErrors] = useState<Partial<Record<AllocationBucket, string | null>>>(
+    {},
+  );
   const [fields, setFields] = useState<Record<AllocationBucket, { target: string; band: string }>>(
     () =>
       Object.fromEntries(
@@ -167,28 +173,64 @@ function TargetsEditor({ composition }: { composition: PortfolioCompositionRespo
       ) as Record<AllocationBucket, { target: string; band: string }>,
   );
 
+  /** A blank target skips the bucket, so only validate what would be saved. */
+  function bucketError(f: { target: string; band: string }): string | null {
+    if (f.target === '') return null;
+    if (Number.isNaN(parseFloat(f.target))) return 'Enter a valid target percent.';
+    if (f.band !== '' && Number.isNaN(parseFloat(f.band))) return 'Enter a valid band.';
+    return null;
+  }
+
+  function updateField(bucket: AllocationBucket, patch: Partial<{ target: string; band: string }>) {
+    const next = { ...fields[bucket], ...patch };
+    setFields((p) => ({ ...p, [bucket]: next }));
+    // Clear the error the moment the input becomes valid
+    if (fieldErrors[bucket] && !bucketError(next)) {
+      setFieldErrors((p) => ({ ...p, [bucket]: null }));
+    }
+  }
+
+  function validateField(bucket: AllocationBucket) {
+    setFieldErrors((p) => ({ ...p, [bucket]: bucketError(fields[bucket]) }));
+  }
+
+  function stopEditing() {
+    setEditing(false);
+    setFieldErrors({});
+    setSaveError(null);
+  }
+
   async function handleSave() {
+    const errs: Partial<Record<AllocationBucket, string | null>> = {};
+    let invalid = false;
     const targets: AllocationTarget[] = [];
     for (const bucket of ALLOCATION_BUCKETS) {
       const f = fields[bucket];
+      const err = bucketError(f);
+      if (err) {
+        errs[bucket] = err;
+        invalid = true;
+        continue;
+      }
       if (f.target === '') continue;
       const target = parseFloat(f.target);
       const band = f.band === '' ? 5 : parseFloat(f.band);
-      if (Number.isNaN(target) || Number.isNaN(band)) {
-        toast('error', `Invalid target for ${BUCKET_LABELS[bucket]}`);
-        return;
-      }
       targets.push({ bucket, target_pct: target / 100, band_pct: band / 100 });
+    }
+    if (invalid) {
+      setFieldErrors((p) => ({ ...p, ...errs }));
+      return;
     }
 
     setSaving(true);
+    setSaveError(null);
     try {
       await createAssumptionRecord({ key: 'allocation.targets', value: targets });
       await Promise.all([mutatePortfolioComposition(), mutateAssumptions()]);
       toast('success', 'Target allocation saved');
-      setEditing(false);
+      stopEditing();
     } catch (err) {
-      toast('error', err instanceof Error ? err.message : 'Failed to save targets');
+      setSaveError(err instanceof Error ? err.message : 'Failed to save targets');
     } finally {
       setSaving(false);
     }
@@ -203,7 +245,7 @@ function TargetsEditor({ composition }: { composition: PortfolioCompositionRespo
             `, effective ${composition.targets_effective_date}`}
           ) — edits keep history.
         </p>
-        <Button size="sm" variant="outline" onClick={() => setEditing(true)}>
+        <Button size="sm" variant="secondary" onClick={() => setEditing(true)}>
           Edit targets
         </Button>
       </div>
@@ -214,49 +256,53 @@ function TargetsEditor({ composition }: { composition: PortfolioCompositionRespo
     <div className="space-y-2 rounded-md bg-muted/40 p-2.5">
       <div className="grid grid-cols-1 gap-2 sm:grid-cols-5">
         {ALLOCATION_BUCKETS.map((bucket) => (
-          <div key={bucket}>
-            <span className="text-xs text-muted-foreground">{BUCKET_LABELS[bucket]}</span>
-            <div className="mt-1 flex items-center gap-1">
+          <FormField key={bucket} label={BUCKET_LABELS[bucket]} error={fieldErrors[bucket]}>
+            <div className="flex items-center gap-1">
               <Input
                 aria-label={`${BUCKET_LABELS[bucket]} target %`}
+                aria-invalid={fieldErrors[bucket] ? true : undefined}
                 type="number"
                 min="0"
                 max="100"
                 step="1"
                 placeholder="—"
                 value={fields[bucket].target}
-                onChange={(e) =>
-                  setFields((p) => ({ ...p, [bucket]: { ...p[bucket], target: e.target.value } }))
-                }
+                onChange={(e) => updateField(bucket, { target: e.target.value })}
+                onBlur={() => validateField(bucket)}
                 className="h-8 w-16 font-mono text-xs"
               />
               <span className="text-xs text-muted-foreground">±</span>
               <Input
                 aria-label={`${BUCKET_LABELS[bucket]} band %`}
+                aria-invalid={fieldErrors[bucket] ? true : undefined}
                 type="number"
                 min="0"
                 max="100"
                 step="1"
                 placeholder="5"
                 value={fields[bucket].band}
-                onChange={(e) =>
-                  setFields((p) => ({ ...p, [bucket]: { ...p[bucket], band: e.target.value } }))
-                }
+                onChange={(e) => updateField(bucket, { band: e.target.value })}
+                onBlur={() => validateField(bucket)}
                 className="h-8 w-14 font-mono text-xs"
               />
             </div>
-          </div>
+          </FormField>
         ))}
       </div>
       <p className="text-xs text-muted-foreground">
         Percent of total portfolio, with an alert band in percentage points. Leave a target blank to
         skip that bucket.
       </p>
+      {saveError && (
+        <Alert variant="error" size="sm" onDismiss={() => setSaveError(null)}>
+          {saveError}
+        </Alert>
+      )}
       <div className="flex justify-end gap-1.5">
-        <Button size="sm" variant="ghost" onClick={() => setEditing(false)}>
+        <Button size="sm" variant="ghost" onClick={stopEditing}>
           Cancel
         </Button>
-        <Button size="sm" onClick={handleSave} disabled={saving}>
+        <Button size="sm" variant="primary" onClick={handleSave} disabled={saving}>
           {saving ? 'Saving…' : 'Save targets'}
         </Button>
       </div>
@@ -264,10 +310,20 @@ function TargetsEditor({ composition }: { composition: PortfolioCompositionRespo
   );
 }
 
+interface ClassificationRow {
+  symbol: string;
+  name: string | null;
+  value: number;
+  pct: number;
+  bucket: AllocationBucket;
+  classification_source: ClassificationSource;
+}
+
 function PositionsByBucket({ composition }: { composition: PortfolioCompositionResponse }) {
   const toast = useToast();
   const { data: assumptionsData } = useAssumptions();
   const [savingSymbol, setSavingSymbol] = useState<string | null>(null);
+  const [classifyError, setClassifyError] = useState<string | null>(null);
 
   // Until the current overrides map is loaded, editing is disabled —
   // posting a rebuilt map from partial data would clobber other overrides
@@ -278,13 +334,7 @@ function PositionsByBucket({ composition }: { composition: PortfolioCompositionR
     : null;
 
   // Aggregate positions by symbol (they arrive per account)
-  const bySymbol = new Map<
-    string,
-    { symbol: string; name: string | null; value: number; pct: number } & Pick<
-      (typeof composition.positions)[number],
-      'bucket' | 'classification_source'
-    >
-  >();
+  const bySymbol = new Map<string, ClassificationRow>();
   for (const p of composition.positions) {
     const existing = bySymbol.get(p.symbol);
     if (existing) {
@@ -306,6 +356,7 @@ function PositionsByBucket({ composition }: { composition: PortfolioCompositionR
     }
 
     setSavingSymbol(symbol);
+    setClassifyError(null);
     try {
       await createAssumptionRecord({
         key: 'allocation.symbol_overrides',
@@ -315,11 +366,70 @@ function PositionsByBucket({ composition }: { composition: PortfolioCompositionR
       await Promise.all([mutatePortfolioComposition(), mutateAssumptions()]);
       toast('success', `${symbol} classification updated`);
     } catch (err) {
-      toast('error', err instanceof Error ? err.message : 'Failed to update classification');
+      setClassifyError(err instanceof Error ? err.message : 'Failed to update classification');
     } finally {
       setSavingSymbol(null);
     }
   }
+
+  const columns: DataTableColumn<ClassificationRow>[] = [
+    {
+      key: 'symbol',
+      header: 'Symbol',
+      cell: (p) => (
+        <>
+          <span className="font-medium">{p.symbol}</span>
+          {p.name && (
+            <span className="ml-1.5 hidden text-xs text-muted-foreground lg:inline">{p.name}</span>
+          )}
+        </>
+      ),
+      cellClassName: 'whitespace-nowrap',
+    },
+    {
+      key: 'why',
+      header: 'Why',
+      priority: 2,
+      cell: (p) => SOURCE_LABELS[p.classification_source],
+      cellClassName: 'whitespace-nowrap text-muted-foreground',
+    },
+    {
+      key: 'value',
+      header: 'Value',
+      numeric: true,
+      cell: (p) => fmt(p.value),
+      cellClassName: 'whitespace-nowrap',
+    },
+    {
+      key: 'pct',
+      header: '%',
+      numeric: true,
+      cell: (p) => fmtPct(p.pct),
+      cellClassName: 'whitespace-nowrap',
+    },
+    {
+      key: 'bucket',
+      header: 'Bucket',
+      cell: (p) => (
+        <Select
+          aria-label={`Bucket for ${p.symbol}`}
+          value={p.classification_source === 'override' ? p.bucket : 'auto'}
+          disabled={savingSymbol === p.symbol || !overrides}
+          onChange={(e) => handleClassify(p.symbol, e.target.value)}
+          className="h-7 w-32 px-2 text-xs"
+        >
+          <option value="auto">
+            Auto{p.classification_source !== 'override' && ` (${p.bucket})`}
+          </option>
+          {ALLOCATION_BUCKETS.map((b) => (
+            <option key={b} value={b}>
+              {BUCKET_LABELS[b]}
+            </option>
+          ))}
+        </Select>
+      ),
+    },
+  ];
 
   return (
     <Card size="sm">
@@ -333,60 +443,23 @@ function PositionsByBucket({ composition }: { composition: PortfolioCompositionR
         </CardTitle>
       </CardHeader>
       <CardContent>
-        <div className="-mx-4 overflow-x-auto sm:mx-0">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b text-left text-xs text-muted-foreground">
-                <th className="px-3 py-2 font-medium">Symbol</th>
-                <th className="hidden px-3 py-2 font-medium sm:table-cell">Why</th>
-                <th className="px-3 py-2 text-right font-medium">Value</th>
-                <th className="px-3 py-2 text-right font-medium">%</th>
-                <th className="px-3 py-2 font-medium">Bucket</th>
-              </tr>
-            </thead>
-            <tbody>
-              {rows.map((p) => (
-                <tr key={p.symbol} className="border-b border-border/50">
-                  <td className="whitespace-nowrap px-3 py-2">
-                    <span className="font-medium">{p.symbol}</span>
-                    {p.name && (
-                      <span className="ml-1.5 hidden text-xs text-muted-foreground lg:inline">
-                        {p.name}
-                      </span>
-                    )}
-                  </td>
-                  <td className="hidden whitespace-nowrap px-3 py-2 text-xs text-muted-foreground sm:table-cell">
-                    {SOURCE_LABELS[p.classification_source]}
-                  </td>
-                  <td className="whitespace-nowrap px-3 py-2 text-right font-mono tabular-nums">
-                    {fmt(p.value)}
-                  </td>
-                  <td className="whitespace-nowrap px-3 py-2 text-right font-mono tabular-nums">
-                    {fmtPct(p.pct)}
-                  </td>
-                  <td className="px-3 py-2">
-                    <Select
-                      aria-label={`Bucket for ${p.symbol}`}
-                      value={p.classification_source === 'override' ? p.bucket : 'auto'}
-                      disabled={savingSymbol === p.symbol || !overrides}
-                      onChange={(e) => handleClassify(p.symbol, e.target.value)}
-                      className="h-7 w-32 px-2 text-xs"
-                    >
-                      <option value="auto">
-                        Auto{p.classification_source !== 'override' && ` (${p.bucket})`}
-                      </option>
-                      {ALLOCATION_BUCKETS.map((b) => (
-                        <option key={b} value={b}>
-                          {BUCKET_LABELS[b]}
-                        </option>
-                      ))}
-                    </Select>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+        {classifyError && (
+          <Alert
+            variant="error"
+            size="sm"
+            className="mb-3"
+            onDismiss={() => setClassifyError(null)}
+          >
+            {classifyError}
+          </Alert>
+        )}
+        <DataTable
+          density="compact"
+          mobile="priority"
+          columns={columns}
+          rows={rows}
+          rowKey={(p) => p.symbol}
+        />
       </CardContent>
     </Card>
   );
@@ -404,7 +477,38 @@ export function AssetLocationView() {
     return <Alert>No portfolio value yet — add holdings or balances to see asset location.</Alert>;
   }
 
+  type LocationRow = PortfolioCompositionResponse['asset_location'][number];
   const rows = data.asset_location.filter((r) => r.total_value > 0);
+
+  const columns: DataTableColumn<LocationRow>[] = [
+    {
+      key: 'tax_treatment',
+      header: 'Tax Treatment',
+      cell: (r) => TAX_TREATMENT_LABELS[r.tax_treatment] ?? r.tax_treatment,
+      cellClassName: 'whitespace-nowrap font-medium',
+    },
+    ...ALLOCATION_BUCKETS.map(
+      (b): DataTableColumn<LocationRow> => ({
+        key: b,
+        header: BUCKET_LABELS[b],
+        numeric: true,
+        cell: (r) =>
+          r.by_bucket[b] > 0 ? (
+            fmt(r.by_bucket[b])
+          ) : (
+            <span className="text-muted-foreground">—</span>
+          ),
+        cellClassName: 'whitespace-nowrap',
+      }),
+    ),
+    {
+      key: 'total',
+      header: 'Total',
+      numeric: true,
+      cell: (r) => fmt(r.total_value),
+      cellClassName: 'whitespace-nowrap font-medium',
+    },
+  ];
 
   return (
     <Card size="sm">
@@ -419,45 +523,13 @@ export function AssetLocationView() {
         </CardTitle>
       </CardHeader>
       <CardContent>
-        <div className="-mx-4 overflow-x-auto sm:mx-0">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b text-left text-xs text-muted-foreground">
-                <th className="px-3 py-2 font-medium">Tax Treatment</th>
-                {ALLOCATION_BUCKETS.map((b) => (
-                  <th key={b} className="px-3 py-2 text-right font-medium">
-                    {BUCKET_LABELS[b]}
-                  </th>
-                ))}
-                <th className="px-3 py-2 text-right font-medium">Total</th>
-              </tr>
-            </thead>
-            <tbody>
-              {rows.map((row) => (
-                <tr key={row.tax_treatment} className="border-b border-border/50">
-                  <td className="whitespace-nowrap px-3 py-2 font-medium">
-                    {TAX_TREATMENT_LABELS[row.tax_treatment] ?? row.tax_treatment}
-                  </td>
-                  {ALLOCATION_BUCKETS.map((b) => (
-                    <td
-                      key={b}
-                      className="whitespace-nowrap px-3 py-2 text-right font-mono tabular-nums"
-                    >
-                      {row.by_bucket[b] > 0 ? (
-                        fmt(row.by_bucket[b])
-                      ) : (
-                        <span className="text-muted-foreground">—</span>
-                      )}
-                    </td>
-                  ))}
-                  <td className="whitespace-nowrap px-3 py-2 text-right font-mono font-medium tabular-nums">
-                    {fmt(row.total_value)}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+        <DataTable
+          density="compact"
+          mobile="scroll"
+          columns={columns}
+          rows={rows}
+          rowKey={(r) => r.tax_treatment}
+        />
       </CardContent>
     </Card>
   );

@@ -130,7 +130,7 @@ function OnboardingContent() {
 
             {error && <p className="text-sm text-destructive">{error}</p>}
 
-            <Button type="submit" variant="primary-outline" disabled={loading} className="w-full">
+            <Button type="submit" variant="primary" disabled={loading} className="w-full">
               {loading ? '...' : inviteId ? 'Join Household' : 'Get Started'}
             </Button>
           </form>

@@ -5,11 +5,11 @@ import type { CurrentPosition, NormalizedHolding } from '@shared/types';
 import { fetchQuotes, ingestManual } from '@/lib/api';
 import { fmt } from '@/lib/formatters';
 import { mutateAccountDetail, mutateAccounts } from '@/lib/swr';
-import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Alert } from '@/components/ui/alert';
-import { IconPlus, IconX, IconCheck } from '@tabler/icons-react';
+import { FormField } from '@/components/ui/form-field';
+import { IconPlus, IconX } from '@tabler/icons-react';
 
 interface HoldingRow {
   id: string;
@@ -45,6 +45,7 @@ function positionsToRows(positions: CurrentPosition[]): HoldingRow[] {
   }));
 }
 
+/** Renders inside the Manual Entry sheet — no card framing of its own. */
 export function HoldingsEntryForm({
   accountId,
   householdId,
@@ -168,90 +169,94 @@ export function HoldingsEntryForm({
   }
 
   return (
-    <Card>
-      <CardContent>
-        <form onSubmit={handleSubmit} className="space-y-4">
-          {error && <Alert variant="error">{error}</Alert>}
+    <form onSubmit={handleSubmit} className="space-y-4">
+      {error && <Alert variant="error">{error}</Alert>}
 
-          {/* As-of date */}
-          <div className="max-w-xs">
-            <label className="mb-1.5 block text-sm font-medium">As Of Date</label>
-            <Input type="date" value={asOf} onChange={(e) => setAsOf(e.target.value)} required />
-          </div>
+      {/* As-of date */}
+      <FormField label="As Of Date" htmlFor="holdings-as-of" required className="max-w-xs">
+        <Input
+          id="holdings-as-of"
+          type="date"
+          value={asOf}
+          onChange={(e) => setAsOf(e.target.value)}
+          required
+        />
+      </FormField>
 
-          {/* Holdings rows */}
-          <div className="space-y-2">
-            <div className="grid grid-cols-[1fr_1fr_1fr_auto] gap-2 text-xs font-medium text-muted-foreground px-0.5">
-              <span>Symbol</span>
-              <span>Shares</span>
-              <span>Cost Basis ($)</span>
-              <span className="w-8" />
-            </div>
+      {/* Holdings rows */}
+      <div className="space-y-2">
+        <div className="grid grid-cols-[1fr_1fr_1fr_auto] gap-2 text-xs font-medium text-muted-foreground px-0.5">
+          <span>Symbol</span>
+          <span>Shares</span>
+          <span>Cost Basis ($)</span>
+          <span className="w-8" />
+        </div>
 
-            {rows.map((row) => (
-              <div key={row.id} className="grid grid-cols-[1fr_1fr_1fr_auto] gap-2 items-center">
-                <Input
-                  placeholder="VTI"
-                  value={row.symbol}
-                  onChange={(e) => updateRow(row.id, 'symbol', e.target.value)}
-                  required
-                />
-                <Input
-                  type="number"
-                  step="any"
-                  min="0"
-                  placeholder="100"
-                  value={row.quantity}
-                  onChange={(e) => updateRow(row.id, 'quantity', e.target.value)}
-                  required
-                />
-                <Input
-                  type="number"
-                  step="0.01"
-                  min="0"
-                  placeholder="Optional"
-                  value={row.costBasis}
-                  onChange={(e) => updateRow(row.id, 'costBasis', e.target.value)}
-                />
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="icon-sm"
-                  onClick={() => removeRow(row.id)}
-                  disabled={rows.length <= 1}
-                  className="text-muted-foreground hover:text-destructive"
-                >
-                  <IconX size={14} />
-                </Button>
-              </div>
-            ))}
-          </div>
-
-          <Button type="button" variant="ghost" size="sm" onClick={addRow}>
-            <IconPlus size={14} />
-            Add Row
-          </Button>
-
-          {/* Total */}
-          {total > 0 && (
-            <div className="flex justify-end text-sm">
-              <span className="text-muted-foreground mr-2">Estimated Total:</span>
-              <span className="font-mono tabular-nums font-medium">{fmt(total)}</span>
-            </div>
-          )}
-
-          {/* Actions */}
-          <div className="flex justify-end gap-2">
-            <Button type="button" variant="ghost" onClick={onCancel} disabled={submitting}>
-              Cancel
-            </Button>
-            <Button type="submit" variant="primary-outline" disabled={submitting}>
-              <IconCheck size={16} />
-              {submitting ? 'Saving...' : 'Save Holdings'}
+        {rows.map((row) => (
+          <div key={row.id} className="grid grid-cols-[1fr_1fr_1fr_auto] gap-2 items-center">
+            <Input
+              aria-label="Symbol"
+              placeholder="VTI"
+              value={row.symbol}
+              onChange={(e) => updateRow(row.id, 'symbol', e.target.value)}
+              required
+            />
+            <Input
+              aria-label="Shares"
+              type="number"
+              step="any"
+              min="0"
+              placeholder="100"
+              value={row.quantity}
+              onChange={(e) => updateRow(row.id, 'quantity', e.target.value)}
+              required
+            />
+            <Input
+              aria-label="Cost Basis ($)"
+              type="number"
+              step="0.01"
+              min="0"
+              placeholder="Optional"
+              value={row.costBasis}
+              onChange={(e) => updateRow(row.id, 'costBasis', e.target.value)}
+            />
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon-sm"
+              aria-label={`Remove ${row.symbol || 'row'}`}
+              onClick={() => removeRow(row.id)}
+              disabled={rows.length <= 1}
+              className="text-muted-foreground hover:text-destructive"
+            >
+              <IconX size={14} />
             </Button>
           </div>
-        </form>
-      </CardContent>
-    </Card>
+        ))}
+      </div>
+
+      <Button type="button" variant="secondary" size="sm" onClick={addRow}>
+        <IconPlus size={14} />
+        Add Row
+      </Button>
+
+      {/* Total */}
+      {total > 0 && (
+        <div className="flex justify-end text-sm">
+          <span className="text-muted-foreground mr-2">Estimated Total:</span>
+          <span className="font-mono tabular-nums font-medium">{fmt(total)}</span>
+        </div>
+      )}
+
+      {/* Actions */}
+      <div className="flex justify-end gap-2">
+        <Button type="button" variant="ghost" onClick={onCancel} disabled={submitting}>
+          Cancel
+        </Button>
+        <Button type="submit" variant="primary" disabled={submitting}>
+          {submitting ? 'Saving…' : 'Save Holdings'}
+        </Button>
+      </div>
+    </form>
   );
 }

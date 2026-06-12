@@ -1,21 +1,12 @@
 'use client';
 
-import { Skeleton } from '@/components/ui/skeleton';
 import { useState, useMemo } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { useAccounts, useTransactions, useInvestmentActivity } from '@/lib/swr';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
-import {
-  Table,
-  TableHeader,
-  TableBody,
-  TableRow,
-  TableHead,
-  TableCell,
-} from '@/components/ui/table';
+import { DataTable, type DataTableColumn } from '@/components/ui/data-table';
 import { IconChevronDown, IconCheck } from '@tabler/icons-react';
-import { SortIcon, type SortDir } from '@/components/common/sort-icon';
 import { GainCell } from '@/components/common/financial-cells';
 import { fmt } from '@/lib/formatters';
 import type { Transaction, InvestmentActivity, ActivityType } from '@shared/types';
@@ -39,8 +30,6 @@ interface ActivityRow {
   price: number | null;
   commission: number | null;
 }
-
-type SortKey = 'date' | 'description' | 'amount' | 'symbol' | 'type';
 
 const ACTIVITY_TYPE_LABELS: Record<string, string> = {
   buy: 'Buy',
@@ -92,57 +81,17 @@ function toRows(
   return [...txnRows, ...actRows];
 }
 
-function sortRows(rows: ActivityRow[], key: SortKey | null, dir: SortDir): ActivityRow[] {
-  if (!key) return rows;
-  return [...rows].sort((a, b) => {
-    let aVal: string | number;
-    let bVal: string | number;
-
-    switch (key) {
-      case 'date':
-        aVal = a.date;
-        bVal = b.date;
-        break;
-      case 'description':
-        aVal = a.description.toLowerCase();
-        bVal = b.description.toLowerCase();
-        break;
-      case 'amount':
-        aVal = a.amount;
-        bVal = b.amount;
-        break;
-      case 'symbol':
-        aVal = a.symbol || '';
-        bVal = b.symbol || '';
-        break;
-      case 'type':
-        aVal = a.activity_type || a.kind;
-        bVal = b.activity_type || b.kind;
-        break;
-    }
-
-    if (typeof aVal === 'string' && typeof bVal === 'string') {
-      return dir === 'asc' ? aVal.localeCompare(bVal) : bVal.localeCompare(aVal);
-    }
-    return dir === 'asc' ? Number(aVal) - Number(bVal) : Number(bVal) - Number(aVal);
-  });
-}
-
 export default function ActivityPage() {
   const searchParams = useSearchParams();
   const preselectedAccountId = searchParams.get('account');
 
-  const { data: accounts, isLoading: acctsLoading } = useAccounts();
+  const { data: accounts, isLoading: acctsLoading, error: acctsError } = useAccounts();
 
   // Filter state
   const [selectedAccountIds, setSelectedAccountIds] = useState<Set<string> | null>(null);
   const [filterOpen, setFilterOpen] = useState(false);
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
-
-  // Sort state
-  const [sortKey, setSortKey] = useState<SortKey | null>('date');
-  const [sortDir, setSortDir] = useState<SortDir>('desc');
 
   // Build account list
   const accountList = useMemo(() => {
@@ -193,31 +142,26 @@ export default function ActivityPage() {
     [investmentAccountIds, dateFrom, dateTo],
   );
 
-  const { data: transactions, isLoading: txnLoading } = useTransactions(
-    hasBankingAccounts ? txnParams : undefined,
-  );
-  const { data: activity, isLoading: actLoading } = useInvestmentActivity(
-    hasInvestmentAccounts ? actParams : undefined,
-  );
+  const {
+    data: transactions,
+    isLoading: txnLoading,
+    error: txnError,
+  } = useTransactions(hasBankingAccounts ? txnParams : undefined);
+  const {
+    data: activity,
+    isLoading: actLoading,
+    error: actError,
+  } = useInvestmentActivity(hasInvestmentAccounts ? actParams : undefined);
 
-  // Combine and filter
+  // Combine and filter (DataTable handles sorting)
   const rows = useMemo(() => {
     const txns = (transactions || []).filter((t) => effectiveSelectedIds.has(t.account_id));
     const acts = (activity || []).filter((a) => effectiveSelectedIds.has(a.account_id));
-    const combined = toRows(txns, acts);
-    return sortRows(combined, sortKey, sortDir);
-  }, [transactions, activity, effectiveSelectedIds, sortKey, sortDir]);
+    return toRows(txns, acts);
+  }, [transactions, activity, effectiveSelectedIds]);
 
   const loading = acctsLoading || txnLoading || actLoading;
-
-  function toggleSort(key: SortKey) {
-    if (sortKey === key) {
-      setSortDir((d) => (d === 'asc' ? 'desc' : 'asc'));
-    } else {
-      setSortKey(key);
-      setSortDir(key === 'date' ? 'desc' : 'asc');
-    }
-  }
+  const error: unknown = acctsError || txnError || actError;
 
   function toggleAccount(id: string) {
     setSelectedAccountIds((prev) => {
@@ -243,15 +187,70 @@ export default function ActivityPage() {
   // Show investment columns only when investment accounts are selected
   const showInvestmentCols = hasInvestmentAccounts;
 
-  const columns: { key: SortKey; label: string; align?: 'right'; show?: boolean }[] = [
-    { key: 'date', label: 'Date' },
-    { key: 'type', label: 'Type' },
-    { key: 'description', label: 'Description' },
-    { key: 'symbol', label: 'Symbol', show: showInvestmentCols },
-    { key: 'amount', label: 'Amount', align: 'right' },
+  const columns: DataTableColumn<ActivityRow>[] = [
+    {
+      key: 'date',
+      header: 'Date',
+      sortValue: (row) => row.date,
+      cell: (row) => row.date,
+      cellClassName: 'font-mono tabular-nums text-sm',
+    },
+    {
+      key: 'account',
+      header: 'Account',
+      cell: (row) => accountName(row.account_id),
+      cellClassName: 'max-w-[120px] truncate text-xs text-muted-foreground',
+    },
+    {
+      key: 'type',
+      header: 'Type',
+      sortValue: (row) => row.activity_type || row.kind,
+      cell: (row) => <TypeBadge row={row} />,
+    },
+    {
+      key: 'description',
+      header: 'Description',
+      sortValue: (row) => row.description.toLowerCase(),
+      cell: (row) => row.description,
+      cellClassName: 'max-w-[300px] truncate text-sm',
+    },
+    ...(showInvestmentCols
+      ? [
+          {
+            key: 'symbol',
+            header: 'Symbol',
+            sortValue: (row: ActivityRow) => row.symbol || '',
+            cell: (row: ActivityRow) => row.symbol || '',
+            cellClassName: 'font-mono text-sm',
+          } satisfies DataTableColumn<ActivityRow>,
+        ]
+      : []),
+    {
+      key: 'amount',
+      header: 'Amount',
+      numeric: true,
+      sortValue: (row) => row.amount,
+      cell: (row) => <GainCell value={row.amount} />,
+    },
+    ...(showInvestmentCols
+      ? [
+          {
+            key: 'quantity',
+            header: 'Qty',
+            numeric: true,
+            cell: (row: ActivityRow) => (row.quantity != null ? row.quantity : ''),
+            cellClassName: 'text-sm text-muted-foreground',
+          } satisfies DataTableColumn<ActivityRow>,
+          {
+            key: 'price',
+            header: 'Price',
+            numeric: true,
+            cell: (row: ActivityRow) => (row.price != null ? fmt(row.price) : ''),
+            cellClassName: 'text-sm text-muted-foreground',
+          } satisfies DataTableColumn<ActivityRow>,
+        ]
+      : []),
   ];
-
-  const visibleColumns = columns.filter((c) => c.show !== false);
 
   return (
     <div className="space-y-3">
@@ -340,79 +339,27 @@ export default function ActivityPage() {
       {/* Activity table */}
       <Card size="sm">
         <CardContent>
-          {loading ? (
-            <div className="space-y-2 py-4">
-              {Array.from({ length: 6 }).map((_, i) => (
-                <Skeleton key={i} className="h-8 w-full" />
-              ))}
-            </div>
-          ) : rows.length === 0 ? (
-            <div className="py-10 text-center text-muted-foreground">
-              No activity found for the selected accounts and date range.
-            </div>
-          ) : (
-            <div className="-mx-4 overflow-x-auto sm:mx-0">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead className="hidden w-10 text-muted-foreground sm:table-cell">
-                      Account
-                    </TableHead>
-                    {visibleColumns.map((col) => (
-                      <TableHead
-                        key={col.key}
-                        className={`cursor-pointer select-none hover:text-foreground transition-colors ${col.align === 'right' ? 'text-right' : ''}`}
-                        onClick={() => toggleSort(col.key)}
-                      >
-                        <span className="inline-flex items-center gap-1">
-                          {col.label}
-                          <SortIcon field={col.key} sortKey={sortKey} sortDir={sortDir} />
-                        </span>
-                      </TableHead>
-                    ))}
-                    {showInvestmentCols && (
-                      <>
-                        <TableHead className="text-right">Qty</TableHead>
-                        <TableHead className="text-right">Price</TableHead>
-                      </>
-                    )}
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {rows.map((row) => (
-                    <TableRow key={row.id} className="hover:bg-primary/5">
-                      <TableCell className="hidden text-xs text-muted-foreground truncate max-w-[120px] sm:table-cell">
-                        {accountName(row.account_id)}
-                      </TableCell>
-                      <TableCell className="font-mono tabular-nums text-sm">{row.date}</TableCell>
-                      <TableCell>
-                        <TypeBadge row={row} />
-                      </TableCell>
-                      <TableCell className="text-sm max-w-[300px] truncate">
-                        {row.description}
-                      </TableCell>
-                      {showInvestmentCols && (
-                        <TableCell className="font-mono text-sm">{row.symbol || ''}</TableCell>
-                      )}
-                      <TableCell className="text-right">
-                        <GainCell value={row.amount} />
-                      </TableCell>
-                      {showInvestmentCols && (
-                        <>
-                          <TableCell className="text-right font-mono tabular-nums text-sm text-muted-foreground">
-                            {row.quantity != null ? row.quantity : ''}
-                          </TableCell>
-                          <TableCell className="text-right font-mono tabular-nums text-sm text-muted-foreground">
-                            {row.price != null ? fmt(row.price) : ''}
-                          </TableCell>
-                        </>
-                      )}
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </div>
-          )}
+          <DataTable
+            columns={columns}
+            rows={rows}
+            rowKey={(row) => row.id}
+            density="wide"
+            mobile="scroll"
+            defaultSort={{ key: 'date', dir: 'desc' }}
+            loading={loading}
+            loadingRows={6}
+            error={
+              error
+                ? {
+                    message: error instanceof Error ? error.message : 'Failed to load activity.',
+                  }
+                : null
+            }
+            empty={{
+              title: 'No activity',
+              description: 'No activity found for the selected accounts and date range.',
+            }}
+          />
         </CardContent>
       </Card>
     </div>

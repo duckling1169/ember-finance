@@ -37,8 +37,15 @@ export function RequireAuth({ children, requireHousehold = true }: RequireAuthPr
 
   if (authLoading || hhLoading)
     return (
-      <div className="flex min-h-screen items-center justify-center text-muted-foreground">
-        Loading...
+      <div
+        aria-busy="true"
+        aria-label="Loading"
+        className="flex min-h-screen items-center justify-center"
+      >
+        <div className="w-full max-w-md space-y-3 px-6">
+          <div className="h-8 w-48 animate-pulse rounded-md bg-muted" />
+          <div className="h-40 w-full animate-pulse rounded-lg bg-muted" />
+        </div>
       </div>
     );
 

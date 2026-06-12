@@ -32,13 +32,21 @@ import { Input } from '@/components/ui/input';
 import { Select } from '@/components/ui/select';
 import { Button } from '@/components/ui/button';
 import { Alert } from '@/components/ui/alert';
+import { FormField } from '@/components/ui/form-field';
+import { useToast } from '@/components/ui/toast';
+import {
+  Sheet,
+  SheetContent,
+  SheetFooter,
+  SheetHeader,
+  SheetTitle,
+  SheetDescription,
+} from '@/components/ui/sheet';
 import {
   IconArrowLeft,
   IconPlugConnected,
   IconUpload,
   IconPlus,
-  IconCheck,
-  IconX,
   IconLink,
   IconLinkOff,
   IconRefresh,
@@ -422,25 +430,26 @@ function HistoryTab({
   holdings: CurrentPosition[];
 }) {
   const isInvestmentAccount = INVESTMENT_ACCOUNT_TYPES.includes(accountType);
-  const [showManualForm, setShowManualForm] = useState(false);
-  const [showUpload, setShowUpload] = useState(false);
+  const [manualOpen, setManualOpen] = useState(false);
+  // Remount key so the manual-entry sheet starts blank on every open.
+  const [manualKey, setManualKey] = useState(0);
+  const [uploadOpen, setUploadOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
-  const [formError, setFormError] = useState('');
+  const [uploadError, setUploadError] = useState('');
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [dragOver, setDragOver] = useState(false);
 
-  async function handleManualEntry(e: React.FormEvent<HTMLFormElement>) {
-    e.preventDefault();
-    const form = new FormData(e.currentTarget);
-    const entryType = form.get('entry_type') as 'current' | 'delta';
-    const amount = parseFloat(form.get('amount') as string);
-    const description = form.get('description') as string;
+  // Throws on failure so the sheet can show the error inline.
+  async function handleManualEntry(
+    entryType: 'current' | 'delta',
+    amount: number,
+    description: string,
+  ) {
     const today = new Date().toISOString().slice(0, 10);
 
     if (!householdId) return;
+    setSubmitting(true);
     try {
-      setSubmitting(true);
-      setFormError('');
       const payload =
         entryType === 'current'
           ? { balances: [{ date: today, balance: amount }] }
@@ -456,9 +465,7 @@ function HistoryTab({
             };
       await ingestManual(householdId, accountId, payload);
       await Promise.all([mutateAccountDetail(accountId), mutateAccounts()]);
-      setShowManualForm(false);
-    } catch (err) {
-      setFormError(err instanceof Error ? err.message : 'Manual entry failed');
+      setManualOpen(false);
     } finally {
       setSubmitting(false);
     }
@@ -473,12 +480,12 @@ function HistoryTab({
     if (!householdId) return;
     try {
       setSubmitting(true);
-      setFormError('');
+      setUploadError('');
       await ingestCsv(householdId, accountId, file);
       await Promise.all([mutateAccountDetail(accountId), mutateAccounts()]);
-      setShowUpload(false);
+      setUploadOpen(false);
     } catch (err) {
-      setFormError(err instanceof Error ? err.message : 'File upload failed');
+      setUploadError(err instanceof Error ? err.message : 'File upload failed');
     } finally {
       setSubmitting(false);
     }
@@ -486,52 +493,43 @@ function HistoryTab({
 
   return (
     <div className="space-y-3">
-      {formError && <Alert variant="error">{formError}</Alert>}
-
       {/* Action buttons */}
       <div className="flex justify-end gap-2">
-        {showManualForm || showUpload ? (
-          <Button
-            variant="ghost"
-            onClick={() => {
-              setShowManualForm(false);
-              setShowUpload(false);
-              setFormError('');
-            }}
-          >
-            <IconX size={16} />
-            Cancel
-          </Button>
-        ) : (
-          <>
-            <Button
-              variant="primary-outline"
-              onClick={() => {
-                setShowUpload(true);
-                setShowManualForm(false);
-              }}
-            >
-              <IconUpload size={16} />
-              Upload File
-            </Button>
-            <Button
-              variant="primary-outline"
-              onClick={() => {
-                setShowManualForm(true);
-                setShowUpload(false);
-              }}
-            >
-              <IconPlus size={16} />
-              Manual Entry
-            </Button>
-          </>
-        )}
+        <Button variant="secondary" onClick={() => setUploadOpen(true)}>
+          <IconUpload size={16} />
+          Upload File
+        </Button>
+        <Button
+          variant="secondary"
+          onClick={() => {
+            setManualKey((k) => k + 1);
+            setManualOpen(true);
+          }}
+        >
+          <IconPlus size={16} />
+          Manual Entry
+        </Button>
       </div>
 
-      {/* Upload zone */}
-      {showUpload && (
-        <Card>
-          <CardContent>
+      {/* Upload sheet */}
+      <Sheet
+        open={uploadOpen}
+        onOpenChange={(open) => {
+          setUploadOpen(open);
+          if (!open) setUploadError('');
+        }}
+      >
+        <SheetContent side="right">
+          <SheetHeader>
+            <SheetTitle>Upload file</SheetTitle>
+            <SheetDescription>Import balances or transactions from a CSV export.</SheetDescription>
+          </SheetHeader>
+          <div className="space-y-4 px-4 pb-4">
+            {uploadError && (
+              <Alert variant="error" onDismiss={() => setUploadError('')}>
+                {uploadError}
+              </Alert>
+            )}
             <div
               className={`flex flex-col items-center gap-3 rounded-lg border-2 border-dashed py-8 transition-colors ${
                 dragOver ? 'border-primary bg-primary/5' : 'border-border'
@@ -554,7 +552,7 @@ function HistoryTab({
                 <p className="text-xs text-muted-foreground mt-1">or click to browse</p>
               </div>
               <Button
-                variant="outline"
+                variant="secondary"
                 size="sm"
                 disabled={submitting}
                 onClick={() => fileInputRef.current?.click()}
@@ -569,54 +567,41 @@ function HistoryTab({
                 onChange={handleFileChange}
               />
             </div>
-          </CardContent>
-        </Card>
-      )}
+          </div>
+        </SheetContent>
+      </Sheet>
 
-      {/* Manual entry form */}
-      {showManualForm && isInvestmentAccount && householdId && (
-        <HoldingsEntryForm
-          accountId={accountId}
-          householdId={householdId}
-          existingPositions={holdings}
-          onSuccess={() => setShowManualForm(false)}
-          onCancel={() => {
-            setShowManualForm(false);
-            setFormError('');
-          }}
+      {/* Manual entry sheet */}
+      {isInvestmentAccount ? (
+        householdId && (
+          <Sheet open={manualOpen} onOpenChange={setManualOpen}>
+            <SheetContent side="right" className="sm:max-w-xl">
+              <SheetHeader>
+                <SheetTitle>Manual entry</SheetTitle>
+                <SheetDescription>
+                  Enter this account&apos;s current holdings. Prices are fetched on save.
+                </SheetDescription>
+              </SheetHeader>
+              <div className="min-h-0 flex-1 overflow-y-auto px-4 pb-4">
+                <HoldingsEntryForm
+                  accountId={accountId}
+                  householdId={householdId}
+                  existingPositions={holdings}
+                  onSuccess={() => setManualOpen(false)}
+                  onCancel={() => setManualOpen(false)}
+                />
+              </div>
+            </SheetContent>
+          </Sheet>
+        )
+      ) : (
+        <ManualEntrySheet
+          key={manualKey}
+          open={manualOpen}
+          onOpenChange={setManualOpen}
+          submitting={submitting}
+          onSubmit={handleManualEntry}
         />
-      )}
-
-      {showManualForm && !isInvestmentAccount && (
-        <Card>
-          <CardContent>
-            <form onSubmit={handleManualEntry} className="space-y-4">
-              <div className="grid gap-4 sm:grid-cols-2">
-                <div>
-                  <label className="mb-1.5 block text-sm font-medium">Type</label>
-                  <Select name="entry_type" required>
-                    <option value="current">Current Balance (override)</option>
-                    <option value="delta">Delta (add/subtract)</option>
-                  </Select>
-                </div>
-                <div>
-                  <label className="mb-1.5 block text-sm font-medium">Amount</label>
-                  <Input name="amount" type="number" step="0.01" required placeholder="50000.00" />
-                </div>
-              </div>
-              <div>
-                <label className="mb-1.5 block text-sm font-medium">Description (optional)</label>
-                <Input name="description" placeholder="Deposit, adjustment, etc." />
-              </div>
-              <div className="flex justify-end">
-                <Button type="submit" variant="primary-outline" disabled={submitting}>
-                  <IconCheck size={16} />
-                  {submitting ? 'Saving...' : 'Save Entry'}
-                </Button>
-              </div>
-            </form>
-          </CardContent>
-        </Card>
       )}
 
       {/* Timeline */}
@@ -684,6 +669,110 @@ function HistoryTab({
   );
 }
 
+// -- Manual Entry Sheet (cash accounts) --
+
+function ManualEntrySheet({
+  open,
+  onOpenChange,
+  submitting,
+  onSubmit,
+}: {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  submitting: boolean;
+  /** Must throw on failure — the error is shown in an Alert inside the sheet. */
+  onSubmit: (entryType: 'current' | 'delta', amount: number, description: string) => Promise<void>;
+}) {
+  // The parent remounts this component (via key) on every open, so state
+  // always starts blank.
+  const [entryType, setEntryType] = useState<'current' | 'delta'>('current');
+  const [amount, setAmount] = useState('');
+  const [description, setDescription] = useState('');
+  const [amountError, setAmountError] = useState<string | null>(null);
+  const [submitError, setSubmitError] = useState<string | null>(null);
+
+  function validateAmount(value: string): string | null {
+    return value.trim() !== '' && !isNaN(parseFloat(value)) ? null : 'Enter a valid amount';
+  }
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    const aErr = validateAmount(amount);
+    setAmountError(aErr);
+    if (aErr) return;
+
+    setSubmitError(null);
+    try {
+      await onSubmit(entryType, parseFloat(amount), description);
+    } catch (err) {
+      setSubmitError(err instanceof Error ? err.message : 'Manual entry failed');
+    }
+  }
+
+  return (
+    <Sheet open={open} onOpenChange={onOpenChange}>
+      <SheetContent side="right">
+        <SheetHeader>
+          <SheetTitle>Manual entry</SheetTitle>
+          <SheetDescription>Override the current balance or record an adjustment.</SheetDescription>
+        </SheetHeader>
+        <form onSubmit={handleSubmit} className="flex min-h-0 flex-1 flex-col">
+          <div className="flex-1 space-y-4 overflow-y-auto px-4">
+            {submitError && (
+              <Alert variant="error" onDismiss={() => setSubmitError(null)}>
+                {submitError}
+              </Alert>
+            )}
+            <FormField label="Type" htmlFor="manual-entry-type">
+              <Select
+                id="manual-entry-type"
+                value={entryType}
+                onChange={(e) => setEntryType(e.target.value as 'current' | 'delta')}
+              >
+                <option value="current">Current Balance (override)</option>
+                <option value="delta">Delta (add/subtract)</option>
+              </Select>
+            </FormField>
+            <FormField label="Amount" htmlFor="manual-entry-amount" required error={amountError}>
+              <Input
+                id="manual-entry-amount"
+                type="number"
+                step="0.01"
+                value={amount}
+                onChange={(e) => {
+                  setAmount(e.target.value);
+                  if (amountError && !validateAmount(e.target.value)) setAmountError(null);
+                }}
+                onBlur={() => setAmountError(validateAmount(amount))}
+                aria-invalid={!!amountError}
+                placeholder="50000.00"
+                className="font-mono"
+                autoFocus
+              />
+            </FormField>
+            <FormField label="Description" htmlFor="manual-entry-description" hint="Optional">
+              <Input
+                id="manual-entry-description"
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
+                placeholder="Deposit, adjustment, etc."
+              />
+            </FormField>
+          </div>
+          <SheetFooter className="flex-row justify-end gap-2">
+            <Button type="button" variant="ghost" onClick={() => onOpenChange(false)}>
+              Cancel
+            </Button>
+            <Button type="submit" variant="primary" disabled={submitting}>
+              {submitting ? 'Saving…' : 'Save Entry'}
+            </Button>
+          </SheetFooter>
+        </form>
+      </SheetContent>
+    </Sheet>
+  );
+}
+
 // -- Settings Tab --
 
 function SettingsTab({
@@ -701,7 +790,7 @@ function SettingsTab({
   const [taxTreatment, setTaxTreatment] = useState(account.tax_treatment);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
-  const [success, setSuccess] = useState(false);
+  const toast = useToast();
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -722,10 +811,9 @@ function SettingsTab({
     try {
       setSaving(true);
       setError('');
-      setSuccess(false);
       await updateAccount(householdId, accountId, data);
       await Promise.all([mutateAccountDetail(accountId), mutateAccounts()]);
-      setSuccess(true);
+      toast('success', 'Account updated');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to save');
     } finally {
@@ -735,8 +823,11 @@ function SettingsTab({
 
   return (
     <div className="space-y-3">
-      {error && <Alert variant="error">{error}</Alert>}
-      {success && <Alert variant="success">Account updated.</Alert>}
+      {error && (
+        <Alert variant="error" onDismiss={() => setError('')}>
+          {error}
+        </Alert>
+      )}
 
       <Card>
         <CardHeader>
@@ -793,8 +884,7 @@ function SettingsTab({
               </div>
             </div>
             <div className="flex justify-end">
-              <Button type="submit" variant="primary-outline" disabled={saving}>
-                <IconCheck size={16} />
+              <Button type="submit" variant="primary" disabled={saving}>
                 {saving ? 'Saving...' : 'Save'}
               </Button>
             </div>

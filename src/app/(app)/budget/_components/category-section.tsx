@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { DataTable, type DataTableColumn } from '@/components/ui/data-table';
 import { IconPencil, IconTrash, IconCheck, IconX } from '@tabler/icons-react';
 import { fmt } from '@/lib/formatters';
 import type { CashflowItem, ExpenseCategory } from '@shared/types';
@@ -25,13 +26,86 @@ function toMonthly(amount: number, frequency: string): number {
   return amount * (TO_MONTHLY[frequency] ?? 0);
 }
 
+/** Compact expense rows shared by categorized + uncategorized sections. */
+function ExpenseItemsTable({
+  items,
+  onEditItem,
+  onDeleteItem,
+}: {
+  items: CashflowItem[];
+  onEditItem: (id: string) => void;
+  onDeleteItem: (item: CashflowItem) => void;
+}) {
+  const columns: DataTableColumn<CashflowItem>[] = [
+    {
+      key: 'name',
+      header: 'Name',
+      priority: 1,
+      cell: (item) => <span className="truncate">{item.name}</span>,
+    },
+    {
+      key: 'monthly',
+      header: 'Monthly',
+      numeric: true,
+      priority: 1,
+      cell: (item) => (
+        <>
+          <span>{fmt(toMonthly(item.amount, item.frequency))}/mo</span>
+          {item.frequency !== 'monthly' && (
+            <span className="block text-muted-foreground/60">
+              ({fmt(item.amount)} {FREQ_LABELS[item.frequency]})
+            </span>
+          )}
+        </>
+      ),
+    },
+    {
+      key: 'actions',
+      header: <span className="sr-only">Actions</span>,
+      align: 'right',
+      priority: 1,
+      cell: (item) => (
+        <div className="flex justify-end gap-1">
+          <Button
+            variant="ghost"
+            size="icon-sm"
+            aria-label={`Edit ${item.name}`}
+            onClick={() => onEditItem(item.id)}
+          >
+            <IconPencil size={14} stroke={1.5} />
+          </Button>
+          <Button
+            variant="ghost"
+            size="icon-sm"
+            aria-label={`Delete ${item.name}`}
+            onClick={() => onDeleteItem(item)}
+          >
+            <IconTrash size={14} stroke={1.5} />
+          </Button>
+        </div>
+      ),
+    },
+  ];
+
+  return (
+    <DataTable
+      columns={columns}
+      rows={items}
+      rowKey={(item) => item.id}
+      density="compact"
+      mobile="priority"
+      className="px-3 pb-1"
+    />
+  );
+}
+
 interface CategorySectionProps {
   category: ExpenseCategory;
   items: CashflowItem[];
   onEditCategory: (id: string, data: { name?: string; is_essential?: boolean }) => void;
-  onDeleteCategory: (id: string) => void;
+  onDeleteCategory: (category: ExpenseCategory) => void;
   onEditItem: (id: string) => void;
-  onDeleteItem: (id: string) => void;
+  onDeleteItem: (item: CashflowItem) => void;
   saving: boolean;
 }
 
@@ -50,11 +124,13 @@ export function CategorySection({
   const monthlyTotal = items.reduce((sum, i) => sum + toMonthly(i.amount, i.frequency), 0);
 
   function handleSaveName() {
-    if (!editName.trim() || editName.trim() === category.name) {
+    const trimmed = editName.trim();
+    if (!trimmed) return; // non-empty required — stay in edit mode
+    if (trimmed === category.name) {
       setEditing(false);
       return;
     }
-    onEditCategory(category.id, { name: editName.trim() });
+    onEditCategory(category.id, { name: trimmed });
     setEditing(false);
   }
 
@@ -73,16 +149,25 @@ export function CategorySection({
             <Input
               value={editName}
               onChange={(e) => setEditName(e.target.value)}
-              className="h-6 text-xs"
+              aria-label="Category name"
+              aria-invalid={!editName.trim()}
+              className="h-7 text-xs"
               autoFocus
             />
-            <Button type="submit" variant="ghost" size="icon-xs" disabled={saving}>
+            <Button
+              type="submit"
+              variant="ghost"
+              size="icon-sm"
+              aria-label="Save category name"
+              disabled={saving || !editName.trim()}
+            >
               <IconCheck size={14} stroke={1.5} className="text-primary" />
             </Button>
             <Button
               type="button"
               variant="ghost"
-              size="icon-xs"
+              size="icon-sm"
+              aria-label="Cancel rename"
               onClick={() => {
                 setEditName(category.name);
                 setEditing(false);
@@ -97,10 +182,23 @@ export function CategorySection({
             <span className="font-mono tabular-nums text-xs text-muted-foreground">
               {fmt(monthlyTotal)}/mo
             </span>
-            <Button variant="ghost" size="icon-xs" onClick={() => setEditing(true)}>
+            <Button
+              variant="ghost"
+              size="icon-sm"
+              aria-label={`Rename ${category.name}`}
+              onClick={() => {
+                setEditName(category.name);
+                setEditing(true);
+              }}
+            >
               <IconPencil size={14} stroke={1.5} />
             </Button>
-            <Button variant="ghost" size="icon-xs" onClick={() => onDeleteCategory(category.id)}>
+            <Button
+              variant="ghost"
+              size="icon-sm"
+              aria-label={`Delete ${category.name}`}
+              onClick={() => onDeleteCategory(category)}
+            >
               <IconTrash size={14} stroke={1.5} />
             </Button>
           </>
@@ -111,31 +209,7 @@ export function CategorySection({
       {items.length === 0 ? (
         <p className="px-3 py-2 text-xs text-muted-foreground">No expenses in this category</p>
       ) : (
-        <div className="divide-y divide-border/20">
-          {items.map((item) => (
-            <div key={item.id} className="flex items-center gap-3 px-3 py-1.5 hover:bg-muted/30">
-              <div className="min-w-0 flex-1">
-                <span className="truncate text-sm">{item.name}</span>
-              </div>
-              <span className="shrink-0 font-mono tabular-nums text-xs text-muted-foreground">
-                {fmt(toMonthly(item.amount, item.frequency))}/mo
-                {item.frequency !== 'monthly' && (
-                  <span className="ml-1 text-muted-foreground/60">
-                    ({fmt(item.amount)} {FREQ_LABELS[item.frequency]})
-                  </span>
-                )}
-              </span>
-              <div className="flex shrink-0 gap-1">
-                <Button variant="ghost" size="icon-xs" onClick={() => onEditItem(item.id)}>
-                  <IconPencil size={14} stroke={1.5} />
-                </Button>
-                <Button variant="ghost" size="icon-xs" onClick={() => onDeleteItem(item.id)}>
-                  <IconTrash size={14} stroke={1.5} />
-                </Button>
-              </div>
-            </div>
-          ))}
-        </div>
+        <ExpenseItemsTable items={items} onEditItem={onEditItem} onDeleteItem={onDeleteItem} />
       )}
     </div>
   );
@@ -144,7 +218,7 @@ export function CategorySection({
 interface UncategorizedSectionProps {
   items: CashflowItem[];
   onEditItem: (id: string) => void;
-  onDeleteItem: (id: string) => void;
+  onDeleteItem: (item: CashflowItem) => void;
 }
 
 export function UncategorizedSection({
@@ -164,31 +238,7 @@ export function UncategorizedSection({
           {fmt(monthlyTotal)}/mo
         </span>
       </div>
-      <div className="divide-y divide-border/20">
-        {items.map((item) => (
-          <div key={item.id} className="flex items-center gap-3 px-3 py-1.5 hover:bg-muted/30">
-            <div className="min-w-0 flex-1">
-              <span className="truncate text-sm">{item.name}</span>
-            </div>
-            <span className="shrink-0 font-mono tabular-nums text-xs text-muted-foreground">
-              {fmt(toMonthly(item.amount, item.frequency))}/mo
-              {item.frequency !== 'monthly' && (
-                <span className="ml-1 text-muted-foreground/60">
-                  ({fmt(item.amount)} {FREQ_LABELS[item.frequency]})
-                </span>
-              )}
-            </span>
-            <div className="flex shrink-0 gap-1">
-              <Button variant="ghost" size="icon-xs" onClick={() => onEditItem(item.id)}>
-                <IconPencil size={14} stroke={1.5} />
-              </Button>
-              <Button variant="ghost" size="icon-xs" onClick={() => onDeleteItem(item.id)}>
-                <IconTrash size={14} stroke={1.5} />
-              </Button>
-            </div>
-          </div>
-        ))}
-      </div>
+      <ExpenseItemsTable items={items} onEditItem={onEditItem} onDeleteItem={onDeleteItem} />
     </div>
   );
 }

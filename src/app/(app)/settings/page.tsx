@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/lib/auth-context';
@@ -21,6 +22,9 @@ import { Input } from '@/components/ui/input';
 import { Select } from '@/components/ui/select';
 import { Button } from '@/components/ui/button';
 import { Alert } from '@/components/ui/alert';
+import { ConfirmDialog } from '@/components/ui/confirm-dialog';
+import { LoadingState } from '@/components/ui/states';
+import { useToast } from '@/components/ui/toast';
 import {
   IconSun,
   IconMoon,
@@ -99,6 +103,7 @@ export default function SettingsPage() {
   const router = useRouter();
   const { user } = useAuth();
   const { theme, setTheme } = useTheme();
+  const toast = useToast();
 
   const { data: hhData, isLoading: hhLoading } = useHousehold();
   const { data: profData, isLoading: profLoading } = useProfile();
@@ -112,8 +117,15 @@ export default function SettingsPage() {
   const loading = hhLoading || profLoading || memsLoading || invsLoading;
 
   const [saving, setSaving] = useState<string | null>(null);
-  const [error, setError] = useState('');
-  const [success, setSuccess] = useState('');
+
+  // Card-level error state (persistent Alerts, design principle 2)
+  const [profileError, setProfileError] = useState<string | null>(null);
+  const [householdError, setHouseholdError] = useState<string | null>(null);
+  const [membersError, setMembersError] = useState<string | null>(null);
+
+  // Destructive-action confirmation state
+  const [memberToRemove, setMemberToRemove] = useState<{ id: string; name: string } | null>(null);
+  const [inviteToCancel, setInviteToCancel] = useState<{ id: string; email: string } | null>(null);
 
   // Household form state
   const [hhName, setHhName] = useState('');
@@ -149,15 +161,9 @@ export default function SettingsPage() {
     setProfInitialized(true);
   }
 
-  function flash(msg: string) {
-    setSuccess(msg);
-    setError('');
-    setTimeout(() => setSuccess(''), 3000);
-  }
-
   async function saveProfile() {
     setSaving('profile');
-    setError('');
+    setProfileError(null);
     try {
       await updateProfile({
         displayName,
@@ -168,9 +174,9 @@ export default function SettingsPage() {
         state: (memberState as USState) || null,
       });
       await mutateProfile();
-      flash('Profile updated');
+      toast('success', 'Profile updated');
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Failed to update');
+      setProfileError(e instanceof Error ? e.message : 'Failed to update');
     } finally {
       setSaving(null);
     }
@@ -178,16 +184,16 @@ export default function SettingsPage() {
 
   async function saveHousehold() {
     setSaving('household');
-    setError('');
+    setHouseholdError(null);
     try {
       await updateHousehold({
         name: hhName,
         taxFilingStatus: (hhTaxStatus as TaxFilingStatus) || null,
       });
       await mutateHousehold();
-      flash('Household updated');
+      toast('success', 'Household updated');
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Failed to update');
+      setHouseholdError(e instanceof Error ? e.message : 'Failed to update');
     } finally {
       setSaving(null);
     }
@@ -197,34 +203,46 @@ export default function SettingsPage() {
     e.preventDefault();
     if (!inviteEmail) return;
     setSaving('invite');
-    setError('');
+    setMembersError(null);
     try {
       await sendInvite({ email: inviteEmail, role: 'viewer' });
       setInviteEmail('');
       await mutateInvites();
-      flash('Invite sent');
+      toast('success', 'Invite sent');
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Failed to send invite');
+      setMembersError(e instanceof Error ? e.message : 'Failed to send invite');
     } finally {
       setSaving(null);
     }
   }
 
-  async function handleCancelInvite(id: string) {
+  async function confirmCancelInvite() {
+    if (!inviteToCancel) return;
+    setSaving('cancel-invite');
+    setMembersError(null);
     try {
-      await cancelInvite(id);
+      await cancelInvite(inviteToCancel.id);
       await mutateInvites();
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Failed to cancel invite');
+      setMembersError(e instanceof Error ? e.message : 'Failed to cancel invite');
+    } finally {
+      setSaving(null);
+      setInviteToCancel(null);
     }
   }
 
-  async function handleRemoveMember(id: string) {
+  async function confirmRemoveMember() {
+    if (!memberToRemove) return;
+    setSaving('remove-member');
+    setMembersError(null);
     try {
-      await removeMember(id);
+      await removeMember(memberToRemove.id);
       await mutateMembers();
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Failed to remove member');
+      setMembersError(e instanceof Error ? e.message : 'Failed to remove member');
+    } finally {
+      setSaving(null);
+      setMemberToRemove(null);
     }
   }
 
@@ -235,9 +253,9 @@ export default function SettingsPage() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center py-20 text-muted-foreground">
-        <IconLoader2 size={20} className="animate-spin mr-2" />
-        Loading...
+      <div className="space-y-3">
+        <h1 className="text-2xl font-semibold">Settings</h1>
+        <LoadingState rows={6} />
       </div>
     );
   }
@@ -246,9 +264,6 @@ export default function SettingsPage() {
     <div className="space-y-3">
       <h1 className="text-2xl font-semibold">Settings</h1>
 
-      {error && <Alert variant="error">{error}</Alert>}
-      {success && <Alert variant="success">{success}</Alert>}
-
       {/* Profile */}
       <Card>
         <CardHeader>
@@ -256,6 +271,11 @@ export default function SettingsPage() {
           <CardDescription>Your personal information</CardDescription>
         </CardHeader>
         <CardContent>
+          {profileError && (
+            <Alert variant="error" className="mb-4" onDismiss={() => setProfileError(null)}>
+              {profileError}
+            </Alert>
+          )}
           <div className="grid gap-4 sm:grid-cols-2">
             <div>
               <label className="mb-1.5 block text-sm font-medium">Display Name</label>
@@ -277,6 +297,16 @@ export default function SettingsPage() {
                 onChange={(e) => setRetirementAge(e.target.value)}
                 placeholder="55"
               />
+              <p className="mt-1 text-xs text-muted-foreground">
+                Planning assumptions (returns, taxes, limits) live in{' '}
+                <Link
+                  href="/assumptions"
+                  className="underline underline-offset-2 hover:text-foreground"
+                >
+                  Assumptions
+                </Link>
+                .
+              </p>
             </div>
             <SelectField
               label="Employment Type"
@@ -301,7 +331,7 @@ export default function SettingsPage() {
             </div>
           </div>
           <div className="mt-4 flex justify-end">
-            <Button variant="primary-outline" disabled={saving === 'profile'} onClick={saveProfile}>
+            <Button variant="primary" disabled={saving === 'profile'} onClick={saveProfile}>
               {saving === 'profile' ? (
                 <IconLoader2 size={14} className="animate-spin" />
               ) : (
@@ -322,6 +352,11 @@ export default function SettingsPage() {
               <CardDescription>Shared household settings</CardDescription>
             </CardHeader>
             <CardContent>
+              {householdError && (
+                <Alert variant="error" className="mb-4" onDismiss={() => setHouseholdError(null)}>
+                  {householdError}
+                </Alert>
+              )}
               <div className="grid gap-4 sm:grid-cols-2">
                 <div>
                   <label className="mb-1.5 block text-sm font-medium">Household Name</label>
@@ -336,7 +371,7 @@ export default function SettingsPage() {
               </div>
               <div className="mt-4 flex justify-end">
                 <Button
-                  variant="primary-outline"
+                  variant="secondary"
                   disabled={saving === 'household'}
                   onClick={saveHousehold}
                 >
@@ -358,6 +393,11 @@ export default function SettingsPage() {
               <CardDescription>People in your household</CardDescription>
             </CardHeader>
             <CardContent>
+              {membersError && (
+                <Alert variant="error" className="mb-4" onDismiss={() => setMembersError(null)}>
+                  {membersError}
+                </Alert>
+              )}
               {members.length === 0 ? (
                 <p className="text-sm text-muted-foreground py-4 text-center">No members found</p>
               ) : (
@@ -383,9 +423,10 @@ export default function SettingsPage() {
                       {m.role !== 'owner' && m.id !== profile?.id && (
                         <Button
                           variant="ghost"
-                          size="sm"
+                          size="icon-sm"
+                          aria-label={`Remove ${m.display_name} from household`}
                           className="text-destructive hover:text-destructive"
-                          onClick={() => handleRemoveMember(m.id)}
+                          onClick={() => setMemberToRemove({ id: m.id, name: m.display_name })}
                         >
                           <IconTrash size={14} />
                         </Button>
@@ -412,9 +453,10 @@ export default function SettingsPage() {
                           </div>
                           <Button
                             variant="ghost"
-                            size="sm"
+                            size="icon-sm"
+                            aria-label={`Cancel invite to ${inv.email}`}
                             className="text-destructive hover:text-destructive"
-                            onClick={() => handleCancelInvite(inv.id)}
+                            onClick={() => setInviteToCancel({ id: inv.id, email: inv.email })}
                           >
                             <IconX size={14} />
                           </Button>
@@ -424,29 +466,59 @@ export default function SettingsPage() {
                 </div>
               )}
 
-              <form onSubmit={handleInvite} className="mt-4 flex gap-2">
-                <Input
-                  type="email"
-                  value={inviteEmail}
-                  onChange={(e) => setInviteEmail(e.target.value)}
-                  placeholder="partner@email.com"
-                  className="flex-1"
-                />
-                <Button
-                  type="submit"
-                  variant="primary-outline"
-                  disabled={saving === 'invite' || !inviteEmail}
-                >
-                  {saving === 'invite' ? (
-                    <IconLoader2 size={14} className="animate-spin" />
-                  ) : (
-                    <IconSend size={14} />
-                  )}
-                  Invite
-                </Button>
+              <form onSubmit={handleInvite} className="mt-4">
+                <label htmlFor="invite-email" className="mb-1.5 block text-sm font-medium">
+                  Invite by Email
+                </label>
+                <div className="flex gap-2">
+                  <Input
+                    id="invite-email"
+                    type="email"
+                    value={inviteEmail}
+                    onChange={(e) => setInviteEmail(e.target.value)}
+                    placeholder="partner@email.com"
+                    className="flex-1"
+                  />
+                  <Button
+                    type="submit"
+                    variant="secondary"
+                    disabled={saving === 'invite' || !inviteEmail}
+                  >
+                    {saving === 'invite' ? (
+                      <IconLoader2 size={14} className="animate-spin" />
+                    ) : (
+                      <IconSend size={14} />
+                    )}
+                    Invite
+                  </Button>
+                </div>
               </form>
             </CardContent>
           </Card>
+
+          <ConfirmDialog
+            open={memberToRemove !== null}
+            onOpenChange={(open) => {
+              if (!open) setMemberToRemove(null);
+            }}
+            title={`Remove ${memberToRemove?.name ?? 'member'} from household?`}
+            description="They will lose access to this household's accounts, holdings, and plans. You can invite them again later."
+            confirmLabel="Remove member"
+            busy={saving === 'remove-member'}
+            onConfirm={confirmRemoveMember}
+          />
+
+          <ConfirmDialog
+            open={inviteToCancel !== null}
+            onOpenChange={(open) => {
+              if (!open) setInviteToCancel(null);
+            }}
+            title={`Cancel invite to ${inviteToCancel?.email ?? 'this address'}?`}
+            description="The invite will be withdrawn and its link will stop working. You can send a new invite at any time."
+            confirmLabel="Cancel invite"
+            busy={saving === 'cancel-invite'}
+            onConfirm={confirmCancelInvite}
+          />
         </>
       )}
 
@@ -482,7 +554,7 @@ export default function SettingsPage() {
           <CardTitle>Account</CardTitle>
         </CardHeader>
         <CardContent>
-          <Button variant="destructive" onClick={handleSignOut}>
+          <Button variant="danger" onClick={handleSignOut}>
             Sign out
           </Button>
         </CardContent>

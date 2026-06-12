@@ -1,33 +1,25 @@
 'use client';
 
-import { PageSkeleton } from '@/components/common/page-skeleton';
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { createAccount } from '@/lib/api';
 import { useAccounts, mutateAccounts } from '@/lib/swr';
 import type { EnrichedAccount, AccountType, TaxTreatment } from '@shared/types';
 import { Card, CardContent } from '@/components/ui/card';
-import {
-  Table,
-  TableHeader,
-  TableBody,
-  TableRow,
-  TableHead,
-  TableCell,
-} from '@/components/ui/table';
+import { DataTable, type DataTableColumn } from '@/components/ui/data-table';
 import { Input } from '@/components/ui/input';
 import { Select } from '@/components/ui/select';
 import { Button } from '@/components/ui/button';
 import { Alert } from '@/components/ui/alert';
-import { IconPlus, IconX, IconBuildingBank, IconPlugConnected } from '@tabler/icons-react';
+import { FormField } from '@/components/ui/form-field';
+import { Sheet, SheetClose, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
+import { useToast } from '@/components/ui/toast';
+import { IconPlus, IconBuildingBank, IconPlugConnected } from '@tabler/icons-react';
 import { ACCOUNT_TYPES } from '@shared/types';
 import { fmt, timeAgo } from '@/lib/formatters';
 import { TAX_TREATMENT_OPTIONS } from '@/lib/constants';
-import { SortIcon, type SortDir } from '@/components/common/sort-icon';
 
 type AccountData = EnrichedAccount;
-
-type SortKey = 'name' | 'institution' | 'account_type' | 'linked' | 'balance' | 'last_synced';
 
 function LinkedBadge({ linked }: { linked?: boolean }) {
   if (linked) {
@@ -45,12 +37,69 @@ function LinkedBadge({ linked }: { linked?: boolean }) {
   );
 }
 
+const accountColumns: DataTableColumn<AccountData>[] = [
+  {
+    key: 'name',
+    header: 'Name',
+    priority: 1,
+    sortValue: (a) => a.name.toLowerCase(),
+    cell: (a) => a.name,
+    cellClassName: 'font-medium',
+  },
+  {
+    key: 'institution',
+    header: 'Institution',
+    priority: 2,
+    sortValue: (a) => (a.institution || '').toLowerCase(),
+    cell: (a) => a.institution || '—',
+  },
+  {
+    key: 'account_type',
+    header: 'Type',
+    priority: 3,
+    sortValue: (a) => a.account_type,
+    cell: (a) => a.account_type,
+    cellClassName: 'capitalize',
+  },
+  {
+    key: 'linked',
+    header: 'Status',
+    priority: 1,
+    sortValue: (a) => (a.linked ? 1 : 0),
+    cell: (a) => <LinkedBadge linked={a.linked} />,
+  },
+  {
+    key: 'balance',
+    header: 'Balance',
+    priority: 1,
+    numeric: true,
+    sortValue: (a) => a.balance ?? 0,
+    cell: (a) => fmt(a.balance ?? 0),
+  },
+  {
+    key: 'last_synced',
+    header: 'Last Synced',
+    priority: 3,
+    align: 'right',
+    sortValue: (a) => a.last_synced || '',
+    cell: (a) => (a.last_synced ? timeAgo(a.last_synced) : '—'),
+    cellClassName: 'text-muted-foreground text-xs',
+  },
+];
+
+interface FieldErrors {
+  name?: string;
+  account_type?: string;
+  tax_treatment?: string;
+}
+
 export default function AccountsPage() {
   return <AccountsContent />;
 }
 
 function AccountsContent() {
   const router = useRouter();
+  const toast = useToast();
   const {
     data: apiAccounts,
     isLoading: swrLoading,
@@ -60,48 +109,61 @@ function AccountsContent() {
   const accounts: AccountData[] = apiAccounts ?? [];
   const loading = swrLoading;
 
-  const [showForm, setShowForm] = useState(false);
+  const [sheetOpen, setSheetOpen] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [error, setError] = useState('');
-  const [sortKey, setSortKey] = useState<SortKey>('last_synced');
-  const [sortDir, setSortDir] = useState<SortDir>('desc');
+  const [submitError, setSubmitError] = useState('');
+  const [name, setName] = useState('');
+  const [institution, setInstitution] = useState('');
+  const [accountType, setAccountType] = useState('');
+  const [taxTreatment, setTaxTreatment] = useState('');
+  const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
 
-  function toggleSort(key: SortKey) {
-    if (sortKey === key) {
-      setSortDir((d) => (d === 'asc' ? 'desc' : 'asc'));
-    } else {
-      setSortKey(key);
-      setSortDir(
-        key === 'name' || key === 'institution' || key === 'account_type' ? 'asc' : 'desc',
-      );
-    }
+  function openSheet() {
+    setName('');
+    setInstitution('');
+    setAccountType('');
+    setTaxTreatment('');
+    setFieldErrors({});
+    setSubmitError('');
+    setSheetOpen(true);
+  }
+
+  function setFieldError(field: keyof FieldErrors, message: string | undefined) {
+    setFieldErrors((prev) => ({ ...prev, [field]: message }));
+  }
+
+  function validateAll(): FieldErrors {
+    return {
+      name: name.trim() ? undefined : 'Account name is required',
+      account_type: accountType ? undefined : 'Type is required',
+      tax_treatment: taxTreatment ? undefined : 'Tax treatment is required',
+    };
   }
 
   async function handleAdd(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     if (!householdId) return;
+    const errors = validateAll();
+    setFieldErrors(errors);
+    if (errors.name || errors.account_type || errors.tax_treatment) return;
     setSaving(true);
-    setError('');
-    const form = new FormData(e.currentTarget);
+    setSubmitError('');
 
     try {
       await createAccount(householdId, {
-        name: form.get('name') as string,
-        institution: (form.get('institution') as string) || undefined,
-        account_type: form.get('account_type') as AccountType,
-        tax_treatment: (form.get('tax_treatment') as TaxTreatment) || 'none',
+        name,
+        institution: institution || undefined,
+        account_type: accountType as AccountType,
+        tax_treatment: (taxTreatment as TaxTreatment) || 'none',
       });
-      setShowForm(false);
+      toast('success', 'Account added');
+      setSheetOpen(false);
       await mutateAccounts();
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to add account');
+      setSubmitError(err instanceof Error ? err.message : 'Failed to add account');
     } finally {
       setSaving(false);
     }
-  }
-
-  if (loading) {
-    return <PageSkeleton />;
   }
 
   if (fetchError) {
@@ -119,198 +181,147 @@ function AccountsContent() {
     <div className="space-y-3">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-semibold">Accounts</h1>
-        <div className="flex items-center gap-2">
-          {showForm ? (
-            <Button variant="ghost" onClick={() => setShowForm(false)}>
-              <IconX size={16} />
-              Cancel
-            </Button>
-          ) : (
-            <Button variant="primary-outline" onClick={() => setShowForm(true)}>
-              <IconPlus size={16} />
-              Add Account
-            </Button>
-          )}
-        </div>
+        <Button variant="primary" onClick={openSheet}>
+          <IconPlus size={16} />
+          Add Account
+        </Button>
       </div>
-
-      {error && <Alert variant="error">{error}</Alert>}
-
-      {showForm && (
-        <Card>
-          <CardContent>
-            <form onSubmit={handleAdd} className="space-y-4">
-              <div className="grid gap-4 sm:grid-cols-2">
-                <div>
-                  <label className="mb-1.5 block text-sm font-medium">Account Name</label>
-                  <Input name="name" required placeholder="Fidelity 401(k)" />
-                </div>
-                <div>
-                  <label className="mb-1.5 block text-sm font-medium">Institution</label>
-                  <Input name="institution" placeholder="Fidelity, Chase, etc." />
-                </div>
-              </div>
-              <div className="grid gap-4 sm:grid-cols-2">
-                <div>
-                  <label className="mb-1.5 block text-sm font-medium">Type</label>
-                  <Select name="account_type" required className="capitalize">
-                    {ACCOUNT_TYPES.map((t) => (
-                      <option key={t} value={t}>
-                        {t.charAt(0).toUpperCase() + t.slice(1).replace('_', ' ')}
-                      </option>
-                    ))}
-                  </Select>
-                </div>
-                <div>
-                  <label className="mb-1.5 block text-sm font-medium">Tax Treatment</label>
-                  <Select name="tax_treatment" required>
-                    {TAX_TREATMENT_OPTIONS.map((t) => (
-                      <option key={t.value} value={t.value}>
-                        {t.label}
-                      </option>
-                    ))}
-                  </Select>
-                </div>
-              </div>
-              <div className="flex justify-end">
-                <Button type="submit" variant="primary-outline" disabled={saving}>
-                  {saving ? 'Adding...' : 'Add Account'}
-                </Button>
-              </div>
-            </form>
-          </CardContent>
-        </Card>
-      )}
 
       <Card>
         <CardContent>
-          {accounts.length === 0 ? (
-            <div className="flex flex-col items-center gap-3 py-12 text-center">
-              <IconBuildingBank size={32} className="text-primary" stroke={1.5} />
-              <p className="text-sm text-muted-foreground">No accounts yet</p>
-              <button
-                onClick={() => setShowForm(true)}
-                className="text-sm text-muted-foreground hover:text-primary transition-colors"
-              >
-                Add your first account
-              </button>
-            </div>
-          ) : (
-            <AccountsTable
-              accounts={accounts}
-              sortKey={sortKey}
-              sortDir={sortDir}
-              onSort={toggleSort}
-              onRowClick={(id) => router.push(`/accounts/view?id=${id}`)}
-            />
-          )}
+          <DataTable
+            columns={accountColumns}
+            rows={accounts}
+            rowKey={(a) => a.id}
+            density="dense"
+            mobile="priority"
+            defaultSort={{ key: 'last_synced', dir: 'desc' }}
+            loading={loading}
+            empty={{
+              icon: IconBuildingBank,
+              title: 'No accounts yet',
+              action: (
+                <Button variant="secondary" onClick={openSheet}>
+                  <IconPlus size={16} />
+                  Add your first account
+                </Button>
+              ),
+            }}
+            onRowClick={(a) => router.push(`/accounts/view?id=${a.id}`)}
+          />
         </CardContent>
       </Card>
-    </div>
-  );
-}
 
-// ── Sortable Accounts Table ──
-
-const columns: { key: SortKey; label: string; align?: 'right'; hideSm?: boolean }[] = [
-  { key: 'name', label: 'Name' },
-  { key: 'institution', label: 'Institution', hideSm: true },
-  { key: 'account_type', label: 'Type' },
-  { key: 'linked', label: 'Status' },
-  { key: 'balance', label: 'Balance', align: 'right' },
-  { key: 'last_synced', label: 'Last Synced', align: 'right', hideSm: true },
-];
-
-function AccountsTable({
-  accounts,
-  sortKey,
-  sortDir,
-  onSort,
-  onRowClick,
-}: {
-  accounts: AccountData[];
-  sortKey: SortKey;
-  sortDir: SortDir;
-  onSort: (key: SortKey) => void;
-  onRowClick: (id: string) => void;
-}) {
-  const sorted = [...accounts].sort((a, b) => {
-    let aVal: string | number | boolean | undefined;
-    let bVal: string | number | boolean | undefined;
-
-    switch (sortKey) {
-      case 'name':
-        aVal = a.name.toLowerCase();
-        bVal = b.name.toLowerCase();
-        break;
-      case 'institution':
-        aVal = (a.institution || '').toLowerCase();
-        bVal = (b.institution || '').toLowerCase();
-        break;
-      case 'account_type':
-        aVal = a.account_type;
-        bVal = b.account_type;
-        break;
-      case 'linked':
-        aVal = a.linked ? 1 : 0;
-        bVal = b.linked ? 1 : 0;
-        break;
-      case 'balance':
-        aVal = a.balance ?? 0;
-        bVal = b.balance ?? 0;
-        break;
-      case 'last_synced':
-        aVal = a.last_synced || '';
-        bVal = b.last_synced || '';
-        break;
-    }
-
-    if (typeof aVal === 'string' && typeof bVal === 'string') {
-      return sortDir === 'asc' ? aVal.localeCompare(bVal) : bVal.localeCompare(aVal);
-    }
-    const aNum = Number(aVal);
-    const bNum = Number(bVal);
-    return sortDir === 'asc' ? aNum - bNum : bNum - aNum;
-  });
-
-  return (
-    <div className="-mx-6 overflow-x-auto sm:mx-0">
-      <Table>
-        <TableHeader>
-          <TableRow>
-            {columns.map((col) => (
-              <TableHead
-                key={col.key}
-                className={`cursor-pointer select-none hover:text-foreground transition-colors ${col.align === 'right' ? 'text-right' : ''} ${col.hideSm ? 'hidden sm:table-cell' : ''}`}
-                onClick={() => onSort(col.key)}
+      <Sheet open={sheetOpen} onOpenChange={setSheetOpen}>
+        <SheetContent side="right" className="overflow-y-auto">
+          <SheetHeader>
+            <SheetTitle>Add account</SheetTitle>
+          </SheetHeader>
+          <form onSubmit={handleAdd} className="flex flex-1 flex-col gap-4 px-4 pb-4">
+            {submitError && <Alert variant="error">{submitError}</Alert>}
+            <FormField
+              label="Account Name"
+              htmlFor="account-name"
+              required
+              error={fieldErrors.name}
+            >
+              <Input
+                id="account-name"
+                name="name"
+                placeholder="Fidelity 401(k)"
+                value={name}
+                aria-invalid={fieldErrors.name ? true : undefined}
+                onChange={(e) => {
+                  setName(e.target.value);
+                  if (e.target.value.trim()) setFieldError('name', undefined);
+                }}
+                onBlur={() =>
+                  setFieldError('name', name.trim() ? undefined : 'Account name is required')
+                }
+              />
+            </FormField>
+            <FormField label="Institution" htmlFor="account-institution">
+              <Input
+                id="account-institution"
+                name="institution"
+                placeholder="Fidelity, Chase, etc."
+                value={institution}
+                onChange={(e) => setInstitution(e.target.value)}
+              />
+            </FormField>
+            <FormField
+              label="Type"
+              htmlFor="account-type"
+              required
+              error={fieldErrors.account_type}
+            >
+              <Select
+                id="account-type"
+                name="account_type"
+                className="capitalize"
+                value={accountType}
+                aria-invalid={fieldErrors.account_type ? true : undefined}
+                onChange={(e) => {
+                  setAccountType(e.target.value);
+                  if (e.target.value) setFieldError('account_type', undefined);
+                }}
+                onBlur={() =>
+                  setFieldError('account_type', accountType ? undefined : 'Type is required')
+                }
               >
-                <span className="inline-flex items-center gap-1">
-                  {col.label}
-                  <SortIcon field={col.key} sortKey={sortKey} sortDir={sortDir} />
-                </span>
-              </TableHead>
-            ))}
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {sorted.map((a) => (
-            <TableRow key={a.id} className="cursor-pointer" onClick={() => onRowClick(a.id)}>
-              <TableCell className="font-medium">{a.name}</TableCell>
-              <TableCell className="hidden sm:table-cell">{a.institution || '\u2014'}</TableCell>
-              <TableCell className="capitalize">{a.account_type}</TableCell>
-              <TableCell>
-                <LinkedBadge linked={a.linked} />
-              </TableCell>
-              <TableCell className="text-right font-mono tabular-nums">
-                {fmt(a.balance ?? 0)}
-              </TableCell>
-              <TableCell className="hidden text-right text-muted-foreground text-xs sm:table-cell">
-                {a.last_synced ? timeAgo(a.last_synced) : '\u2014'}
-              </TableCell>
-            </TableRow>
-          ))}
-        </TableBody>
-      </Table>
+                <option value="" disabled>
+                  Select type
+                </option>
+                {ACCOUNT_TYPES.map((t) => (
+                  <option key={t} value={t}>
+                    {t.charAt(0).toUpperCase() + t.slice(1).replace('_', ' ')}
+                  </option>
+                ))}
+              </Select>
+            </FormField>
+            <FormField
+              label="Tax Treatment"
+              htmlFor="account-tax-treatment"
+              required
+              error={fieldErrors.tax_treatment}
+            >
+              <Select
+                id="account-tax-treatment"
+                name="tax_treatment"
+                value={taxTreatment}
+                aria-invalid={fieldErrors.tax_treatment ? true : undefined}
+                onChange={(e) => {
+                  setTaxTreatment(e.target.value);
+                  if (e.target.value) setFieldError('tax_treatment', undefined);
+                }}
+                onBlur={() =>
+                  setFieldError(
+                    'tax_treatment',
+                    taxTreatment ? undefined : 'Tax treatment is required',
+                  )
+                }
+              >
+                <option value="" disabled>
+                  Select treatment
+                </option>
+                {TAX_TREATMENT_OPTIONS.map((t) => (
+                  <option key={t.value} value={t.value}>
+                    {t.label}
+                  </option>
+                ))}
+              </Select>
+            </FormField>
+            <div className="mt-auto flex items-center justify-end gap-2 pt-2">
+              <SheetClose render={<Button variant="ghost" />} disabled={saving}>
+                Cancel
+              </SheetClose>
+              <Button type="submit" variant="primary" disabled={saving}>
+                {saving ? 'Adding…' : 'Add account'}
+              </Button>
+            </div>
+          </form>
+        </SheetContent>
+      </Sheet>
     </div>
   );
 }
